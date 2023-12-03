@@ -1,0 +1,14 @@
+node_modules
+/.quokka
+/.zplug
+/.vscode-server
+
+**/.cache
+**/cache
+**/.git
+.nvm
+.npm
+.oh-my-zsh
+.local/share
+*cache*
+
