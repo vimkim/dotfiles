@@ -19,50 +19,59 @@ fi
 
 
 
+# Aliases
+
+## Navigation Aliases
 alias ls='ls -a'
 alias ll='ll -a'
-
-alias zshconfig="nvim ~/.zshrc"
-alias ohmyzsh="nvim ~/.oh-my-zsh"
-
 alias cz='cd $(zoxide query -l | fzf)'
 alias cx='cd $(fdfind --type d | fzf)'
 
+## Config Aliases
+alias zshrc="nvim ~/.zshrc"
+alias zshconfig="nvim ~/.zshrc"
+alias profile="nvim ~/.zshrc"
+alias ohmyzsh="nvim ~/.oh-my-zsh"
+
+## Git Aliases
 alias gg='git-graph'
 alias gl='git log --graph --pretty=format:"%C(auto)%h %an%d%n%w(0,4,4)%<(50,trunc)%s" --all'
+alias gloga='git log --oneline --graph --all --decorate'
+alias g='git'
+alias gst='git status'
+alias gsw='git switch'
+alias lz='lazygit'
+alias lg='lazygit'
+alias gcz="~/.local/bin/cz"
 
+## Utils Aliases
+alias cat='batcat'
+alias which="which -a"
 mc(){
     mkdir $@;
     cd $@;
 }
 
-
-alias profile="nvim ~/.zshrc"
-alias wh="cd $(wslpath $(cmd.exe /C "echo %USERPROFILE%" 2>/dev/null | tr -d '\r'))"
+## Wsl Aliases
 alias ws="webstorm64.exe"
+alias ii="explorer.exe"
+alias wh="cd $(wslpath $(cmd.exe /C "echo %USERPROFILE%" 2>/dev/null | tr -d '\r'))"
+
+# Temporary Aliases
+alias proj='cd ~/github/bojrooms/develop'
 
 export PATH="$HOME/.local/bin:$PATH"
-
-alias ll="ls -la"
-alias ii="explorer.exe"
-
-alias gcz="~/.local/bin/cz"
-
-alias which="which -a"
 
 eval "$(zoxide init zsh)"
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 eval $(thefuck --alias)
 
 eval "$(starship init zsh)"
-
-
 
 # brew fzf for latest
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
