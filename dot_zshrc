@@ -23,9 +23,22 @@ fi
 
 ## Navigation Aliases
 alias ls='ls -a'
-alias ll='ll -a'
+alias ll='ls -la'
 alias cz='cd $(zoxide query -l | fzf)'
 alias cx='cd $(fdfind --type d | fzf)'
+
+## Find and Open Aliases
+#alias vx='nvim $(fdfind | fzf)'
+function vx() {
+    local file
+    file="$(fdfind --type f | fzf)" && [ -n "$file" ] && nvim "$file"
+}
+
+#alias vz='nvim -- "$(/usr/bin/ls | head -n 1)"'
+function vz() {
+    local file
+    file="$(/usr/bin/ls | head -n 1)" && [ -n "$file" ] && nvim -- "$file"
+}
 
 ## Config Aliases
 alias zshrc="nvim ~/.zshrc"
