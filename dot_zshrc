@@ -24,17 +24,23 @@ fi
 ## Navigation Aliases
 alias ls='ls -a'
 alias ll='ls -la'
-alias cz='cd $(zoxide query -l | fzf)'
-alias cx='cd $(fdfind --type d | fzf)'
+
+function cz() {
+    local dir
+    dir="$(zoxide query -l | fzf)" && [ -n "$dir" ] && cd "$dir"
+}
+
+function cx() {
+    local dir
+    dir="$(fdfind --type d | fzf)" && [ -n "$dir" ] && cd "$dir"
+}
 
 ## Find and Open Aliases
-#alias vx='nvim $(fdfind | fzf)'
 function vx() {
     local file
     file="$(fdfind --type f | fzf)" && [ -n "$file" ] && nvim "$file"
 }
 
-#alias vz='nvim -- "$(/usr/bin/ls | head -n 1)"'
 function vz() {
     local file
     file="$(/usr/bin/ls | head -n 1)" && [ -n "$file" ] && nvim -- "$file"
@@ -59,6 +65,7 @@ alias gcz="~/.local/bin/cz"
 
 ## Utils Aliases
 alias cat='batcat'
+alias bat='batcat'
 alias which="which -a"
 mc(){
     mkdir $@;
