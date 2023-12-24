@@ -10,6 +10,16 @@ if status is-interactive
 
     set -x PATH $HOME/.local/bin $PATH
 
+
+    # install fzf with nix
+    function fish_user_key_bindings
+        if command -s fzf-share >/dev/null
+            source (fzf-share)/key-bindings.fish
+        end
+
+        fzf_key_bindings
+    end
+
     # Navigation aliases
 
     alias ls "ls -a"
@@ -67,8 +77,7 @@ if status is-interactive
 
     # Utils aliases
 
-    alias cat "batcat"
-    alias bat "batcat"
+    alias cat "bat"
     alias which "which -a"
 
     function mc
