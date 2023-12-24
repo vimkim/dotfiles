@@ -77,9 +77,14 @@ mc(){
 alias less='less -R' # with colors
 
 ## Wsl Aliases
-alias ws="webstorm64.exe"
-alias ii="explorer.exe"
-alias wh="cd $(wslpath $(cmd.exe /C "echo %USERPROFILE%" 2>/dev/null | tr -d '\r'))"
+
+if grep -qi microsoft /proc/version; then
+
+    alias ws="webstorm64.exe"
+    alias ii="explorer.exe"
+    alias wh="cd $(wslpath $(cmd.exe /C "echo %USERPROFILE%" 2>/dev/null | tr -d '\r'))"
+
+fi
 
 # Temporary Aliases
 alias proj='cd ~/github/bojrooms/develop'
@@ -93,7 +98,7 @@ export NVM_DIR="$HOME/.nvm"
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
-eval $(thefuck --alias)
+# eval $(thefuck --alias)
 
 eval "$(starship init zsh)"
 
