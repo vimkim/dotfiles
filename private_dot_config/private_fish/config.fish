@@ -22,8 +22,15 @@ if status is-interactive
 
     # Navigation aliases
 
-    alias ls "ls -a"
-    alias ll "ls -la"
+    alias l "exa -a"
+    alias ls "exa -a"
+    alias ll "exa -la"
+
+    functions -c cd standard_cd
+    function cd
+        standard_cd $argv
+        ls
+    end
 
     function cz
         set dir (zoxide query -l | fzf)
@@ -37,6 +44,24 @@ if status is-interactive
         if test -n "$dir"
             cd $dir
         end
+    end
+
+    function cdroot
+        set directory_x (pwd)
+
+        while test -n "$directory_x" -a ! -e "$directory_x/.git"
+            set parts (string split '/' $directory_x)
+            set --erase parts[(count $parts)]
+            set directory_x (string join '/' $parts)
+        end
+
+        if test -n "$directory_x"
+            cd "$directory_x"
+        else
+            echo "Could not find closest root directory with .git child" >&2
+            return 1
+        end
+
     end
 
     # Find and Open aliases
@@ -83,6 +108,7 @@ if status is-interactive
     function mc
         mkdir $argv
         cd $argv
+        ls
     end
 
     alias less "less -R" # with colors
@@ -99,5 +125,9 @@ if status is-interactive
     end
 
     fish_vi_key_bindings
+
+    zoxide init fish | source
+
+    chezmoi status
 end
 
