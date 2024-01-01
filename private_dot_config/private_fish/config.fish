@@ -86,7 +86,8 @@ if status is-interactive
 
     # Config aliases
 
-    alias profile 'nvim ~/.config/fish/config.fish'
+    alias profile 'nvim ~/.local/share/chezmoi/private_dot_config/private_fish/config.fish'
+    alias nvimrc 'nvim ~/.config/nvim/init.lua'
 
     # Git aliases
 
