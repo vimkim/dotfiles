@@ -25,6 +25,7 @@ if status is-interactive
     alias l "exa -a"
     alias ls "exa -a"
     alias ll "exa -la"
+    alias lt "exa -aT --icons --group-directories-first"
 
     functions -c cd standard_cd
     function cd
@@ -103,8 +104,12 @@ if status is-interactive
 
     # Utils aliases
 
-    alias cat "bat"
+    alias cat "batcat"
     alias which "which -a"
+
+    function tm
+        tmux new-session -A
+    end
 
     function mc
         mkdir $argv
@@ -130,5 +135,6 @@ if status is-interactive
     zoxide init fish | source
 
     chezmoi status
+
 end
 
