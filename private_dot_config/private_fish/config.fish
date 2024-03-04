@@ -117,6 +117,8 @@ if status is-interactive
         ls
     end
 
+    alias windows_ip "ip route"
+
     alias less "less -R" # with colors
 
     # WSL aliases
@@ -135,6 +137,11 @@ if status is-interactive
     zoxide init fish | source
 
     chezmoi status
+
+    set -gx GEM_HOME $HOME/gems
+
+    set -gx PATH "$GEM_HOME/bin:$PATH"
+
 
 end
 
