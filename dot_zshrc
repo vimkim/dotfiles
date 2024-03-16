@@ -125,6 +125,9 @@ else
 fi
 
 alias which="which -a"
+which-alias() {
+    alias | grep "^$1"
+}
 alias du='dust'
 
 ## Safety Features
@@ -138,14 +141,27 @@ mc() {
 }
 
 ## Navigation aliases
+function cl() {
+    builtin cd "$@" && ls
+}
+alias cd='cl'
+alias c='cd'
 alias cz='DIR=$(zoxide query -l | fzf) && [[ -n $DIR ]] && cd "$DIR"'
 alias cx='DIR=$(fdfind --type d | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+alias cf='cd "$(fdfind . --type f | fzf --height 40% --reverse | xargs -I {} dirname {})"'
 alias up='cd ..'                                            # Move up one directory
 alias back='cd -$OLDPWD'                                    # Return to the previous directory
 alias pr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root directory
 alias pcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
 alias gr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root directory
 alias gcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
+
+function gcx() {
+    local gitRoot=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+    cd "$gitRoot" || return
+
+    local DIR=$(fdfind --type d . | fzf) && [[ -n $DIR ]] && cd "$DIR"
+}
 
 ## Networking and System Information
 alias ports='netstat -tulanp'
@@ -157,6 +173,11 @@ echo' # External IP address
 alias ga='git add'
 alias gc='git commit'
 alias gcm='git commit -m'
+
+## git diff
+alias gd='git diff'
+alias gds='git diff --staged'
+alias gdc='git diff --cached'
 
 ## git log
 alias gg='git-graph'
@@ -185,6 +206,7 @@ alias gco='git checkout'
 
 ## git etc
 alias gcz="~/.local/bin/cz"
+alias gfz="git fuzzy"
 
 # Deveplopment and Programming aliases
 
@@ -226,10 +248,25 @@ eval "$(zoxide init zsh)"
 ## starship
 eval "$(starship init zsh)"
 
-# # zplug
+# zplug
 source ~/.zplug/init.zsh
+# plugins
 zplug "MichaelAquilina/zsh-you-should-use"
+zplug "bigH/git-fuzzy", as:command, use:"bin/git-fuzzy"
+# Install plugins if there are plugins that have not been installed
+if ! zplug check --verbose; then
+    printf "Install? [y/N]: "
+    if read -q; then
+        echo
+        zplug install
+    fi
+fi
+zplug load --verbose
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
+
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
