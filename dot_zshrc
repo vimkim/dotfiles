@@ -1,3 +1,13 @@
+# Function to check if we are in an SSH session
+function is_ssh_session() {
+    [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]
+}
+
+# Automatically start tmux if not already running and not in an SSH session
+if [ -z "$TMUX" ] && ! is_ssh_session; then
+    exec tmux
+fi
+
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
@@ -234,6 +244,9 @@ alias ii="explorer.exe"
 
 # init setup
 
+## neovim
+export PATH="$PATH:/opt/nvim-linux64/bin"
+
 ## brew
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
@@ -243,14 +256,14 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 eval "$(zoxide init zsh)"
 
 ## fzf
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+eval "$(fzf --zsh)"
 
 ## starship
 eval "$(starship init zsh)"
 
-# zplug
+## zplug
 source ~/.zplug/init.zsh
-# plugins
+### plugins
 zplug "MichaelAquilina/zsh-you-should-use"
 zplug "bigH/git-fuzzy", as:command, use:"bin/git-fuzzy"
 # Install plugins if there are plugins that have not been installed
@@ -263,10 +276,12 @@ if ! zplug check --verbose; then
 fi
 zplug load --verbose
 
+## nvm
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
 
+## pyenv
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
