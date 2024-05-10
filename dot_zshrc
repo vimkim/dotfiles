@@ -1,11 +1,28 @@
 # Function to check if we are in an SSH session
-function is_ssh_session() {
-    [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]
-}
+### function is_ssh_session() {
+###     [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]
+### }
+### 
+### # Automatically start tmux if not already running and not in an SSH session
+### if [ -z "$TMUX" ] && ! is_ssh_session; then
+###     tmux 
+### fi
 
-# Automatically start tmux if not already running and not in an SSH session
-if [ -z "$TMUX" ] && ! is_ssh_session; then
-    exec tmux
+
+# Auto-run tmux if not on SSH
+if [ -z "$SSH_CONNECTION" ]; then
+    # Check if tmux is runnin:g
+    if ! command -v tmux &> /dev/null; then
+        echo "tmux is not installed. Please install tmux to use this feature."
+    else
+        if [ -z "$TMUX" ]; then
+            if [ -z "$(tmux ls)" ]; then
+                tmux new-session -s mysession
+            else
+                tmux attach-session -t mysession || tmux new-session -s mysession
+            fi
+        fi
+    fi
 fi
 
 # If you come from bash you might have to change your $PATH.
@@ -285,3 +302,15 @@ export NVM_DIR="$HOME/.nvm"
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
+
+## chezmoi
+
+### set PATH so it includes user's private bin if it exists
+if [ -d "$HOME/bin" ] ; then
+    PATH="$HOME/bin:$PATH"
+fi
+
+### set PATH so it includes user's private bin if it exists
+if [ -d "$HOME/.local/bin" ] ; then
+    PATH="$HOME/.local/bin:$PATH"
+fi

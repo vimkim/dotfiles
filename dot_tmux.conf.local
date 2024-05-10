@@ -422,6 +422,13 @@ tmux_conf_uninstall_plugins_on_reload=true
 
 set -g @plugin 'bettervim/shifter'
 set -g @shifter_theme 'nord'
+set -g @plugin 'pschmitt/tmux-ssh-split'
+
+# set-option -g @ssh-split-keep-cwd "true"
+# set-option -g @ssh-split-keep-remote-cwd "true"
+set-option -g @ssh-split-w-key "C"
+set-option -g @ssh-split-v-key "S"
+set-option -g @ssh-split-h-key "|"
 
 
 # -- custom variables ----------------------------------------------------------
