@@ -1,28 +1,23 @@
+echo "ZSH SHELL"
+echo
+echo $PATH | tr ':' '\n'
+echo
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US
+export LC_ALL=en_US.UTF-8
+
+export LANG=en_US.utf8
+export LANGUAGE=en_US
+export LC_ALL=en_US.utf8
+
 # Function to check if we are in an SSH session
-### function is_ssh_session() {
-###     [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]
-### }
-### 
-### # Automatically start tmux if not already running and not in an SSH session
-### if [ -z "$TMUX" ] && ! is_ssh_session; then
-###     tmux 
-### fi
+function is_ssh_session() {
+    [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]
+}
 
-
-# Auto-run tmux if not on SSH
-if [ -z "$SSH_CONNECTION" ]; then
-    # Check if tmux is runnin:g
-    if ! command -v tmux &> /dev/null; then
-        echo "tmux is not installed. Please install tmux to use this feature."
-    else
-        if [ -z "$TMUX" ]; then
-            if [ -z "$(tmux ls)" ]; then
-                tmux new-session -s mysession
-            else
-                tmux attach-session -t mysession || tmux new-session -s mysession
-            fi
-        fi
-    fi
+# Automatically start tmux if not already running and not in an SSH session
+if [ -z "$TMUX" ] && ! is_ssh_session; then
+    exec tmux
 fi
 
 # If you come from bash you might have to change your $PATH.
@@ -35,7 +30,7 @@ export ZSH="$HOME/.oh-my-zsh"
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="robbyrussell"
+# ZSH_THEME="robbyrussell"
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -102,6 +97,10 @@ plugins=(git docker docker-compose node-bin)
 
 source $ZSH/oh-my-zsh.sh
 
+## brew
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+
 # User configuration
 
 # export MANPATH="/usr/local/man:$MANPATH"
@@ -129,6 +128,10 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 
 # Config profiles
+alias bashrc="$EDITOR ~/.bashrc"
+alias bashconfig="$EDITOR ~/.bashrc"
+alias bashprofile="$EDITOR ~/.bashrc"
+alias zshrc="$EDITOR ~/.zshrc"
 alias zshconfig="$EDITOR ~/.zshrc"
 alias zshprofile="$EDITOR ~/.zshrc"
 alias profile="$EDITOR ~/.zshrc"
@@ -137,18 +140,19 @@ alias vimprofile="$EDITOR ~/.vimrc"
 
 # System aliases
 
-if [ -x "$(command -v exa)" ]; then
-    alias ls='exa -aF'
-    alias l='exa -aF'
-    alias la='exa -laF'
-    alias ll='exa -laF'
-    alias lsd='exa -laF --only-dirs'
-else
-    alias ls='ls -aF'
-    alias l='ls -AF'
-    alias la=' -lAF'
-    alias ll='ls -lAF'
-    alias lsd='ls -lAF --color=auto --group-directories-first | grep --color=never "^d"'
+alias ls='ls -aF'
+alias l='ls -AF'
+alias la=' -lAF'
+alias ll='ls -lAF'
+alias lsd='ls -lAF --color=auto --group-directories-first | grep --color=never "^d"'
+
+## eza ! must be after brew if eza is installed via brew
+if [ -x "$(command -v eza)" ]; then
+    alias ls='eza -aF'
+    alias l='eza -aF'
+    alias la='eza -laF'
+    alias ll='eza -laF'
+    alias lsd='eza -laF --only-dirs'
 fi
 
 alias which="which -a"
@@ -156,6 +160,9 @@ which-alias() {
     alias | grep "^$1"
 }
 alias du='dust'
+
+alias ppath='echo "$PATH" | tr ":" "\n" | nl'
+
 
 ## Safety Features
 alias cp='cp -i' # confirm before overwriting something
@@ -166,6 +173,12 @@ mc() {
     mkdir $@
     cd $@
 }
+
+## editor aliases
+alias nv='nvim'
+alias v='nvim'
+alias vim='nvim'
+alias nvimrc='nvim ~/.config/nvim/init.lua'
 
 ## Navigation aliases
 function cl() {
@@ -264,18 +277,10 @@ alias ii="explorer.exe"
 ## neovim
 export PATH="$PATH:/opt/nvim-linux64/bin"
 
-## brew
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-
-## nvm
-
-## zoxide
+# zoxide
 eval "$(zoxide init zsh)"
 
-## fzf
-eval "$(fzf --zsh)"
-
-## starship
+# starship
 eval "$(starship init zsh)"
 
 ## zplug
@@ -293,24 +298,57 @@ if ! zplug check --verbose; then
 fi
 zplug load --verbose
 
-## nvm
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
-
 ## pyenv
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
 
-## chezmoi
+# fzf
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+eval "$(fzf --zsh)"
 
-### set PATH so it includes user's private bin if it exists
-if [ -d "$HOME/bin" ] ; then
-    PATH="$HOME/bin:$PATH"
-fi
 
-### set PATH so it includes user's private bin if it exists
-if [ -d "$HOME/.local/bin" ] ; then
-    PATH="$HOME/.local/bin:$PATH"
+
+precmd () { echo -n "\x1b]1337;CurrentDir=$(pwd)\x07" }
+
+HOMEBREW_CURL_PATH=$(/usr/bin/which curl)
+
+echo "hello"
+
+# source ~/.custom_profile
+
+# source scl_source enable devtoolset-8
+source /opt/rh/devtoolset-8/enable
+
+export MAKEFLAGS="-j $(nproc)"
+## java setup
+export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::")
+if [ -n "$JAVA_HOME" ]; then
+    PATH=$JAVA_HOME/bin:$PATH
+    export PATH
 fi
+#CLASSPATH
+
+## CUBRID necessary env vars
+export CUBRID=$HOME/CUBRID
+export CUBRID_DATABASES=$CUBRID/databases
+export PATH=$CUBRID/bin:$PATH
+export LD_LIBRARY_PATH=$CUBRID/lib:$CUBRID/cci/lib:$LD_LIBRARY_PATH
+
+## CUBRID aliases
+alias cu_build='. ~/my-cubrid/build.sh'
+alias cub='cu_build'
+
+alias cu_rmdb='. ~/my-cubrid/remove-db.sh'
+
+alias cu_createdb='. ~/my-cubrid/create-db.sh'
+
+alias cu_prepare='. ~/my-cubrid/prepare.sh'
+alias cup='cu_prepare'
+
+alias cu_run='. ~/my-cubrid/run.sh'
+alias cur='cu_run'
+
+alias cu_all='cub && cu_rmdb && cu_createdb && cup && cur'
+alias cua='cu_all'
+
