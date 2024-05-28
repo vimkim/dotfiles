@@ -1,4 +1,6 @@
 # .bashrc
+echo "This is cubrid@dhkim216 bash shell"
+echo $PATH | tr ':' '\n'
 
 # Source global definitions
 if [ -f /etc/bashrc ]; then
@@ -31,7 +33,7 @@ export CUBRID_DATABASES=$CUBRID/databases
 export PATH=$CUBRID/bin:$PATH
 export LD_LIBRARY_PATH=$CUBRID/lib:$CUBRID/cci/lib:$LD_LIBRARY_PATH
 
-# -----
+
 # DHKIM
 # -----
 
@@ -219,7 +221,7 @@ export BASH_IT="/home/cubrid/.bash_it"
 # Lock and Load a custom theme file.
 # Leave empty to disable theming.
 # location /.bash_it/themes/
-export BASH_IT_THEME='bobby'
+# export BASH_IT_THEME='bobby'
 
 # Some themes can show whether `sudo` has a current token or not.
 # Set `$THEME_CHECK_SUDO` to `true` to check every prompt:
@@ -296,3 +298,18 @@ source "$BASH_IT"/bash_it.sh
 export PYENV_ROOT="$HOME/.pyenv"
 command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
+
+# user alias
+alias c='cd'
+alias b='~/github/vimkim/cubrid/build.sh -m debug -p $HOME/CUBRID -g ninja -t 64 build'
+
+alias oc='code -r ~/github/vimkim/cubrid'
+
+# starship
+eval "$(starship init bash)"
+
+# curl for centos7
+export PATH=$HOME/curl/bin:$PATH
+
+export HOMEBREW_CURL_PATH=$(which curl)
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
