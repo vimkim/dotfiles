@@ -2,13 +2,10 @@ echo "ZSH SHELL"
 echo
 echo $PATH | tr ':' '\n'
 echo
-export LANG=en_US.UTF-8
-export LANGUAGE=en_US
-export LC_ALL=en_US.UTF-8
 
-export LANG=en_US.utf8
-export LANGUAGE=en_US
-export LC_ALL=en_US.utf8
+export LANG=C.utf8
+export LANGUAGE=C
+export LC_ALL=C.utf8
 
 # Function to check if we are in an SSH session
 function is_ssh_session() {
@@ -112,7 +109,7 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 if [[ -n $SSH_CONNECTION ]]; then
     export EDITOR='nvim'
 else
-    export EDITOR='code'
+    export EDITOR='nvim'
 fi
 
 # Compilation flags
@@ -140,20 +137,24 @@ alias vimprofile="$EDITOR ~/.vimrc"
 
 # System aliases
 
+alias rm='rm -i'
+
 alias ls='ls -aF'
 alias l='ls -AF'
 alias la=' -lAF'
 alias ll='ls -lAF'
-alias lsd='ls -lAF --color=auto --group-directories-first | grep --color=never "^d"'
-
-## eza ! must be after brew if eza is installed via brew
-if [ -x "$(command -v eza)" ]; then
-    alias ls='eza -aF'
-    alias l='eza -aF'
-    alias la='eza -laF'
-    alias ll='eza -laF'
-    alias lsd='eza -laF --only-dirs'
+if [ -x "$(command -v nix-env)" ]; then
+    if ! [ -x "$(command -v lsd)" ]; then
+        nix-env -iA nixpkgs.lsd
+    fi
 fi
+if [ -x "$(command -v lsd)" ]; then
+    alias ls='lsd -aF'
+    alias l='lsd -aF'
+    alias la='lsd -laF'
+    alias ll='lsd -laF'
+fi
+
 
 alias which="which -a"
 which-alias() {
@@ -298,6 +299,8 @@ if ! zplug check --verbose; then
 fi
 zplug load --verbose
 
+zplug "jeffreytse/zsh-vi-mode"
+
 ## pyenv
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
@@ -312,13 +315,6 @@ eval "$(fzf --zsh)"
 precmd () { echo -n "\x1b]1337;CurrentDir=$(pwd)\x07" }
 
 HOMEBREW_CURL_PATH=$(/usr/bin/which curl)
-
-echo "hello"
-
-# source ~/.custom_profile
-
-# source scl_source enable devtoolset-8
-source /opt/rh/devtoolset-8/enable
 
 export MAKEFLAGS="-j $(nproc)"
 ## java setup
