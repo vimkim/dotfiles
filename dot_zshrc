@@ -383,3 +383,5 @@ if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
     fi
 fi
 
+bindkey -v
+
