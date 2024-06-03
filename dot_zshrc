@@ -1,12 +1,7 @@
-echo "ZSH SHELL"
-echo
-echo $PATH | tr ':' '\n'
-echo
-
 export LANG=C.utf8
 export LANGUAGE=C
 export LC_ALL=C.utf8
-echo "This is $0 with LVL $SHLVL, defaults to $SHELL"
+echo "This is $0 with LVL $SHLVL, defaults to $SHELL\n"
 
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
@@ -103,6 +98,7 @@ else
 fi
 
 alias nvimrc="$EDITOR ~/.config/nvim/init.lua"
+alias nvimh="cd ~/.config/nvim"
 
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
@@ -231,6 +227,7 @@ alias gl='git log --graph --pretty=format:"%C(auto)%h %an%d%n%w(0,4,4)%<(50,trun
 alias gloga='git log --oneline --all --graph --decorate'
 alias glogah='gloga --color=always | head -n 40'
 
+
 ## git pull
 alias gpl='git pull'
 alias gpom='git pull origin main'
@@ -339,7 +336,7 @@ export MAKEFLAGS="-j $(nproc)"
 # Set JAVA_HOME
 export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
 export PATH=$JAVA_HOME/bin:$PATH
-echo "JAVA_HOME is set to $JAVA_HOME"
+echo "\nJAVA_HOME is set to $JAVA_HOME\n"
 
 ## CUBRID necessary env vars
 export CUBRID=$HOME/CUBRID
@@ -366,7 +363,6 @@ alias cua='cu_all'
 
 if [ -e /home/dhkim/.nix-profile/etc/profile.d/nix.sh ]; then . /home/dhkim/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
 
-echo
 echo "PATH is set to:"
 echo $PATH | tr ':' '\n'
 echo
