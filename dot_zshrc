@@ -76,12 +76,8 @@ export ZSH="$HOME/.oh-my-zsh"
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
 plugins=(git docker docker-compose node-bin)
-# plugins+=(you-should-use)
 
 source $ZSH/oh-my-zsh.sh
-
-## brew
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 # User configuration
 
@@ -189,8 +185,8 @@ function cl() {
 alias cd='cl'
 alias c='cd'
 alias cz='DIR=$(zoxide query -l | fzf) && [[ -n $DIR ]] && cd "$DIR"'
-alias cx='DIR=$(fdfind --type d | fzf) && [[ -n $DIR ]] && cd "$DIR"'
-alias cf='cd "$(fdfind . --type f | fzf --height 40% --reverse | xargs -I {} dirname {})"'
+alias cx='DIR=$(fd --type d | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+alias cf='cd "$(fd . --type f | fzf --height 40% --reverse | xargs -I {} dirname {})"'
 alias up='cd ..'                                            # Move up one directory
 alias back='cd -$OLDPWD'                                    # Return to the previous directory
 alias pr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root directory
@@ -202,7 +198,7 @@ function gcx() {
     local gitRoot=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
     cd "$gitRoot" || return
 
-    local DIR=$(fdfind --type d . | fzf) && [[ -n $DIR ]] && cd "$DIR"
+    local DIR=$(fd --type d . | fzf) && [[ -n $DIR ]] && cd "$DIR"
 }
 
 ## Networking and System Information
@@ -290,7 +286,12 @@ export PATH="$PATH:/opt/nvim-linux64/bin"
 eval "$(zoxide init zsh)"
 
 ## fzf
-eval <(fzf --zsh)
+if [ -x "$(command -v fzf)" ]; then
+    export FZF_DEFAULT_COMMAND='fd --type f'
+    export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+    export FZF_ALT_C_COMMAND="fd --type d"
+    eval "$(fzf --zsh)"
+fi
 
 ## starship
 eval "$(starship init zsh)"
@@ -364,7 +365,7 @@ alias cua='cu_all'
 if [ -e /home/dhkim/.nix-profile/etc/profile.d/nix.sh ]; then . /home/dhkim/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
 
 echo "PATH is set to:"
-echo $PATH | tr ':' '\n'
+echo $PATH | tr ':' '\t'
 echo
 
 # Auto-run tmux if not on SSH
@@ -385,3 +386,5 @@ fi
 
 bindkey -v
 
+
+if [ -e /home/dkubnt/.nix-profile/etc/profile.d/nix.sh ]; then . /home/dkubnt/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
