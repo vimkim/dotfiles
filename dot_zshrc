@@ -143,13 +143,13 @@ if [ -x "$(command -v exa)" ]; then
     alias l='exa -aF'
     alias la='exa -laF'
     alias ll='exa -laF'
-    alias lsd='exa -laF --only-dirs'
 else
     alias ls='ls -aF'
     alias l='ls -AF'
     alias la='ls -lAF'
     alias ll='ls -lAF'
 fi
+
 if [ -x "$(command -v lsd)" ]; then
     alias ls='lsd -aF'
     alias l='lsd -aF'
@@ -290,7 +290,7 @@ export PATH="$PATH:/opt/nvim-linux64/bin"
 eval "$(zoxide init zsh)"
 
 ## fzf
-eval "$(fzf --zsh)"
+eval <(fzf --zsh)
 
 ## starship
 eval "$(starship init zsh)"
