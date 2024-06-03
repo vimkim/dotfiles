@@ -8,22 +8,6 @@ export LANGUAGE=C
 export LC_ALL=C.utf8
 echo "This is $0 with LVL $SHLVL, defaults to $SHELL"
 
-# Auto-run tmux if not on SSH
-if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
-    # Check if tmux is runnin:g
-    if ! command -v tmux &>/dev/null; then
-        echo "tmux is not installed. Please install tmux to use this feature."
-    else
-        if [ -z "$TMUX" ]; then
-            if [ -z "$(tmux ls)" ]; then
-                tmux new-session -s mysession
-            else
-                tmux attach-session -t mysession || tmux new-session -s mysession
-            fi
-        fi
-    fi
-fi
-
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
@@ -149,13 +133,15 @@ alias rm='rm -i'
 
 alias ls='ls -aF'
 alias l='ls -AF'
-alias la=' -lAF'
+alias la='ls -lAF'
 alias ll='ls -lAF'
 
 if [ -x "$(command -v nix-env)" ]; then
     if ! [ -x "$(command -v lsd)" ]; then
         nix-env -iA nixpkgs.lsd
     fi
+fi
+
 if [ -x "$(command -v exa)" ]; then
     alias ls='exa -aF'
     alias l='exa -aF'
@@ -165,7 +151,7 @@ if [ -x "$(command -v exa)" ]; then
 else
     alias ls='ls -aF'
     alias l='ls -AF'
-    alias la=' -lAF'
+    alias la='ls -lAF'
     alias ll='ls -lAF'
 fi
 if [ -x "$(command -v lsd)" ]; then
@@ -243,6 +229,7 @@ alias gdc='git diff --cached'
 alias gg='git-graph'
 alias gl='git log --graph --pretty=format:"%C(auto)%h %an%d%n%w(0,4,4)%<(50,trunc)%s" --all'
 alias gloga='git log --oneline --all --graph --decorate'
+alias glogah='gloga --color=always | head -n 40'
 
 ## git pull
 alias gpl='git pull'
@@ -343,18 +330,16 @@ precmd () { echo -n "\x1b]1337;CurrentDir=$(pwd)\x07" }
 ## chezmoi
 
 # source scl_source enable devtoolset-8
-source /opt/rh/devtoolset-8/enable
+# source /opt/rh/devtoolset-8/enable
 
 HOMEBREW_CURL_PATH=$(/usr/bin/which curl)
 
 export MAKEFLAGS="-j $(nproc)"
 
-## java setup
-export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::")
-if [ -n "$JAVA_HOME" ]; then
-    PATH=$JAVA_HOME/bin:$PATH
-    export PATH
-fi
+# Set JAVA_HOME
+export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
+export PATH=$JAVA_HOME/bin:$PATH
+echo "JAVA_HOME is set to $JAVA_HOME"
 
 ## CUBRID necessary env vars
 export CUBRID=$HOME/CUBRID
@@ -380,3 +365,25 @@ alias cu_all='cub && cu_rmdb && cu_createdb && cup && cur'
 alias cua='cu_all'
 
 if [ -e /home/dhkim/.nix-profile/etc/profile.d/nix.sh ]; then . /home/dhkim/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
+
+echo
+echo "PATH is set to:"
+echo $PATH | tr ':' '\n'
+echo
+
+# Auto-run tmux if not on SSH
+if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
+    # Check if tmux is runnin:g
+    if ! command -v tmux &>/dev/null; then
+        echo "tmux is not installed. Please install tmux to use this feature."
+    else
+        if [ -z "$TMUX" ]; then
+            if [ -z "$(tmux ls)" ]; then
+                tmux new-session -s mysession
+            else
+                tmux attach-session -t mysession || tmux new-session -s mysession
+            fi
+        fi
+    fi
+fi
+
