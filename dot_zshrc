@@ -223,6 +223,26 @@ alias v='nvim'
 alias vim='nvim'
 alias nvimrc='nvim ~/.config/nvim/init.lua'
 
+vx() {
+    trap 'return' INT
+
+    local root_dir
+    root_dir=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+
+    local file_to_open
+    file_to_open=$(fd --type f . "$root_dir" | fzf --height 40% --reverse)
+
+    if ! [ -f "$file_to_open" ]; then
+        echo "No file selected"
+        return
+    fi
+
+    nvim "$file_to_open"
+}
+alias vx='vx'
+
+alias gcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
+
 ## Navigation aliases
 function cl() {
     builtin cd "$@" && ls
@@ -230,7 +250,7 @@ function cl() {
 alias cd='cl'
 alias c='cd'
 alias cz='DIR=$(zoxide query -l | fzf) && [[ -n $DIR ]] && cd "$DIR"'
-alias cx='DIR=$(fd --type d | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+alias cx='DIR=$(fd -H -I --type d | fzf) && [[ -n $DIR ]] && cd "$DIR"'
 alias cf='cd "$(fd . --type f | fzf --height 40% --reverse | xargs -I {} dirname {})"'
 alias up='cd ..'                                            # Move up one directory
 alias back='cd -$OLDPWD'                                    # Return to the previous directory
