@@ -154,8 +154,26 @@ alias la='ls -lAF'
 alias ll='ls -lAF'
 
 if [ -x "$(command -v nix-env)" ]; then
+    if ! [ -x "$(command -v nvim)" ]; then
+        nix-env -iA nixpkgs.neovim
+    fi
+    if ! [ -x "$(command -v git)" ]; then
+        nix-env -iA nixpkgs.git
+    fi
+    if ! [ -x "$(command -v fzf)" ]; then
+        nix-env -iA nixpkgs.fzf
+    fi
     if ! [ -x "$(command -v lsd)" ]; then
         nix-env -iA nixpkgs.lsd
+    fi
+    if ! [ -x "$(command -v fd)" ]; then
+        nix-env -iA nixpkgs.fd
+    fi
+    if ! [ -x "$(command -v zoxide)" ]; then
+        nix-env -iA nixpkgs.zoxide
+    fi
+    if ! [ -x "$(command -v rg)" ]; then
+        nix-env -iA nixpkgs.ripgrep
     fi
 fi
 
