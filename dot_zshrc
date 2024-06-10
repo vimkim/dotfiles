@@ -178,6 +178,8 @@ if [ -x "$(command -v lsd)" ]; then
     alias ll='lsd -laF'
 fi
 
+alias sl='ls'
+
 
 alias which="which -a"
 which-alias() {
@@ -254,7 +256,8 @@ alias gpl='git pull'
 alias gpom='git pull origin main'
 
 ## git push
-alias gfp='git fetch --prune'
+alias gfp='git fetch --prune --all'
+alias gfpa='git fetch --prune --all'
 alias gp='git push'
 alias gps='git push'
 alias gpsoh='git push origin HEAD'
@@ -300,6 +303,7 @@ if [ -x "$(command -v wslpath)" ]; then
     alias wh="cd $(wslpath $(cmd.exe /C "echo %USERPROFILE%" 2>/dev/null | tr -d '\r'))"
     alias ws="webstorm64.exe"
     alias ii="explorer.exe"
+    alias open="explorer.exe"
 fi
 
 # init setup
@@ -362,7 +366,7 @@ export CUBRID_DATABASES=$CUBRID/databases
 export PATH=$CUBRID/bin:$PATH
 export LD_LIBRARY_PATH=$CUBRID/lib:$CUBRID/cci/lib:$LD_LIBRARY_PATH
 
-## CUBRID aliases
+## CUBRID aliases begin
 alias cu_build='. ~/my-cubrid/build.sh'
 alias cub='cu_build'
 
@@ -371,18 +375,62 @@ alias cu_rmdb='. ~/my-cubrid/remove-db.sh'
 alias cu_createdb='. ~/my-cubrid/create-db.sh'
 
 alias cu_prepare='. ~/my-cubrid/prepare.sh'
+alias cu_prepare_edit='$EDITOR ~/my-cubrid/prepare.sh'
 alias cup='cu_prepare'
+alias cupe='cu_prepare_edit'
 
 alias cu_run='. ~/my-cubrid/run.sh'
+alias cu_run_edit='$EDITOR ~/my-cubrid/run.sh'
 alias cur='cu_run'
+alias cure='cu_run_edit'
 
 alias cu_all='cub && cu_rmdb && cu_createdb && cup && cur'
 alias cua='cu_all'
 
+### trace
+alias cu_trace='. ~/my-cubrid/trace.sh'
+alias cut='cu_trace'
+alias cu_trace_edit='$EDITOR ~/my-cubrid/trace.sh'
+alias cu_tracee='cu_trace_edit'
+
+### trace dump
+alias cu_trace_dump='. ~/my-cubrid/trace-dump.sh'
+alias cutd='cu_trace_dump'
+alias cu_trace_dump_edit='$EDITOR ~/my-cubrid/trace-dump.sh'
+alias cutde='cu_trace_dump_edit'
+alias cu_trace_dump_flame='. ~/my-cubrid/trace-dump-flame-graph.sh'
+alias cu_html2trace='trace2html uftrace-dump-chrome.json'
+#alias cu_trace_serve='python3 ~/my-cubrid/serve_and_open.py'
+alias cu_trace_dump_serve='open uftrace-dump-chrome.html'
+alias cu_trace_dump_all='cu_trace_dump && cu_html2trace && cu_trace_serve'
+## CUBRID aliases end
+
+## catapult begin
+export CATAPULT=$HOME/temp/catapult
+export PATH="$CATAPULT/tracing/bin:$PATH"
+## catapult end
 
 echo "PATH is set to:"
 echo $PATH | tr ':' '\t'
 echo
+
+source ~/.fzf/shell/key-bindings.zsh
+source ~/.fzf/shell/completion.zsh
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+zvm_after_init() {
+}
+
+# Enable fuzzy autocomplete
+# e.g. ctda<tab> -> cu_trace_dump_all magic
+# https://superuser.com/a/815317
+ZSH_AUTO_HOME=$HOME/zsh-autocomplete
+source $ZSH_AUTO_HOME/zsh-autocomplete.plugin.zsh
+# read readme of zsh-autocomplete
+bindkey              '^I' menu-select
+bindkey "$terminfo[kcbt]" menu-select
+bindkey -M menuselect              '^I'         menu-complete
+bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
+
 
 # Auto-run tmux if not on SSH
 if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
@@ -400,8 +448,3 @@ if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
     fi
 fi
 
-zvm_after_init() {
-    source ~/.fzf/shell/key-bindings.zsh
-    source ~/.fzf/shell/completion.zsh
-    [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-}
