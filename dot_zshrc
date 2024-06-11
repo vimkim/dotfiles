@@ -431,7 +431,7 @@ echo "\nJAVA_HOME is set to $JAVA_HOME\n"
 
 export ISSUE="cbrd-25393-oracle-create-view"
 
-export ISSUE_DIR="$HOME/issues/$ISSUE"
+export ISSUE_DIR="$HOME/cbrd-issues/$ISSUE"
 
 
 export CUBRID=$HOME/CUBRID
@@ -488,16 +488,14 @@ echo "PATH is set to:"
 echo $PATH | tr ':' '\t'
 echo
 
-source ~/.fzf/shell/key-bindings.zsh
-source ~/.fzf/shell/completion.zsh
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 zvm_after_init() {
-source ~/.fzf/shell/key-bindings.zsh
-source ~/.fzf/shell/completion.zsh
-bindkey              '^I' menu-select
-bindkey "$terminfo[kcbt]" menu-select
-bindkey -M menuselect              '^I'         menu-complete
-bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
+    source ~/.fzf/shell/key-bindings.zsh
+    source ~/.fzf/shell/completion.zsh
+    [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+    bindkey              '^I' menu-select
+    bindkey "$terminfo[kcbt]" menu-select
+    bindkey -M menuselect              '^I'         menu-complete
+    bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
 }
 
 # Auto-run tmux if not on SSH
