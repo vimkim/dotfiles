@@ -431,6 +431,7 @@ alias cu_trace='. ~/my-cubrid/trace.sh'
 alias cut='cu_trace'
 alias cu_trace_edit='$EDITOR ~/my-cubrid/trace.sh'
 alias cu_tracee='cu_trace_edit'
+alias cute='cu_trace_edit'
 
 ### trace dump
 alias cu_trace_dump='. ~/my-cubrid/trace-dump.sh'
@@ -438,10 +439,10 @@ alias cutd='cu_trace_dump'
 alias cu_trace_dump_edit='$EDITOR ~/my-cubrid/trace-dump.sh'
 alias cutde='cu_trace_dump_edit'
 alias cu_trace_dump_flame='. ~/my-cubrid/trace-dump-flame-graph.sh'
-alias cu_html2trace='trace2html uftrace-dump-chrome.json'
+alias cu_trace2html='trace2html uftrace-dump-chrome.json'
 #alias cu_trace_serve='python3 ~/my-cubrid/serve_and_open.py'
 alias cu_trace_dump_serve='open uftrace-dump-chrome.html'
-alias cu_trace_dump_all='cu_trace_dump && cu_html2trace && cu_trace_serve'
+alias cu_trace_dump_all='cu_trace_dump && cu_trace2html && cu_trace_dump_serve'
 ## CUBRID aliases end
 
 ## catapult begin
@@ -457,19 +458,13 @@ source ~/.fzf/shell/key-bindings.zsh
 source ~/.fzf/shell/completion.zsh
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 zvm_after_init() {
-}
-
-# Enable fuzzy autocomplete
-# e.g. ctda<tab> -> cu_trace_dump_all magic
-# https://superuser.com/a/815317
-ZSH_AUTO_HOME=$HOME/zsh-autocomplete
-source $ZSH_AUTO_HOME/zsh-autocomplete.plugin.zsh
-# read readme of zsh-autocomplete
+source ~/.fzf/shell/key-bindings.zsh
+source ~/.fzf/shell/completion.zsh
 bindkey              '^I' menu-select
 bindkey "$terminfo[kcbt]" menu-select
 bindkey -M menuselect              '^I'         menu-complete
 bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
-
+}
 
 # Auto-run tmux if not on SSH
 if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
