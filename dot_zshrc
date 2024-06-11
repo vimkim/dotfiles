@@ -488,6 +488,13 @@ echo "PATH is set to:"
 echo $PATH | tr ':' '\t'
 echo
 
+# Enable fuzzy autocomplete
+# e.g. ctda<tab> -> cu_trace_dump_all magic
+# https://superuser.com/a/815317
+ZSH_AUTO_HOME=$HOME/zsh-autocomplete
+source $ZSH_AUTO_HOME/zsh-autocomplete.plugin.zsh
+
+# mappings after zsh-vim
 zvm_after_init() {
     source ~/.fzf/shell/key-bindings.zsh
     source ~/.fzf/shell/completion.zsh
