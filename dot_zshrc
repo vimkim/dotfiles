@@ -528,3 +528,5 @@ if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
 fi
 
 MANPAGER='most'
+
+alias rrkernel='sudo sysctl kernel.perf_event_paranoid=1'
