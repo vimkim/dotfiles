@@ -130,6 +130,8 @@ plugins=(git docker docker-compose node-bin)
 plugins+=(
     zsh-vi-mode
     fzf-zsh-plugin
+    zsh-syntax-highlighting
+    zsh-autocomplete
 )
 
 source $ZSH/oh-my-zsh.sh
@@ -152,6 +154,8 @@ export CHEZ_EDITOR='chezmoi edit --watch'
 
 alias nvimrc="$EDITOR ~/.config/nvim/init.lua"
 alias nvimh="cd ~/.config/nvim"
+alias nvimd="cd ~/.config/nvim"
+alias tmuxconf="$CHEZ_EDITOR ~/.tmux.conf.local"
 
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
@@ -166,7 +170,7 @@ alias nvimh="cd ~/.config/nvim"
 export PATH="$HOME/.local/bin:$PATH"
 
 # Config profiles
-alias bashrc="$EDITOR ~/.bashrc"
+alias bashrc="$CHEZ_EDITOR ~/.bashrc"
 alias zshrc="$CHEZ_EDITOR ~/.zshrc"
 alias profile="zshrc"
 alias vimprofile="$EDITOR ~/.vimrc"
@@ -312,9 +316,8 @@ alias gdc='git diff --cached'
 
 ## git log
 alias gg='git-graph'
-alias gl='git log --graph --pretty=format:"%C(auto)%h %an%d%n%w(0,4,4)%<(50,trunc)%s" --all'
-alias gloga='git log --oneline --all --graph --decorate'
-alias glogah='gloga --color=always | head -n 40'
+alias gloga='GIT_PAGER="less -iRFSX" git log --graph --all --color --pretty=format:"%C(yellow)%h%C(reset) - %C(blue)%an%C(reset) - %C(red)%ad%C(reset) %C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
+alias gl='gloga'
 
 
 ## git pull
@@ -414,6 +417,11 @@ precmd () { echo -n "\x1b]1337;CurrentDir=$(pwd)\x07" }
 
 ## chezmoi
 alias chz='chezmoi'
+alias chez='chezmoi'
+alias che='chezmoi edit --watch'
+alias cheze='chezmoi edit --watch'
+alias chezcd='chezmoi cd'
+alias chzcd='chezmoi cd'
 
 # source scl_source enable devtoolset-8
 # source /opt/rh/devtoolset-8/enable
@@ -423,7 +431,7 @@ HOMEBREW_CURL_PATH=$(/usr/bin/which curl)
 export MAKEFLAGS="-j $(nproc)"
 
 # Set JAVA_HOME
-export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
+export JAVA_HOME=$(dirname $(dirname $(readlink -f $(/usr/bin/which java))))
 export PATH=$JAVA_HOME/bin:$PATH
 echo "\nJAVA_HOME is set to $JAVA_HOME\n"
 
@@ -440,43 +448,9 @@ export PATH=$CUBRID/bin:$PATH
 export LD_LIBRARY_PATH=$CUBRID/lib:$CUBRID/cci/lib:$LD_LIBRARY_PATH
 
 ## CUBRID aliases begin
-alias cu_build='. ~/my-cubrid/build.sh'
-alias cub='cu_build'
+#
+source ~/my-cubrid/aliases.sh
 
-alias cu_rmdb='. ~/my-cubrid/remove-db.sh'
-
-alias cu_createdb='. ~/my-cubrid/create-db.sh'
-
-alias cu_prepare='. ~/my-cubrid/prepare.sh'
-alias cu_prepare_edit='$EDITOR ~/my-cubrid/prepare.sh'
-alias cup='cu_prepare'
-alias cupe='cu_prepare_edit'
-
-alias cu_run='. ~/my-cubrid/run.sh'
-alias cu_run_edit='$EDITOR ~/my-cubrid/run.sh'
-alias cur='cu_run'
-alias cure='cu_run_edit'
-
-alias cu_all='cub && cu_rmdb && cu_createdb && cup && cur'
-alias cua='cu_all'
-
-### trace
-alias cu_trace='. ~/my-cubrid/trace.sh'
-alias cut='cu_trace'
-alias cu_trace_edit='$EDITOR ~/my-cubrid/trace.sh'
-alias cu_tracee='cu_trace_edit'
-alias cute='cu_trace_edit'
-
-### trace dump
-alias cu_trace_dump='. ~/my-cubrid/trace-dump.sh'
-alias cutd='cu_trace_dump'
-alias cu_trace_dump_edit='$EDITOR ~/my-cubrid/trace-dump.sh'
-alias cutde='cu_trace_dump_edit'
-alias cu_trace_dump_flame='. ~/my-cubrid/trace-dump-flame-graph.sh'
-alias cu_trace2html='trace2html uftrace-dump-chrome.json'
-#alias cu_trace_serve='python3 ~/my-cubrid/serve_and_open.py'
-alias cu_trace_dump_serve='open uftrace-dump-chrome.html'
-alias cu_trace_dump_all='cu_trace_dump && cu_trace2html && cu_trace_dump_serve'
 ## CUBRID aliases end
 
 ## catapult begin
@@ -491,8 +465,6 @@ echo
 # Enable fuzzy autocomplete
 # e.g. ctda<tab> -> cu_trace_dump_all magic
 # https://superuser.com/a/815317
-ZSH_AUTO_HOME=$HOME/zsh-autocomplete
-source $ZSH_AUTO_HOME/zsh-autocomplete.plugin.zsh
 
 # mappings after zsh-vim
 zvm_after_init() {
@@ -513,11 +485,14 @@ if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
     else
         if [ -z "$TMUX" ]; then
             if [ -z "$(tmux ls)" ]; then
-                tmux new-session -s mysession
+                tmux new-session
             else
-                tmux attach-session -t mysession || tmux new-session -s mysession
+                tmux attach-session || tmux new-session
             fi
         fi
     fi
 fi
 
+MANPAGER='most'
+
+alias rrkernel='sudo sysctl kernel.perf_event_paranoid=1'
