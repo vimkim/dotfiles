@@ -206,6 +206,15 @@ if [ -x "$(command -v nix-env)" ]; then
     fi
     if ! [ -x "$(command -v rg)" ]; then
         nix-env -iA nixpkgs.ripgrep
+        alias grep='rg'
+    fi
+    if ! [ -x "$(command -v dust)" ]; then
+        nix-env -iA nixpkgs.dust
+        alias du='dust'
+    fi
+    if ! [ -x "$(command -v bat)" ]; then
+        nix-env -iA nixpkgs.bat
+        alias cat='bat'
     fi
 fi
 
@@ -352,6 +361,47 @@ alias tm='tmux a || tmux'
 
 ## python
 alias py='python3'
+
+run_project() {
+  if [ -f Cargo.toml ]; then
+    echo "Detected Rust project."
+    cargo run
+  elif [ -f package.json ]; then
+    echo "Detected Node.js project."
+    npm start
+  elif [ -f setup.py ]; then
+    echo "Detected Python project."
+    python setup.py
+  elif [ -f Makefile ]; then
+    echo "Detected project with Makefile."
+    make
+  elif [ -f main.go ]; then
+    echo "Detected Go project."
+    go run main.go
+  elif [ -f CMakeLists.txt ]; then
+    echo "Detected CMake project."
+    cmake . && make
+  elif [ -f build.gradle ]; then
+    echo "Detected Gradle project."
+    ./gradlew run
+  elif [ -f pom.xml ]; then
+    echo "Detected Maven project."
+    mvn compile exec:java
+  elif [ -f requirements.txt ]; then
+    echo "Detected Python project with requirements.txt."
+    python -m pip install -r requirements.txt
+    python main.py
+  elif [ -f Gemfile ]; then
+    echo "Detected Ruby project."
+    bundle exec ruby main.rb
+  elif [ -f manage.py ]; then
+    echo "Detected Django project."
+    python manage.py runserver
+  else
+    echo "No recognized project files found. Please add a specific case to the script."
+  fi
+}
+alias x='run_project'
 
 ## docker
 alias doc='docker' # Never use do. It is part of zsh shell grammar.
@@ -502,3 +552,4 @@ fi
 MANPAGER='most'
 
 alias rrkernel='sudo sysctl kernel.perf_event_paranoid=1'
+
