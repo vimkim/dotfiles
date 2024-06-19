@@ -546,4 +546,10 @@ MANPAGER='most'
 
 alias rrkernel='sudo sysctl kernel.perf_event_paranoid=1'
 
-fastfetch
+if command -v fastfetch > /dev/null 2>&1; then
+    fastfetch
+fi
+
+if command -v gita > /dev/null 2>&1; then
+    gita ll
+fi
