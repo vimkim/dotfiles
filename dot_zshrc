@@ -554,5 +554,7 @@ if command -v fastfetch > /dev/null 2>&1; then
 fi
 
 if command -v gita > /dev/null 2>&1; then
+    gita clone -p -f ~/.config/gita/.my-gita-freeze > /dev/null
+    gita fetch
     gita ll
 fi
