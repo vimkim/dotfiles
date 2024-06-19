@@ -196,6 +196,7 @@ if [ -x "$(command -v nix-env)" ]; then
         "dust:nixpkgs.dust"
         "bat:nixpkgs.bat"
         "fastfetch:nixpkgs.fastfetch"
+        "gita:nixpkgs.gita"
     )
 
     for package in "${packages[@]}"; do
@@ -462,9 +463,11 @@ alias chz='chezmoi'
 alias chez='chezmoi'
 alias che='chezmoi edit --watch'
 alias cheze='chezmoi edit --watch'
-alias chezcd='chezmoi cd'
-alias chzcd='chezmoi cd'
+alias chzd='cd ~/.local/share/chezmoi'
+alias chzh='cd ~/.local/share/chezmoi'
+alias chezd='cd ~/.local/share/chezmoi'
 alias chezh='cd ~/.local/share/chezmoi'
+alias chezcd='cd ~/.local/share/chezmoi'
 
 # source scl_source enable devtoolset-8
 # source /opt/rh/devtoolset-8/enable
