@@ -318,7 +318,7 @@ alias gdc='git diff --cached'
 
 ## git log
 alias gg='git-graph'
-alias gloga='GIT_PAGER="less -iRFSX" git log --graph --all --color --pretty=format:"%C(yellow)%h%C(reset) - %C(blue)%an%C(reset) - %C(red)%ad%C(reset) %C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
+alias gloga='GIT_PAGER="less -iRFSX" git log --graph --all --color --pretty=format:"%C(yellow)%h%C(reset) - %C(blue)%an%C(reset) - %C(red)%ad%C(reset) %C(bold cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
 alias gl='gloga'
 
 
@@ -465,6 +465,7 @@ alias che='chezmoi edit --watch'
 alias cheze='chezmoi edit --watch'
 alias chezcd='chezmoi cd'
 alias chzcd='chezmoi cd'
+alias chezh='cd ~/.local/share/chezmoi'
 
 # source scl_source enable devtoolset-8
 # source /opt/rh/devtoolset-8/enable
