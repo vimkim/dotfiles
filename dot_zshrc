@@ -558,3 +558,6 @@ if command -v gita > /dev/null 2>&1; then
     gita fetch
     gita ll
 fi
+
+# direnv
+eval "$(direnv hook zsh)"
