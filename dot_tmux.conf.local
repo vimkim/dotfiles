@@ -420,6 +420,7 @@ set -g @plugin 'tmux-plugins/tmux-resurrect'
 set -g @plugin 'tmux-plugins/tmux-continuum'
 set -g @continuum-restore 'on'
 
+# my settings start
 
 set -g @plugin 'bettervim/shifter'
 set -g @shifter_theme 'nord'
@@ -435,6 +436,14 @@ set-option -g @ssh-split-h-key "|"
 
 bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "xsel -i --clipboard"
 bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "xsel -i --clipboard"
+
+# neovim colorscheme shows different behavior on tmux
+# https://www.reddit.com/r/neovim/comments/13thfol/help_same_colorscheme_of_neovim_showing_different/
+
+set -g default-terminal "tmux-256color"
+set -ag terminal-overrides ",xterm-256color:RGB"
+
+# my settings end
 
 # -- custom variables ----------------------------------------------------------
 
@@ -462,4 +471,3 @@ bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "xs
 #
 # "$@"
 # # /!\ do not remove the previous line
-
