@@ -477,15 +477,12 @@ HOMEBREW_CURL_PATH=$(/usr/bin/which curl)
 export MAKEFLAGS="-j $(nproc)"
 
 # Set JAVA_HOME
-export JAVA_HOME=$(dirname $(dirname $(readlink -f $(/usr/bin/which java))))
+export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
 export PATH=$JAVA_HOME/bin:$PATH
 echo "\nJAVA_HOME is set to $JAVA_HOME\n"
 
 ## CUBRID necessary env vars
 
-export ISSUE="cbrd-25393-oracle-create-view"
-
-export ISSUE_DIR="$HOME/cbrd-issues/$ISSUE"
 
 # Check if the OS is CentOS 7 and source the devtoolset-8 script
 if [[ -f /etc/centos-release ]]; then
