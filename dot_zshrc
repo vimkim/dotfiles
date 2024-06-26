@@ -366,6 +366,9 @@ run_project() {
   elif [ -f Makefile ]; then
     echo "Detected project with Makefile."
     make
+  elif [ -f go.mod ]; then
+    echo "Detected Go module."
+    go run .
   elif [ -f main.go ]; then
     echo "Detected Go project."
     go run main.go
@@ -563,3 +566,5 @@ clip() {
         xclip -selection clipboard "$@"
     fi
 }
+
+export PATH=$PATH:/usr/local/go/bin
