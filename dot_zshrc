@@ -318,9 +318,7 @@ alias gdc='git diff --cached'
 
 ## git log
 alias gg='git-graph'
-alias gloga='GIT_PAGER="less -iRFSX" git log --graph --all --color --pretty=format:"%C(yellow)%h%C(reset) - %C(blue)%an%C(reset) - %C(red)%ad%C(reset) %C(bold cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
-alias gl='gloga'
-
+alias gloga='GIT_PAGER="less -iRFSX" git log --graph --all --color --pretty=format:"%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(red)%ad%C(reset) %C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
 
 ## git pull
 alias gpl='git pull'
@@ -483,7 +481,6 @@ echo "\nJAVA_HOME is set to $JAVA_HOME\n"
 
 ## CUBRID necessary env vars
 
-
 # Check if the OS is CentOS 7 and source the devtoolset-8 script
 if [[ -f /etc/centos-release ]]; then
   if grep -q "CentOS Linux release 7" /etc/centos-release; then
@@ -558,3 +555,11 @@ fi
 
 # direnv
 eval "$(direnv hook zsh)"
+
+clip() {
+    if grep -qi microsoft /proc/version; then
+        clip.exe "$@"
+    else
+        xclip -selection clipboard "$@"
+    fi
+}
