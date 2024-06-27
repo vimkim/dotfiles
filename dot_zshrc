@@ -197,6 +197,7 @@ if [ -x "$(command -v nix-env)" ]; then
         "bat:nixpkgs.bat"
         "fastfetch:nixpkgs.fastfetch"
         "gita:nixpkgs.gita"
+        "difft:nixpkgs.difftastic"
     )
 
     for package in "${packages[@]}"; do
@@ -318,7 +319,9 @@ alias gdc='git diff --cached'
 
 ## git log
 alias gg='git-graph'
-alias gloga='GIT_PAGER="less -iRFSX" git log --graph --all --color --pretty=format:"%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(red)%ad%C(reset) %C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
+alias gl='GIT_PAGER="less -iRFSX" git log --graph --color --pretty=format:"%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(red)%ad%C(reset)%C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
+alias gloga='GIT_PAGER="less -iRFSX" git log --graph --all --color --pretty=format:"%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(red)%ad%C(reset)%C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
+alias gla='gloga'
 
 ## git pull
 alias gpl='git pull'
