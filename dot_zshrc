@@ -201,6 +201,7 @@ my_nix_install() {
             "difft:nixpkgs.difftastic"
             "tere:nixpkgs.tere"
             "broot:nixpkgs.broot"
+            "delta:nixpkgs.delta"
         )
 
         for package in "${packages[@]}"; do
@@ -238,6 +239,10 @@ fi
 
 if command_exists difft; then
     alias diff='difft --color=always'
+fi
+
+if command_exists difft; then
+    alias diff='delta'
 fi
 
 if [ -x "$(command -v exa)" ]; then
@@ -393,6 +398,9 @@ run_project() {
   elif [ -f setup.py ]; then
     echo "Detected Python project."
     python setup.py
+  elif [ -f main.py ]; then
+    echo "Detected Python project."
+    python main.py
   elif [ -f Makefile ]; then
     echo "Detected project with Makefile."
     make
