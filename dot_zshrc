@@ -189,7 +189,6 @@ my_nix_install() {
         packages=(
             "nvim:nixpkgs.neovim"
             "git:nixpkgs.git"
-            "fzf:nixpkgs.fzf"
             "lsd:nixpkgs.lsd"
             "fd:nixpkgs.fd"
             "zoxide:nixpkgs.zoxide"
@@ -198,7 +197,6 @@ my_nix_install() {
             "bat:nixpkgs.bat"
             "fastfetch:nixpkgs.fastfetch"
             "gita:nixpkgs.gita"
-            "difft:nixpkgs.difftastic"
             "tere:nixpkgs.tere"
             "broot:nixpkgs.broot"
             "delta:nixpkgs.delta"
@@ -548,6 +546,33 @@ export PATH="$CATAPULT/tracing/bin:$PATH"
 echo "PATH is set to:"
 echo $PATH | tr ':' '\t'
 echo
+
+# install fzf
+FZF_DIR="$HOME/.fzf"
+if [ -d "$FZF_DIR" ]; then
+    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+    ~/.fzf/install
+fi
+
+# Download fzf-git.sh
+FZF_GIT_SH_URL="https://raw.githubusercontent.com/junegunn/fzf-git.sh/main/fzf-git.sh"
+FZF_GIT_SH_PATH="$HOME/.fzf-git.sh"
+curl -fsSL $FZF_GIT_SH_URL -o $FZF_GIT_SH_PATH
+
+# Source fzf-git.sh from .bashrc or .zshrc
+if [[ -f "$HOME/.bashrc" ]]; then
+    if ! grep -q "source $FZF_GIT_SH_PATH" "$HOME/.bashrc"; then
+        echo "source $FZF_GIT_SH_PATH" >> "$HOME/.bashrc"
+        echo "fzf-git: Added source line to .bashrc"
+    fi
+fi
+
+if [[ -f "$HOME/.zshrc" ]]; then
+    if ! grep -q "source $FZF_GIT_SH_PATH" "$HOME/.zshrc"; then
+        echo "source $FZF_GIT_SH_PATH" >> "$HOME/.zshrc"
+        echo "fzf-git: Added source line to .zshrc"
+    fi
+fi
 
 # Enable fuzzy autocomplete
 # e.g. ctda<tab> -> cu_trace_dump_all magic
