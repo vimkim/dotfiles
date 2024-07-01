@@ -549,9 +549,11 @@ echo
 
 # install fzf
 FZF_DIR="$HOME/.fzf"
-if [ -d "$FZF_DIR" ]; then
+if [ ! -d "$FZF_DIR" ]; then
     git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
     ~/.fzf/install
+else
+    echo "fzf is already installed"
 fi
 
 # Download fzf-git.sh
