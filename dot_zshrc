@@ -184,34 +184,61 @@ alias l='ls -AF'
 alias la='ls -lAF'
 alias ll='ls -lAF'
 
-if [ -x "$(command -v nix-env)" ]; then
-    packages=(
-        "nvim:nixpkgs.neovim"
-        "git:nixpkgs.git"
-        "fzf:nixpkgs.fzf"
-        "lsd:nixpkgs.lsd"
-        "fd:nixpkgs.fd"
-        "zoxide:nixpkgs.zoxide"
-        "rg:nixpkgs.ripgrep"
-        "dust:nixpkgs.dust"
-        "bat:nixpkgs.bat"
-        "fastfetch:nixpkgs.fastfetch"
-        "gita:nixpkgs.gita"
-        "difft:nixpkgs.difftastic"
-    )
+my_nix_install() {
+    if [ -x "$(command -v nix-env)" ]; then
+        packages=(
+            "nvim:nixpkgs.neovim"
+            "git:nixpkgs.git"
+            "fzf:nixpkgs.fzf"
+            "lsd:nixpkgs.lsd"
+            "fd:nixpkgs.fd"
+            "zoxide:nixpkgs.zoxide"
+            "rg:nixpkgs.ripgrep"
+            "dust:nixpkgs.dust"
+            "bat:nixpkgs.bat"
+            "fastfetch:nixpkgs.fastfetch"
+            "gita:nixpkgs.gita"
+            "difft:nixpkgs.difftastic"
+            "tere:nixpkgs.tere"
+            "broot:nixpkgs.broot"
+        )
 
-    for package in "${packages[@]}"; do
-        cmd="${package%%:*}"
-        nixpkg="${package##*:}"
-        if ! [ -x "$(command -v $cmd)" ]; then
-            nix-env -iA "$nixpkg"
-        fi
-    done
+        for package in "${packages[@]}"; do
+            cmd="${package%%:*}"
+            nixpkg="${package##*:}"
+            if ! [ -x "$(command -v $cmd)" ]; then
+                nix-env -iA "$nixpkg"
+            fi
+        done
 
+    else
+        echo "my warning: nix not installed"
+    fi
+}
+
+# Function to check if a command exists
+function command_exists {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Conditionally set alias for `dust`
+if command_exists dust; then
     alias du='dust'
+fi
+
+# Conditionally set alias for `bat`
+if command_exists bat; then
     alias cat='bat'
 fi
 
+# Conditionally set alias for `broot`
+if command_exists broot; then
+    alias tree='broot'
+fi
+
+if command_exists difft; then
+    alias diff='difft --color=always'
+fi
 
 if [ -x "$(command -v exa)" ]; then
     alias ls='exa -aF'
@@ -571,3 +598,11 @@ clip() {
 }
 
 export PATH=$PATH:/usr/local/go/bin
+
+# tere
+tere() {
+    local result=$(command tere "$@")
+    [ -n "$result" ] && cd -- "$result"
+}
+
+alias ct='tere'
