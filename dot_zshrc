@@ -130,7 +130,9 @@ plugins=(git docker docker-compose node-bin)
 plugins+=(
     zsh-vi-mode
     fzf-zsh-plugin
+    zsh-autosuggestions
     zsh-syntax-highlighting
+    fast-syntax-highlighting
     zsh-autocomplete
 )
 
