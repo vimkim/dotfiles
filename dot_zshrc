@@ -241,8 +241,9 @@ if command_exists difft; then
     alias diff='difft --color=always'
 fi
 
-if command_exists difft; then
+if command_exists delta; then
     alias diff='delta'
+    source <(delta --generate-completion zsh)
 fi
 
 if [ -x "$(command -v exa)" ]; then
