@@ -378,6 +378,17 @@ bind C-a send-prefix
 # move status line to top
 #set -g status-position top
 
+bind ! select-window -t 1
+bind @ select-window -t 2
+bind \# select-window -t 3
+bind \$ select-window -t 4
+bind % select-window -t 5
+bind ^ select-window -t 6
+bind & select-window -t 7
+bind * select-window -t 8
+bind \( select-window -t 9
+bind \) select-window -t 10
+unbind C-c
 
 # -- tpm -----------------------------------------------------------------------
 
