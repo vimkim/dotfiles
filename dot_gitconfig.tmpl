@@ -1,0 +1,45 @@
+[init]
+	defaultBranch = main
+
+[merge]
+	tool = code
+
+[color]
+	ui = true
+
+{{- if eq .chezmoi.os "linux" }}
+{{-   if (.chezmoi.kernel.osrelease | lower | contains "microsoft") }}
+[credential]
+	helper = /mnt/c/Program\\ Files/Git/mingw64/bin/git-credential-manager.exe
+{{-   end }}
+{{- end }}
+
+[user]
+	email = kimdhyungg@gmail.com
+	name = vimkim
+
+[credential "github.com"]
+	username = vimkim
+
+[core]
+	editor = nvim
+	pager = delta
+
+[interactive]
+	diffFilter = delta --color-only
+
+[delta]
+	navigate = true    # use n and N to move between diff sections
+	side-by-side = true
+	line-numbers = true
+
+	# delta detects terminal colors automatically; set one of these to disable auto-detection
+	# dark = true
+	# light = true
+
+[merge]
+	conflictstyle = diff3
+
+[diff]
+	colorMoved = default
+
