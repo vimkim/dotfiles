@@ -625,3 +625,5 @@ tere() {
 }
 
 alias ct='tere'
+
+export PATH=$PATH:$HOME/go/bin
