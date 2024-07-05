@@ -267,6 +267,8 @@ fi
 
 alias sl='ls'
 
+alias lz='lazygit'
+alias lg='lazygit'
 
 alias which="which -a"
 which-alias() {
@@ -559,15 +561,6 @@ else
     echo "fzf is already installed"
 fi
 
-if [[ -f "$HOME/.zshrc" ]]; then
-    if ! grep -q 'source $HOME/.fzf-git.sh' "$HOME/.zshrc"; then
-        echo 'source $HOME/.fzf-git.sh' >> "$HOME/.zshrc"
-        echo "fzf-git: Added source line to .zshrc"
-    else
-        echo "fzf-git: source line already exists in .zshrc"
-    fi
-fi
-
 # Enable fuzzy autocomplete
 # e.g. ctda<tab> -> cu_trace_dump_all magic
 # https://superuser.com/a/815317
@@ -632,4 +625,3 @@ tere() {
 }
 
 alias ct='tere'
-
