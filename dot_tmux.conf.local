@@ -461,6 +461,15 @@ set-option -g @ssh-split-h-key "|"
 bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "xsel -i --clipboard"
 bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "xsel -i --clipboard"
 
+bind t run-shell 'zoomed=$(tmux display-message -p "#{window_zoomed_flag}"); \
+if [ "$zoomed" -eq 1 ]; then \
+  tmux resize-pane -Z; \
+  tmux last-pane; \
+else \
+  tmux last-pane; \
+  tmux resize-pane -Z; \
+fi'
+
 # neovim colorscheme shows different behavior on tmux
 # https://www.reddit.com/r/neovim/comments/13thfol/help_same_colorscheme_of_neovim_showing_different/
 
