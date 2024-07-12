@@ -3,7 +3,9 @@ disabled = false
 format = 'SHLVL\($shlvl\) '
 threshold = 3
 
-
 [shell]
 disabled = false
+
+[directory]
+fish_style_pwd_dir_length = 1
 
