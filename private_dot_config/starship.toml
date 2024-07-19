@@ -9,3 +9,11 @@ disabled = false
 [directory]
 fish_style_pwd_dir_length = 1
 
+[status]
+disabled = false
+
+[sudo]
+disabled = false
+
+[direnv]
+disabled = false
