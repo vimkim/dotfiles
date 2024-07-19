@@ -537,20 +537,6 @@ source ~/my-cubrid/aliases.sh
 
 ## CUBRID aliases end
 
-## catapult begin
-export CATAPULT=$HOME/temp/catapult
-export PATH="$CATAPULT/tracing/bin:$PATH"
-## catapult end
-
-# install fzf
-FZF_DIR="$HOME/.fzf"
-if [ ! -d "$FZF_DIR" ]; then
-    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-    ~/.fzf/install
-else
-    echo "fzf is already installed"
-fi
-
 # Enable fuzzy autocomplete
 # e.g. ctda<tab> -> cu_trace_dump_all magic
 # https://superuser.com/a/815317
