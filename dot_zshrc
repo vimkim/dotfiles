@@ -484,7 +484,7 @@ if ! zplug check --verbose; then
         zplug install
     fi
 fi
-# zplug load --verbose
+zplug load --verbose
 
 ## nvm
 export NVM_DIR="$HOME/.nvm"
