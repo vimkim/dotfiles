@@ -526,10 +526,10 @@ if [[ -f /etc/centos-release ]]; then
   fi
 fi
 
-export CUBRID=$HOME/CUBRID
-export CUBRID_DATABASES=$CUBRID/databases
-export PATH=$CUBRID/bin:$PATH
-export LD_LIBRARY_PATH=$CUBRID/lib:$CUBRID/cci/lib:$LD_LIBRARY_PATH
+# export CUBRID=$HOME/CUBRID
+# export CUBRID_DATABASES=$CUBRID/databases
+# export PATH=$CUBRID/bin:$PATH
+# export LD_LIBRARY_PATH=$CUBRID/lib:$CUBRID/cci/lib:$LD_LIBRARY_PATH
 
 ## CUBRID aliases begin
 #
