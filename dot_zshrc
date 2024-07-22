@@ -546,9 +546,9 @@ zvm_after_init() {
     source ~/.fzf/shell/key-bindings.zsh
     source ~/.fzf/shell/completion.zsh
     [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-    bindkey              '^I' menu-select
+    bindkey '^I' menu-select
     bindkey "$terminfo[kcbt]" menu-select
-    bindkey -M menuselect              '^I'         menu-complete
+    bindkey -M menuselect '^I' menu-complete
     bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
 }
 
@@ -559,7 +559,14 @@ if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
         echo "tmux is not installed. Please install tmux to use this feature."
     else
         if [ -z "$TMUX" ]; then
-            if [ -z "$(tmux ls)" ]; then
+
+            if [ -n "$TERM_PROGRAM" ] && [ "$TERM_PROGRAM" = "WezTerm" ]; then
+                tmux attach-session -t wezterm || tmux new-session -t wezterm
+
+            elif [ -n "$WT_SESSION" ]; then
+                tmux attach-session -t winterm || tmux new-session -s winterm
+
+            elif [ -z "$(tmux ls)" ]; then
                 tmux new-session
             else
                 tmux attach-session || tmux new-session
