@@ -317,7 +317,8 @@ alias gcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root dir
 function cl() {
     builtin cd "$@" && ls
 }
-alias cd='cl'
+
+alias cd='z'
 alias c='cd'
 alias cz='DIR=$(zoxide query -l | fzf) && [[ -n $DIR ]] && cd "$DIR"'
 alias cx='DIR=$(fd . -H --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
