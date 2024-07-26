@@ -128,8 +128,8 @@ zvm_after_lazy_keybindings() {
 
 ZVM_VI_INSERT_ESCAPE_BINDKEY=,s
 
-plugins=(git docker docker-compose)
-plugins+=(
+plugins=(
+    git
     zsh-vi-mode
     fzf-zsh-plugin
     zsh-autosuggestions
