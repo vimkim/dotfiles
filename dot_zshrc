@@ -472,20 +472,20 @@ eval "$(zoxide init zsh)"
 eval "$(starship init zsh)"
 
 ## zplug
-source ~/.zplug/init.zsh
+# source ~/.zplug/init.zsh
 ### plugins
-zplug "MichaelAquilina/zsh-you-should-use"
-zplug "bigH/git-fuzzy", as:command, use:"bin/git-fuzzy"
+# zplug "MichaelAquilina/zsh-you-should-use"
+# zplug "bigH/git-fuzzy", as:command, use:"bin/git-fuzzy"
 
 # Install plugins if there are plugins that have not been installed
-if ! zplug check --verbose; then
-    printf "Install? [y/N]: "
-    if read -q; then
-        echo
-        zplug install
-    fi
-fi
-zplug load --verbose
+# if ! zplug check --verbose; then
+#     printf "Install? [y/N]: "
+#     if read -q; then
+#         echo
+#         zplug install
+#     fi
+# fi
+# zplug load --verbose
 
 ## nvm
 export NVM_DIR="$HOME/.nvm"
