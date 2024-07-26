@@ -319,8 +319,8 @@ function cl() {
     builtin cd "$@" && ls
 }
 
-alias cd='z'
-alias c='cd'
+alias cd='cl'
+alias c='cl'
 alias cz='DIR=$(zoxide query -l | fzf) && [[ -n $DIR ]] && cd "$DIR"'
 alias cx='DIR=$(fd . -H --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
 alias cf='cd "$(fd . -H --type f | fzf --height 40% --reverse | xargs -I {} dirname {})"'
