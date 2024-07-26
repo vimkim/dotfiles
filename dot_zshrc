@@ -294,7 +294,7 @@ alias nv='nvim'
 alias v='nvim'
 alias vim='nvim'
 
-vx() {
+function vx() {
     trap 'return' INT
 
     local root_dir
