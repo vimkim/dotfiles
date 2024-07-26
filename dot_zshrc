@@ -1,27 +1,26 @@
+# zmodload zsh/zprof
 # Check available locales
-available_locales=$(locale -a)
+# available_locales=$(locale -a)
 
-export LANGUAGE="C.utf8"
-
-# Function to set the locale environment variables
-set_locale() {
-  export LANG=$1
-  export LANGUAGE=$1
-}
-
-# Preferred locales in order
-preferred_locales=("en_US.utf8" "C.utf8")
-
-# Loop through preferred locales and set the first one that is available
-for locale in "${preferred_locales[@]}"; do
-  if echo "$available_locales" | grep -q "^$locale"; then
-    set_locale $locale
-    echo "Locale set to $locale"
-    break
-  fi
-done
-
-echo "This is $0 with LVL $SHLVL, defaults to $SHELL\n"
+# export LANGUAGE="C.utf8"
+# 
+# # Function to set the locale environment variables
+# set_locale() {
+#   export LANG=$1
+#   export LANGUAGE=$1
+# }
+# 
+# # Preferred locales in order
+# preferred_locales=("en_US.utf8" "C.utf8")
+# 
+# # Loop through preferred locales and set the first one that is available
+# for locale in "${preferred_locales[@]}"; do
+#   if echo "$available_locales" | grep -q "^$locale"; then
+#     set_locale $locale
+#     echo "Locale set to $locale"
+#     break
+#   fi
+# done
 
 if ! command -v nix > /dev/null 2>&1; then
     if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
@@ -34,6 +33,8 @@ if [ "$TERM" = "tmux-256color" ]; then
     fi
 fi
 
+## zsh-defer
+source ~/zsh-defer/zsh-defer.plugin.zsh
 
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
@@ -615,3 +616,4 @@ function yy() {
 alias ct='tere'
 
 export PATH=$PATH:$HOME/go/bin
+# zprof
