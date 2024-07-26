@@ -33,9 +33,6 @@ if [ "$TERM" = "tmux-256color" ]; then
     fi
 fi
 
-## zsh-defer
-source ~/zsh-defer/zsh-defer.plugin.zsh
-
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
