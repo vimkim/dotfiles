@@ -578,9 +578,9 @@ MANPAGER='most'
 
 alias rrkernel='sudo sysctl kernel.perf_event_paranoid=1'
 
-if command -v fastfetch > /dev/null 2>&1; then
-    fastfetch
-fi
+# if command -v fastfetch > /dev/null 2>&1; then
+#     fastfetch
+# fi
 
 # direnv
 eval "$(direnv hook zsh)"
@@ -594,12 +594,6 @@ clip() {
 }
 
 export PATH=$PATH:/usr/local/go/bin
-
-# tere
-tere() {
-    local result=$(command tere "$@")
-    [ -n "$result" ] && cd -- "$result"
-}
 
 function yy() {
     local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
