@@ -5,9 +5,6 @@ if status is-interactive
 
     starship init fish | source
 
-    eval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)
-
-
     set -x PATH $HOME/.local/bin $PATH
 
 
@@ -67,7 +64,7 @@ if status is-interactive
 
     # Find and Open aliases
 
-    alias v "nvim"
+    alias v nvim
 
     function vx
         set file (fdfind --type f | fzf)
@@ -92,19 +89,19 @@ if status is-interactive
 
     # Git aliases
 
-    alias gg "git-graph"
+    alias gg git-graph
     alias gl "git log --graph --pretty=format:\"%C(auto)%h %an%d%n%w(0,4,4)%<(50,trunc)%s\" --all"
     alias gloga "git log --oneline --graph --all --decorate"
-    alias g "git"
+    alias g git
     alias gst "git status"
     alias gsw "git switch"
-    alias lz "lazygit"
-    alias lg "lazygit"
+    alias lz lazygit
+    alias lg lazygit
     alias gcz "~/.local/bin/cz"
 
     # Utils aliases
 
-    alias cat "batcat"
+    alias cat batcat
     alias which "which -a"
 
     function tm
@@ -144,4 +141,3 @@ if status is-interactive
 
 
 end
-
