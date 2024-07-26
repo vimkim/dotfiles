@@ -127,6 +127,7 @@ ZVM_VI_INSERT_ESCAPE_BINDKEY=,s
 
 plugins=(
     git
+    nvm
     zsh-vi-mode
     fzf-zsh-plugin
     zsh-autosuggestions
@@ -487,10 +488,12 @@ eval "$(starship init zsh)"
 # fi
 # zplug load --verbose
 
-## nvm
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
+# echo nvm
+# ## nvm
+# export NVM_DIR="$HOME/.nvm"
+# [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
+# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
+# echo nvm end
 
 
 precmd () { echo -n "\x1b]1337;CurrentDir=$(pwd)\x07" }
