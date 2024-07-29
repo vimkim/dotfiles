@@ -538,13 +538,11 @@ zvm_after_init() {
 ## tmux
 tm() {
   if [ -n "$TERM_PROGRAM" ] && [ "$TERM_PROGRAM" = "WezTerm" ]; then
-    tmux attach-session -t wezterm || tmux new-session -s my-wezterm
+    tmux attach-session -t my-wezterm || tmux new-session -s my-wezterm
 
   elif [ -n "$WT_SESSION" ]; then
-    tmux attach-session -t winterm || tmux new-session -s my-winterm
+    tmux attach-session -t my-winterm || tmux new-session -s my-winterm
 
-  elif [ -z "$(tmux ls)" ]; then
-    tmux new-session
   else
     tmux attach-session || tmux new-session
   fi
