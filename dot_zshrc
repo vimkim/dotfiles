@@ -115,8 +115,8 @@ plugins=(
     zsh-vi-mode
     fzf-zsh-plugin
     zsh-autosuggestions
-    zsh-syntax-highlighting
-    fast-syntax-highlighting
+    # zsh-syntax-highlighting
+    # fast-syntax-highlighting
     zsh-autocomplete
 )
 
