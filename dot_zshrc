@@ -1,6 +1,10 @@
 # zmodload zsh/zprof
 
-export LANG=en_US.UTF-8
+if [[ -f /etc/centos-release ]]; then
+  if grep -q "CentOS Linux release 7" /etc/centos-release; then
+    export LANG=en_US.UTF-8
+  fi
+fi
 
 if ! command -v nix > /dev/null 2>&1; then
     if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
