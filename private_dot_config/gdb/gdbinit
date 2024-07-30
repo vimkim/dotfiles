@@ -1,0 +1,81 @@
+# Set prompt to include current function and line number
+set prompt \033[1;34m(gdb) \033[0m
+
+# Enable pagination
+set pagination on
+
+# Enable history
+set history save on
+set history filename ~/.gdb_history
+
+# Set disassembly flavor to Intel syntax
+set disassembly-flavor intel
+
+# Set a limit on the number of elements to print when printing large arrays
+set print elements 100
+
+# Configure pretty printers for STL
+python
+import sys
+print("hello this is gdbinit!!")
+end
+
+# Colorize output
+set print pretty on
+set print object on
+
+# Custom commands
+define hook-quit
+  # Ask for confirmation before quitting GDB
+  echo Are you sure you want to quit? (y or n) 
+  set confirm on
+end
+
+# Add a command to easily reload .gdbinit
+define reload-init
+  source ~/.gdbinit
+  echo ".gdbinit reloaded\n"
+end
+
+# Command to print the current stack trace with function arguments
+define btfull
+  set pagination off
+  thread apply all bt full
+  set pagination on
+end
+
+document btfull
+  Prints the current stack trace with function arguments.
+end
+
+# Command to view memory in hex and ASCII format
+define hexdump
+  x/16xb $arg0
+end
+
+document hexdump
+  Dumps memory in hex and ASCII format.
+  Usage: hexdump <address>
+end
+
+# Set a default breakpoint at main
+break main
+
+# Display source code context for the current line
+set print pretty on
+
+# Enable auto-load safe-path
+set auto-load safe-path /
+
+# Enable unlimited terminal width
+set width 0
+
+source ~/my-cubrid/dump_node.py
+
+define pp
+  printf "%s\n", $arg0
+end
+
+define ptree
+  printf "%s\n", debug_parse_tree($arg0, $arg1).c_str()
+end
