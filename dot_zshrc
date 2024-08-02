@@ -170,6 +170,12 @@ alias l='ls -AF'
 alias la='ls -lAF'
 alias ll='ls -lAF'
 
+# NIX
+
+## https://nixos.wiki/wiki/Locales
+## if not set, lazygit on ubuntu will complain about locale
+export LOCALE_ARCHIVE=/usr/lib/locale/locale-archive
+
 my_nix_install() {
     if [ -x "$(command -v nix-env)" ]; then
         packages=(
