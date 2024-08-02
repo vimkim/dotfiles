@@ -284,9 +284,6 @@ function relative_gitdir() {
   echo "$rel_path"
 }
 
-# Usage
-echo $(relative_gitdir 2>/dev/null || echo ".")
-
 function vxg() {
 
     local workspace_dir
@@ -313,6 +310,7 @@ function cl() {
 alias cd='cl'
 alias c='cl'
 alias cz='DIR=$(zoxide query -l | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+alias cr='DIR=$(dirs -v | head -n 20 | awk '\''{print $2}'\'' | fzf) && [[ -n $DIR ]] && eval cd "$DIR"'
 
 alias cx='DIR=$(fd . -H --type d | fzf) && [[ -n $DIR ]] && cd "$DIR"'
 alias cxh='DIR=$(fd . -H --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
@@ -605,8 +603,6 @@ function yy() {
     fi
     rm -f -- "$tmp"
 }
-
-alias ct='tere'
 
 export PATH=$PATH:$HOME/go/bin
 
