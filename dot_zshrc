@@ -183,7 +183,6 @@ my_nix_install() {
             "bat:nixpkgs.bat"
             "fastfetch:nixpkgs.fastfetch"
             "gita:nixpkgs.gita"
-            "tere:nixpkgs.tere"
             "broot:nixpkgs.broot"
             "delta:nixpkgs.delta"
         )
@@ -575,8 +574,9 @@ if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
   fi
 fi
 
-
-MANPAGER='most'
+export LESS='-iRFSX'
+export MANPAGER='nvim +Man!'
+export MANWIDTH=999
 
 alias rrkernel='sudo sysctl kernel.perf_event_paranoid=1'
 
