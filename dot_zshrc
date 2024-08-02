@@ -276,25 +276,35 @@ alias nv='nvim'
 alias v='nvim'
 alias vim='nvim'
 
-function vx() {
-    trap 'return' INT
+alias vx='FILE=$(fd . -H --type f | fzf) && [[ -n $FILE ]] && $EDITOR "$FILE"'
 
-    local root_dir
-    root_dir=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+function relative_gitdir() {
+  local git_root rel_path
+  git_root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  rel_path=$(realpath --relative-to="$PWD" "$git_root") || return 1
+  echo "$rel_path"
+}
+
+# Usage
+echo $(relative_gitdir 2>/dev/null || echo ".")
+
+function vxg() {
+
+    local workspace_dir
+    workspace_dir=$(relative_gitdir 2>/dev/null || echo ".")
+    echo $workspace_dir
 
     local file_to_open
-    file_to_open=$(fd --type f . "$root_dir" | fzf --height 40% --reverse)
+    file_to_open=$(fd --type f . "$workspace_dir" --base-directory "." | fzf --height 40% --reverse)
 
     if ! [ -f "$file_to_open" ]; then
         echo "No file selected"
         return
     fi
 
-    nvim "$file_to_open"
+    $EDITOR "$file_to_open"
 }
-alias vx='vx'
-
-alias gcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
+alias vxg='vxg'
 
 ## Navigation aliases
 function cl() {
@@ -304,21 +314,24 @@ function cl() {
 alias cd='cl'
 alias c='cl'
 alias cz='DIR=$(zoxide query -l | fzf) && [[ -n $DIR ]] && cd "$DIR"'
-alias cx='DIR=$(fd . -H --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+
+alias cx='DIR=$(fd . -H --type d | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+alias cxh='DIR=$(fd . -H --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+alias cxg='DIR=$(fd . -H --type d $(relative_gitdir) | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+
 alias cf='cd "$(fd . -H --type f | fzf --height 40% --reverse | xargs -I {} dirname {})"'
+alias cfh='cd "$(fd . -H --type f $HOME | fzf --height 40% --reverse | xargs -I {} dirname {})"'
+alias cfh='cd "$(fd . -H --type f $(relative_gitdir) | fzf --height 40% --reverse | xargs -I {} dirname {})"'
+
+alias ff='vxg'
+
+alias gcd='cd $(relative_gitdir 2>/dev/null || echo ".")'
+alias cdg='gcd'
+alias pcd='gcd'
+alias cdw='gcd'
+
 alias up='cd ..'                                            # Move up one directory
-alias back='cd -$OLDPWD'                                    # Return to the previous directory
-alias pr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root directory
-alias pcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
-alias gr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root directory
-alias gcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
-
-function gcx() {
-    local gitRoot=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
-    cd "$gitRoot" || return
-
-    local DIR=$(fd --type d . | fzf) && [[ -n $DIR ]] && cd "$DIR"
-}
+alias back='cd $OLDPWD'                                    # Return to the previous directory
 
 ## Networking and System Information
 alias ports='netstat -tulanp'
@@ -342,6 +355,7 @@ alias gg='git-graph'
 alias gl='GIT_PAGER="less -iRFSX" git log --graph --color --pretty=format:"%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(red)%ad%C(reset)%C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
 alias gloga='GIT_PAGER="less -iRFSX" git log --graph --all --color --pretty=format:"%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(red)%ad%C(reset)%C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
 alias gla='gloga'
+alias glh='gl HEAD' # useful when followed by a branch like develop
 
 ## git pull
 alias gpl='git pull'
@@ -595,4 +609,5 @@ function yy() {
 alias ct='tere'
 
 export PATH=$PATH:$HOME/go/bin
+
 # zprof
