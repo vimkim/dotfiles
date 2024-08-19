@@ -313,6 +313,23 @@ function cl() {
     builtin cd "$@" && ls
 }
 
+function cdfile() {
+  if [[ -z "$1" ]]; then
+        echo "Usage: cdtofile <filepath>"
+        return 1
+    fi
+
+    local dir_path=$(dirname "$(realpath "$1")")
+
+    if [[ -d "$dir_path" ]]; then
+        cd "$dir_path" || return
+        echo "Changed directory to: $dir_path"
+    else
+        echo "Error: Directory does not exist."
+        return 1
+    fi
+}
+
 alias cd='cl'
 alias c='cl'
 alias cz='DIR=$(zoxide query -l | fzf) && [[ -n $DIR ]] && cd "$DIR"'
