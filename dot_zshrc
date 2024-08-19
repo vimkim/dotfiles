@@ -441,6 +441,9 @@ run_project() {
   if [ -f Cargo.toml ]; then
     echo "Detected Rust project."
     cargo run
+  elif [ -f main.rs ]; then
+    echo "Detected main.rs."
+    rustc main.rs && ./main
   elif [ -f package.json ]; then
     echo "Detected Node.js project."
     npm start
