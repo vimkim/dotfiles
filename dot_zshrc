@@ -405,6 +405,7 @@ alias gl='GIT_PAGER="less -iRFSX" git log --graph --color --pretty=format:"%C(ye
 alias gloga='GIT_PAGER="less -iRFSX" git log --graph --all --color --pretty=format:"%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(red)%ad%C(reset)%C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
 alias gla='gloga'
 alias glh='gl HEAD' # useful when followed by a branch like develop
+alias gld='gl develop HEAD'
 
 ## git pull
 alias gpl='git pull'
