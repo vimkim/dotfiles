@@ -365,6 +365,35 @@ alias gc='git commit'
 alias gcm='git commit -m'
 alias gcv='git commit --verbose'
 
+# Function to estimate Git repository size and prompt before cloning
+function github-clone {
+    if [ -z "$1" ]; then
+        echo "Usage: git-clone-check <repository_url>"
+        return 1
+    fi
+
+    REPO_URL="$1"
+
+    # Get the repository's objects and estimate size
+    REPO_SIZE=$(curl "https://api.github.com/repos/$REPO_URL" 2>/dev/null | jq '.size')
+
+    HUMAN_SIZE=$(echo "scale=2; $REPO_SIZE / 1024" | bc)
+
+    echo "Repository: $REPO_URL"
+    echo "Repository size: $HUMAN_SIZE MB"
+
+    echo "Do you want to clone the repository? (y/n): "
+    read confirm
+
+    if [ "$confirm" = "y" ]; then
+        git clone https://github.com/$REPO_URL.git
+    else
+        echo "Clone aborted."
+    fi
+}
+# Create an alias to easily call the function
+alias ghclone="github-clone"
+
 ## git diff
 alias gd='git diff'
 alias gds='git diff --staged'
