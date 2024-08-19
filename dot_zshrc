@@ -107,7 +107,7 @@ zvm_after_lazy_keybindings() {
     bindkey -M vicmd 'i' vi-forward-char
 }
 
-ZVM_VI_INSERT_ESCAPE_BINDKEY=,s
+# ZVM_VI_INSERT_ESCAPE_BINDKEY=,s
 
 plugins=(
     git
