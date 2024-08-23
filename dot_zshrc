@@ -346,7 +346,7 @@ alias cxg='DIR=$(fd . -H --type d $(relative_gitdir) | fzf) && [[ -n $DIR ]] && 
 
 alias cf='cd "$(fd . -H --type f | fzf --height 40% --reverse | xargs -I {} dirname {})"'
 alias cfh='cd "$(fd . -H --type f $HOME | fzf --height 40% --reverse | xargs -I {} dirname {})"'
-alias cfh='cd "$(fd . -H --type f $(relative_gitdir) | fzf --height 40% --reverse | xargs -I {} dirname {})"'
+alias cfg='cd "$(fd . -H --type f $(relative_gitdir) | fzf --height 40% --reverse | xargs -I {} dirname {})"'
 
 alias ff='vxg'
 
@@ -666,5 +666,19 @@ function yy() {
 }
 
 export PATH=$PATH:$HOME/go/bin
+
+pr_diff_fetch() {
+  local repo=$1
+  local pr_number=$2
+
+  if [ -z "$repo" ] || [ -z "$pr_number" ]; then
+    echo "Usage: pr_diff_fetch <repo> <pr_number>"
+    return 1
+  fi
+
+  curl -H "Accept: application/vnd.github.diff" \
+    "https://api.github.com/repos/${repo}/pulls/${pr_number}"
+}
+
 
 # zprof
