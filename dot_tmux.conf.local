@@ -476,7 +476,7 @@ tmux_conf_uninstall_plugins_on_reload=true
 
 set -g @plugin 'catppuccin/tmux'
 # latte, frappe, macchiato, mocha
-set -g @catppuccin_flavour 'macchiato'
+set -g @catppuccin_flavor 'macchiato'
 
 set -g @plugin 'pschmitt/tmux-ssh-split'
 # set -g @plugin 'tmux-plugins/tmux-yank'
