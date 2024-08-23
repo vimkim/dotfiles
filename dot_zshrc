@@ -254,6 +254,11 @@ if [ -x "$(command -v lsd)" ]; then
     alias ll='lsd -laF'
 fi
 
+if [ -x "$(command -v procs)" ]; then
+  alias ps='procs --tree --thread'
+fi
+
+
 alias sl='ls'
 
 alias lz='lazygit'
