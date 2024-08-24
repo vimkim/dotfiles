@@ -369,6 +369,9 @@ alias ga='git add'
 alias gc='git commit'
 alias gcm='git commit -m'
 alias gcv='git commit --verbose'
+alias git_checkout_child='git checkout $(git log --all --ancestry-path ^HEAD --format=format:%H | tail -n 1)'
+alias gup='git_checkout_child'
+alias gdown='git checkout HEAD~1'
 
 # Function to estimate Git repository size and prompt before cloning
 function github-clone {
