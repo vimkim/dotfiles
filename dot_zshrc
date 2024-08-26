@@ -373,6 +373,18 @@ alias git_checkout_child='git checkout $(git log --all --ancestry-path ^HEAD --f
 alias gup='git_checkout_child'
 alias gdown='git checkout HEAD~1'
 
+git_blame_file() {
+  git log -1 --format="$@:%C(green)%Creset %C(red)%h%Creset %C(yellow)%ai%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- $@
+}
+alias gbf='git_blame_file'
+
+git_blame_directory() {
+  for file in "$1"/*; do
+    git log -1 --format="$file:%C(green)%Creset %C(red)%h%Creset %C(yellow)%ai%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file"
+  done
+}
+alias gbd='git_blame_directory'
+
 # Function to estimate Git repository size and prompt before cloning
 function github-clone {
     if [ -z "$1" ]; then
