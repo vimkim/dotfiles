@@ -240,11 +240,15 @@ if [ -x "$(command -v exa)" ]; then
     alias l='exa -aF'
     alias la='exa -laF'
     alias ll='exa -laF'
-else
-    alias ls='ls -aF'
-    alias l='ls -AF'
-    alias la='ls -lAF'
-    alias ll='ls -lAF'
+    alias llg='exa -laF --git'
+fi
+
+if [ -x "$(command -v eza)" ]; then
+    alias ls='eza -aF'
+    alias l='eza -aF'
+    alias la='eza -laF'
+    alias ll='eza -laF'
+    alias llg='eza -laF --git'
 fi
 
 if [ -x "$(command -v lsd)" ]; then
@@ -252,6 +256,7 @@ if [ -x "$(command -v lsd)" ]; then
     alias l='lsd -aF'
     alias la='lsd -laF'
     alias ll='lsd -laF'
+    alias llg='lsd -laF --git'
 fi
 
 if [ -x "$(command -v procs)" ]; then
@@ -447,6 +452,40 @@ alias gst='git status'
 alias gb='git branch'
 alias gsw='git switch'
 alias gco='git checkout'
+
+function git_status_tracked() {
+    if [ -z "$1" ]; then
+        echo "Usage: check_git_file_status <directory_path>"
+        return 1
+    fi
+
+    directory_path="$1"
+
+    # Check if we're in a Git repository
+    if ! git rev-parse --is-inside-work-tree &> /dev/null; then
+        echo "Not inside a Git repository."
+        return 1
+    fi
+
+    # Traverse the directory (non-recursive) and check each file
+    for file in "$directory_path"/*; do
+        # Only check regular files
+        if [ -f "$file" ]; then
+            # Remove the directory path from the file path for displaying
+            relative_path="${file#$directory_path/}"
+
+            # Check if the file is tracked by Git
+            if git ls-files --error-unmatch "$file" > /dev/null 2>&1; then
+                echo -e "\033[32m$relative_path [✔ Tracked]\033[0m"
+            elif git check-ignore -q "$file"; then
+                echo -e "\033[31m$relative_path [✖ Ignored]\033[0m"
+            else
+                echo -e "\033[33m$relative_path [? Untracked]\033[0m"
+            fi
+        fi
+    done
+}
+alias gls='git_status_tracked'
 
 ## git etc
 alias gcz="~/.local/bin/cz"
