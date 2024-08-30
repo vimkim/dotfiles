@@ -379,6 +379,11 @@ alias git_checkout_child='git checkout $(git log --all --ancestry-path ^HEAD --f
 alias gup='git_checkout_child'
 alias gdown='git checkout HEAD~1'
 
+git_log_fzf() {
+    git log --oneline --graph --decorate | fzf | awk '{print $2}'
+}
+alias glf='git_log_fzf'
+
 git_blame_file() {
   git log -1 --format="$@:%C(green)%Creset %C(red)%h%Creset %C(yellow)%ai%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- $@
 }
