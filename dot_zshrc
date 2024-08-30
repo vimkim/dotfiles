@@ -291,7 +291,7 @@ alias nv='nvim'
 alias v='nvim'
 alias vim='nvim'
 
-alias vx='FILE=$(fd . -H --type f | fzf) && [[ -n $FILE ]] && $EDITOR "$FILE"'
+alias vx='FILE=$(fd . -H --type f | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
 
 function relative_gitdir() {
   local git_root rel_path
@@ -342,11 +342,11 @@ function cdfile() {
 
 alias cd='cl'
 alias c='cl'
-alias cz='DIR=$(zoxide query -l | fzf) && [[ -n $DIR ]] && cd "$DIR"'
-alias cr='DIR=$(dirs -v | head -n 20 | awk '\''{print $2}'\'' | fzf) && [[ -n $DIR ]] && eval cd "$DIR"'
+alias cz='DIR=$(zoxide query -l | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
+alias cr='DIR=$(dirs -v | head -n 20 | awk '\''{print $2}'\'' | fzf --height 40% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias cv='DIR=$(find . -maxdepth 1 -type d | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
 
-alias cx='DIR=$(fd . -H --type d | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+alias cx='DIR=$(fd . -H --type d | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
 alias cxh='DIR=$(fd . -H --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
 alias cxg='DIR=$(fd . -H --type d $(relative_gitdir) | fzf) && [[ -n $DIR ]] && cd "$DIR"'
 
