@@ -367,8 +367,7 @@ alias back='cd $OLDPWD'                                    # Return to the previ
 ## Networking and System Information
 alias ports='netstat -tulanp'
 alias ipinfo='curl ipinfo.io' # Quick IP address and network info
-alias myip='curl http://ipecho.net/plain
-echo' # External IP address
+alias myip='curl http://ipecho.net/plain' # External IP address
 
 # Git Aliases
 alias ga='git add'
