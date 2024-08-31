@@ -112,8 +112,8 @@ zvm_after_lazy_keybindings() {
 plugins=(
     git
     nvm
-    zsh-vi-mode
-    fzf-zsh-plugin
+    # zsh-vi-mode
+    # fzf-zsh-plugin
     zsh-autosuggestions
     # zsh-syntax-highlighting
     # fast-syntax-highlighting
