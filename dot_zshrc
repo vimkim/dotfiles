@@ -648,7 +648,11 @@ function yy() {
 export PATH=$PATH:$HOME/go/bin
 
 # Check if 'ccache' exists and if '/usr/lib/ccache' directory exists
-if command -v ccache >/dev/null 2>&1 && [ -d "/usr/lib/ccache" ]; then
+if command -v ccache > /dev/null 2>&1 && [ -d "/usr/lib/ccache/bin" ];then
+  # arch linux
+  export PATH="/usr/lib/ccache/bin:$PATH"
+elif command -v ccache >/dev/null 2>&1 && [ -d "/usr/lib/ccache" ]; then
+  # ubuntu
   export PATH="/usr/lib/ccache:$PATH"
 fi
 
