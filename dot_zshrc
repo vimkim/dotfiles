@@ -355,8 +355,31 @@ function github-clone {
         echo "Clone aborted."
     fi
 }
-# Create an alias to easily call the function
 alias ghclone="github-clone"
+
+function gitclonehash() {
+    if [ $# -ne 2 ]; then
+        echo "Usage: gitclonehash <repository-url> <commit-hash>"
+        return 1
+    fi
+
+    local repo_url=$1
+    local commit_hash=$2
+    local repo_name=$(basename "$repo_url" .git)
+
+    # Clone the repository with minimal depth
+    git clone --depth 1 "$repo_url" || return 1
+
+    # Change into the repository directory
+    cd "$repo_name" || return 1
+
+    # Fetch the specific commit
+    git fetch --depth 1 origin "$commit_hash" || return 1
+
+    # Checkout the specific commit
+    git switch "$commit_hash"
+}
+alias gclh='gitclonehash'
 
 ## git diff
 ## alias gd='git diff'
