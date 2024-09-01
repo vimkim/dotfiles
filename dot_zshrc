@@ -673,8 +673,10 @@ if command -v fastfetch > /dev/null 2>&1; then
     fastfetch
 fi
 
-# export CC=gcc-11
-export CC=gcc-13
-export CXX=g++-13
+# Check if the OS is Arch Linux
+if [[ -f /etc/os-release && $(grep -oP '(?<=^ID=).+' /etc/os-release) == "arch" ]]; then
+  export CC=gcc-13
+  export CXX=g++-13
+fi
 
 # zprof
