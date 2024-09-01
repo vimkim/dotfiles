@@ -644,7 +644,6 @@ export MAKEFLAGS="-j $(nproc)"
 # Set JAVA_HOME
 export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
 export PATH=$JAVA_HOME/bin:$PATH
-echo "\nJAVA_HOME is set to $JAVA_HOME\n"
 
 ## CUBRID necessary env vars
 
