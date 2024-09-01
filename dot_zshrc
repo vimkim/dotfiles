@@ -118,6 +118,7 @@ plugins=(
     # zsh-syntax-highlighting
     # fast-syntax-highlighting
     zsh-autocomplete
+    forgit
 )
 
 source $ZSH/oh-my-zsh.sh
@@ -370,13 +371,15 @@ alias ipinfo='curl ipinfo.io' # Quick IP address and network info
 alias myip='curl http://ipecho.net/plain' # External IP address
 
 # Git Aliases
-alias ga='git add'
+# alias ga='git add'
 alias gc='git commit'
 alias gcm='git commit -m'
 alias gcv='git commit --verbose'
 alias git_checkout_child='git checkout $(git log --all --ancestry-path ^HEAD --format=format:%H | tail -n 1)'
 alias gup='git_checkout_child'
 alias gdown='git checkout HEAD~1'
+
+alias rfv='$HOME/.config/vimkim-scripts/rfv.sh'
 
 git_log_fzf() {
     git log --oneline --graph --decorate | fzf | awk '{print $2}'
@@ -425,7 +428,7 @@ function github-clone {
 alias ghclone="github-clone"
 
 ## git diff
-alias gd='git diff'
+## alias gd='git diff'
 alias gds='git diff --staged'
 alias gdc='git diff --cached'
 
@@ -456,7 +459,7 @@ alias gst='git status'
 ## git switch
 alias gb='git branch'
 alias gsw='git switch'
-alias gco='git checkout'
+# alias gco='git checkout'
 
 function git_status_tracked() {
     if [ -z "$1" ]; then
