@@ -749,6 +749,11 @@ function yy() {
 
 export PATH=$PATH:$HOME/go/bin
 
+# Check if 'ccache' exists and if '/usr/lib/ccache' directory exists
+if command -v ccache >/dev/null 2>&1 && [ -d "/usr/lib/ccache" ]; then
+  export PATH="/usr/lib/ccache:$PATH"
+fi
+
 pr_diff_fetch() {
   local repo=$1
   local pr_number=$2
