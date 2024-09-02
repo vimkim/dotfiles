@@ -70,6 +70,7 @@ bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
 if command -v nvim >/dev/null 2>&1; then
     export EDITOR="nvim"
     export ZVM_VI_EDITOR="nvim"
+    alias nh='nvim -c "set filetype=man"'
 fi
 
 export CHEZ_EDITOR='chezmoi edit --watch'
