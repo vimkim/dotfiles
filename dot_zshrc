@@ -191,7 +191,14 @@ eval "$(starship init zsh)"
 # source scl_source enable devtoolset-8
 # source /opt/rh/devtoolset-8/enable
 
+
 export MAKEFLAGS="-j$(nproc)"
+
+
+alias cmbd='cmake --build --preset debug'
+alias cmd='cmake --preset debug'
+alias cmbdi='cmake --build --preset debug --target install'
+
 
 # Set JAVA_HOME
 export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
@@ -262,6 +269,7 @@ export PATH=$PATH:/usr/local/go/bin
 
 export PATH=$PATH:$HOME/go/bin
 
+# ccache
 # Check if 'ccache' exists and if '/usr/lib/ccache' directory exists
 if command -v ccache > /dev/null 2>&1 && [ -d "/usr/lib/ccache/bin" ];then
   # arch linux
