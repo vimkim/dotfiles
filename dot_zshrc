@@ -319,6 +319,21 @@ if [[ -f /etc/os-release && $(grep -oP '(?<=^ID=).+' /etc/os-release) == "arch" 
 fi
 
 alias zalias="$CHEZ_EDITOR $HOME/.config/vimkim-scripts/zsh/aliases.zsh"
+alias zali='zalias'
 source "$HOME/.config/vimkim-scripts/zsh/aliases.zsh"
 
+if [ -f ~/.fzf.zsh ]; then
+    source ~/.fzf.zsh
+else
+    echo "Warning: ~/.fzf.zsh not found!"
+fi
+
+if [ -f ~/fzf-git.sh/fzf-git.sh ]; then
+    source "$HOME/fzf-git.sh/fzf-git.sh"
+else
+    echo "Warning: ~/fzf-git.sh/fzf-git.sh not found!"
+fi
+
+
 # zprof
+
