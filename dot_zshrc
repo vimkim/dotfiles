@@ -222,17 +222,12 @@ eval "$(starship init zsh)"
 # [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
 # echo nvm end
 
-# source scl_source enable devtoolset-8
-# source /opt/rh/devtoolset-8/enable
-
-
 export MAKEFLAGS="-j$(nproc)"
 
 
 alias cmbd='cmake --build --preset debug'
 alias cmd='cmake --preset debug'
 alias cmbdi='cmake --build --preset debug --target install'
-
 
 # Set JAVA_HOME
 export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
