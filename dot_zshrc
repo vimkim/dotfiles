@@ -37,9 +37,11 @@ if [[ -f /etc/centos-release ]]; then
   fi
 fi
 
+
 if ! command -v nix > /dev/null 2>&1; then
     if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
 fi
+
 
 # Check if the terminal supports tmux-256color, and if not set it to xterm
 if [ "$TERM" = "tmux-256color" ]; then
@@ -129,6 +131,7 @@ my_nix_install() {
             "broot:nixpkgs.broot"
             "delta:nixpkgs.delta"
             "lazygit:nixpkgs.lazygit"
+            "hexyl:nixpkgs.hexyl"
         )
 
         for package in "${packages[@]}"; do
