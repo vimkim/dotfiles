@@ -443,6 +443,7 @@ alias chezcd='cd ~/.local/share/chezmoi'
 source ~/my-cubrid/aliases.sh
 
 alias rrkernel='sudo sysctl kernel.perf_event_paranoid=1'
+alias rrkerneloff='sudo sysctl kernel.perf_event_paranoid=0'
 alias rrzen='sudo $HOME/temp/rr/scripts/zen_workaround.py'
 
 clip() {
@@ -474,5 +475,7 @@ pr_diff_fetch() {
   curl -H "Accept: application/vnd.github.diff" \
     "https://api.github.com/repos/${repo}/pulls/${pr_number}"
 }
+
+alias mylog='$EDITOR $HOME/mylog/worklog-$(date +%Y-%m-%d).md'
 
 # alias end
