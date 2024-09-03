@@ -429,24 +429,6 @@ fi
 
 # init setup
 
-## neovim
-export PATH="$PATH:/opt/nvim-linux64/bin"
-
-## zoxide
-eval "$(zoxide init zsh)"
-
-## starship
-eval "$(starship init zsh)"
-
-# echo nvm
-# ## nvm
-# export NVM_DIR="$HOME/.nvm"
-# [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
-# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
-# echo nvm end
-
-precmd () { echo -n "\x1b]1337;CurrentDir=$(pwd)\x07" }
-
 ## chezmoi
 alias chz='chezmoi'
 alias chez='chezmoi'
