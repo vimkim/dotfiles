@@ -194,6 +194,7 @@ alias gcv='git commit --verbose'
 alias git_checkout_child='git checkout $(git log --all --ancestry-path ^HEAD --format=format:%H | tail -n 1)'
 alias gup='git_checkout_child'
 alias gdown='git checkout HEAD~1'
+alias grs='git reset'
 
 alias rfv='$HOME/.config/vimkim-scripts/rfv.sh'
 alias frf='$HOME/.config/vimkim-scripts/frf.sh'
