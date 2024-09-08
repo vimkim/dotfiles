@@ -132,7 +132,11 @@ my_nix_install() {
             "delta:nixpkgs.delta"
             "lazygit:nixpkgs.lazygit"
             "hexyl:nixpkgs.hexyl"
+            "btop:nixpkgs.btop"
+            "procs:nixpkgs.procs"
+            "diffstat:nixpkgs.diffstat"
         )
+
 
         for package in "${packages[@]}"; do
             cmd="${package%%:*}"
