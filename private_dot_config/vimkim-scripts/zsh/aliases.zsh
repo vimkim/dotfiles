@@ -219,7 +219,7 @@ alias gbd='git_blame_directory'
 # Function to estimate Git repository size and prompt before cloning
 function github-clone {
     if [ -z "$1" ]; then
-        echo "Usage: git-clone-check <repository_url>"
+        echo "Usage: github-clone <repository_url>"
         return 1
     fi
 
@@ -227,6 +227,12 @@ function github-clone {
 
     # Get the repository's objects and estimate size
     REPO_SIZE=$(curl "https://api.github.com/repos/$REPO_URL" 2>/dev/null | jq '.size')
+
+    # Check if REPO_SIZE is null or empty
+    if [[ -z "$REPO_SIZE" || "$REPO_SIZE" == "null" ]]; then
+      echo "Error: Invalid repository name. Please input a valid GitHub repository in the form of <username>/<reponame>."
+      return 1
+    fi
 
     HUMAN_SIZE=$(echo "scale=2; $REPO_SIZE / 1024" | bc)
 
@@ -243,6 +249,7 @@ function github-clone {
     fi
 }
 alias ghclone="github-clone"
+alias ghc='github-clone'
 
 function gitclonehash() {
     if [ $# -ne 2 ]; then
