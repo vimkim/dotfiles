@@ -140,6 +140,28 @@ function cl() {
     builtin cd "$@" && ls
 }
 
+
+# Function to compare two directories using diff and delta
+diff_dir() {
+  if [[ -d "$1" && -d "$2" ]]; then
+    /bin/diff -ur "$1" "$2" | delta
+  else
+    echo "Please provide two valid directories."
+  fi
+}
+alias ddr='diff_dir'
+
+# Function to compare two directories using diff and diffstat
+diff_dir_stat() {
+  if [[ -d "$1" && -d "$2" ]]; then
+    /bin/diff -ur "$1" "$2" | diffstat -C
+  else
+    echo "Please provide two valid directories."
+  fi
+}
+alias ddrstat='diff_dir_stat'
+
+
 function cdfile() {
   if [[ -z "$1" ]]; then
         echo "Usage: cdtofile <filepath>"
