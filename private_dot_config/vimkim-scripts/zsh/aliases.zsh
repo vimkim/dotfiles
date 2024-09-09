@@ -390,6 +390,9 @@ run_project() {
   elif [ -f main.py ]; then
     echo "Detected Python project."
     python main.py
+  elif [ -f src/main.py ]; then
+    echo "Detected Python project."
+    python src/main.py
   elif [ -f Makefile ]; then
     echo "Detected project with Makefile."
     make
