@@ -180,10 +180,10 @@ function cdfile() {
 }
 
 alias cd='cl'
-alias c='cl'
 alias cz='DIR=$(zoxide query -l | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
 alias cr='DIR=$(dirs -v | head -n 20 | awk '\''{print $2}'\'' | fzf --height 40% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias cv='DIR=$(find . -maxdepth 1 -type d | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
+alias c='cv'
 
 alias cx='DIR=$(fd . -H --type d | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
 alias cxh='DIR=$(fd . -H --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
