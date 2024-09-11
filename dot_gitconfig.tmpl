@@ -2,7 +2,14 @@
 	defaultBranch = main
 
 [merge]
-	tool = code
+	tool = diffview
+
+[mergetool]
+  prompt = false
+  keepBackup = false
+
+[mergetool "diffview"]
+  cmd = nvim -n -c "DiffviewOpen" "$MERGE"
 
 [color]
 	ui = true
@@ -40,8 +47,15 @@
 [merge]
 	conflictstyle = diff3
 
+[difftool]
+  prompt = true
+
 [diff]
 	colorMoved = default
+  tool = nvimdiff
+
+[difftool "nvimdiff"]
+  cmd = "nvim -d \"$LOCAL\" \"$REMOTE\""
 
 [commit]
 	verbose = 1
