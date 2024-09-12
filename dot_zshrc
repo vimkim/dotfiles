@@ -297,7 +297,7 @@ alias zali='zalias'
 source "$HOME/.config/vimkim-scripts/zsh/aliases.zsh"
 
 # fzf configuration
-if command -v fzf >/dev/null 2>&1; then
+if !command -v fzf >/dev/null 2>&1; then
   echo "Warning: fzf is not in your PATH"
 fi
 
