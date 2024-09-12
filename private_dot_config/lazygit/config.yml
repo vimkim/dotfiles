@@ -1,6 +1,6 @@
 git:
   log:
-    showWholeGraph: true
+    # showWholeGraph: true
 
 customCommands:
   - key: "C"
