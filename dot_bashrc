@@ -313,3 +313,4 @@ export PATH=$HOME/curl/bin:$PATH
 
 export HOMEBREW_CURL_PATH=$(which curl)
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+. "$HOME/.cargo/env"
