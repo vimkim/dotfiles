@@ -83,7 +83,7 @@ plugins=(
     # fast-syntax-highlighting
     zsh-autocomplete
     forgit
-    autoswitch-virtualenv
+    autoswitch_virtualenv
 )
 source $ZSH/oh-my-zsh.sh
 
