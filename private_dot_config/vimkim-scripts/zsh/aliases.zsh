@@ -512,4 +512,6 @@ pr_diff_fetch() {
 
 alias mylog='$EDITOR $HOME/mylog/worklog-$(date +%Y-%m-%d).md'
 
+alias arxivtotext='arxiv2text'
+
 # alias end
