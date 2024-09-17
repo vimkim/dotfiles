@@ -136,6 +136,7 @@ my_nix_install() {
             "btop:nixpkgs.btop"
             "procs:nixpkgs.procs"
             "diffstat:nixpkgs.diffstat"
+            "fq:nixpkgs:fq"
         )
 
 
