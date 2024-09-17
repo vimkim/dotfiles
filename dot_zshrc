@@ -153,6 +153,10 @@ my_nix_install() {
     fi
 }
 
+my-utils-install() {
+  npm install xcv --global
+}
+
 # Function to check if a command exists
 function command_exists {
     command -v "$1" >/dev/null 2>&1
