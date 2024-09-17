@@ -36,6 +36,8 @@ fi
 # Conditionally set alias for `bat`
 if command_exists bat; then
     alias cat='bat'
+    alias bh='bat -l help'
+    export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 fi
 
 # Conditionally set alias for `broot`
@@ -43,21 +45,11 @@ if command_exists broot; then
     alias tree='broot'
 fi
 
-if command_exists difft; then
-    alias diff='difft --color=always'
-fi
-
 if command_exists delta; then
     alias diff='delta'
     source <(delta --generate-completion zsh)
-fi
-
-if [ -x "$(command -v exa)" ]; then
-    alias ls='exa -aF'
-    alias l='exa -aF'
-    alias la='exa -laF'
-    alias ll='exa -laF'
-    alias llg='exa -laF --git'
+elif command_exists difft; then
+    alias diff='difft --color=always'
 fi
 
 if [ -x "$(command -v eza)" ]; then
@@ -66,9 +58,7 @@ if [ -x "$(command -v eza)" ]; then
     alias la='eza -laF'
     alias ll='eza -laF'
     alias llg='eza -laF --git'
-fi
-
-if [ -x "$(command -v lsd)" ]; then
+elif [ -x "$(command -v lsd)" ]; then
     alias ls='lsd -aF'
     alias l='lsd -aF'
     alias la='lsd -laF'
@@ -436,8 +426,26 @@ test_project() {
     echo "No recognized project files found. Please add a specific case to the script."
   fi
 }
-
 alias xt='test_project'
+
+configure_project() {
+  if [ -f CMakePresets.json ]; then
+    cmake --preset debug
+  fi
+}
+alias confp='configure_project'
+
+build_project() {
+  if [ -f CMakePresets.json ]; then
+    cmake --build --prese debug
+  fi
+}
+alias bb='build_project'
+alias bp='build_project'
+
+alias cmbd='cmake --build --preset debug'
+alias cmd='cmake --preset debug'
+alias cmbdi='cmake --build --preset debug --target install'
 
 ## docker
 alias doc='docker' # Never use do. It is part of zsh shell grammar.
