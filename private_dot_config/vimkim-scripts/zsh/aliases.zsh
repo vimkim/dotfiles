@@ -7,6 +7,7 @@ alias nvimrc="$EDITOR ~/.config/nvim/init.lua"
 alias nvimh="cd ~/.config/nvim"
 alias nvimd="cd ~/.config/nvim"
 alias tmuxconf="$CHEZ_EDITOR ~/.tmux.conf.local"
+alias zellconf="$CHEZ_EDITOR ~/.config/zellij/config.kdl"
 
 # Config profiles
 alias bashrc="$CHEZ_EDITOR ~/.bashrc"

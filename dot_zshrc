@@ -1,34 +1,5 @@
 # zmodload zsh/zprof
 
-# tmux start
-tmux_new_if_cannot_attach() {
-  if [ -n "$TERM_PROGRAM" ] && [ "$TERM_PROGRAM" = "WezTerm" ]; then
-    tmux attach-session -t my-wezterm || tmux new-session -s my-wezterm
-
-  elif [ -n "$WT_SESSION" ]; then
-    tmux attach-session -t my-winterm || tmux new-session -s my-winterm
-
-  elif [ -n "$TERM" ] && [ "$TERM" = "alacritty" ]; then
-    tmux attach-session -t my-alacritty || tmux new-session -s my-alacritty
-
-  else
-    tmux attach-session || tmux new-session
-  fi
-}
-alias tm='tmux_new_if_cannot_attach'
-
-# Auto-run tmux if not on SSH
-if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
-  # Check if tmux is runnin:g
-  if ! command -v tmux &>/dev/null; then
-    echo "tmux is not installed. Please install tmux to use this feature."
-  else
-    if [ -z "$TMUX" ]; then
-      tm
-    fi
-  fi
-fi
-# tmux end
 
 
 if [[ -f /etc/centos-release ]]; then
@@ -43,12 +14,6 @@ if ! command -v nix > /dev/null 2>&1; then
 fi
 
 
-# Check if the terminal supports tmux-256color, and if not set it to xterm
-if [ "$TERM" = "tmux-256color" ]; then
-    if ! infocmp tmux-256color >/dev/null 2>&1; then
-        export TERM=screen-256color
-    fi
-fi
 
 # If you come from bash you might have to change your $PATH.
 export PATH=$HOME/bin:/usr/local/bin:$PATH
@@ -174,25 +139,66 @@ eval "$(starship init zsh)"
 # [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
 # [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
 # echo nvm end
+# zellij
+if ! command -v zellij > /dev/null 2>&1; then
+  echo "warning: zellij not installed"
+fi
+zellij_new_if_cannot_attach() {
+  if [ -n "$TERM_PROGRAM" ] && [ "$TERM_PROGRAM" = "WezTerm" ]; then
+    zellij attach -c my-wezterm
 
 export MAKEFLAGS="-j$(nproc)"
 
 # Set JAVA_HOME
 export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
 export PATH=$JAVA_HOME/bin:$PATH
+  elif [ -n "$WT_SESSION" ]; then
+    zellij attach -c my-winterm
 
 ## CUBRID necessary env vars
+  elif [ -n "$TERM" ] && [ "$TERM" = "alacritty" ]; then
+    zellij attach -c my-alacritty
 
 # Check if the OS is CentOS 7 and source the devtoolset-8 script
 if [[ -f /etc/centos-release ]]; then
   if grep -q "CentOS Linux release 7" /etc/centos-release; then
     source /opt/rh/devtoolset-8/enable
+  else
+    zellij a || zellij
+  fi
+}
+alias za='zellij_new_if_cannot_attach'
+alias zl='zellij_new_if_cannot_attach'
+alias zell='zellij'
+
+# Auto-run zellij if not on SSH
+if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
+  if ! command -v zellij &>/dev/null; then
+    echo "zellij is not installed. Please install zellij to use this feature."
+  else
+    if [ -z "$ZELLIJ" ]; then
+      zl
+    fi
   fi
 fi
 
 # Enable fuzzy autocomplete
 # e.g. ctda<tab> -> cu_trace_dump_all magic
 # https://superuser.com/a/815317
+# zellij_tab_name_update() {
+#     if [[ -n $ZELLIJ ]]; then
+#         local current_dir=$PWD
+#         if [[ $current_dir == $HOME ]]; then
+#             current_dir="~"
+#         else
+#             current_dir=${current_dir##*/}
+#         fi
+#         command nohup zellij action rename-tab "$current_dir" >/dev/null 2>&1
+#     fi
+# }
+# 
+# zellij_tab_name_update
+# chpwd_functions+=(zellij_tab_name_update)
 
 
 export LESS='-iRFSX'
