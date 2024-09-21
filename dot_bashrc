@@ -314,3 +314,8 @@ export PATH=$HOME/curl/bin:$PATH
 export HOMEBREW_CURL_PATH=$(which curl)
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 . "$HOME/.cargo/env"
+
+. "$HOME/.atuin/bin/env"
+
+[[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
+eval "$(atuin init bash)"

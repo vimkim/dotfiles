@@ -1,7 +1,9 @@
 # zmodload zsh/zprof
 
+# set -v
 
 
+# LOCALE
 if [[ -f /etc/centos-release ]]; then
   if grep -q "CentOS Linux release 7" /etc/centos-release; then
     export LANG=en_US.UTF-8
@@ -9,62 +11,50 @@ if [[ -f /etc/centos-release ]]; then
 fi
 
 
-if ! command -v nix > /dev/null 2>&1; then
-    if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
+# PATH
+export PATH=$HOME/bin:/usr/local/bin:$PATH
+
+## rust
+export PATH="$HOME/.local/bin:$PATH"
+export MANPATH="/usr/local/man:$MANPATH"
+export MANWIDTH=999
+
+##  go
+export PATH=$PATH:/usr/local/go/bin
+export PATH=$PATH:$HOME/go/bin
+
+## java
+export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
+export PATH=$JAVA_HOME/bin:$PATH
+
+export MAKEFLAGS="-j$(nproc)"
+export LESS='-iRFSX'
+
+# Check if the OS is CentOS 7 and source the devtoolset-8 script
+if [[ -f /etc/centos-release ]]; then
+  if grep -q "CentOS Linux release 7" /etc/centos-release; then
+    source /opt/rh/devtoolset-8/enable
+  fi
+fi
+
+# ccache
+# Check if 'ccache' exists and if '/usr/lib/ccache' directory exists
+if command -v ccache > /dev/null 2>&1 && [ -d "/usr/lib/ccache/bin" ];then
+  # arch linux
+  export PATH="/usr/lib/ccache/bin:$PATH"
+elif command -v ccache >/dev/null 2>&1 && [ -d "/usr/lib/ccache" ]; then
+  # ubuntu
+  export PATH="/usr/lib/ccache:$PATH"
 fi
 
 
+# Check if the OS is Arch Linux
+if [[ -f /etc/os-release && $(grep -oP '(?<=^ID=).+' /etc/os-release) == "arch" ]]; then
+  export CC=gcc-13
+  export CXX=g++-13
+fi
 
-# If you come from bash you might have to change your $PATH.
-export PATH=$HOME/bin:/usr/local/bin:$PATH
 
-# ohmyzsh
-export ZSH="$HOME/.oh-my-zsh"
-
-function colemak_l() {
-    zle beginning-of-line
-    zvm_enter_insert_mode
-}
-
-zvm_after_lazy_keybindings() {
-    zvm_define_widget colemak_l
-
-    bindkey -M vicmd 'l' zvm_enter_insert_mode
-    zvm_bindkey vicmd 'L' colemak_l
-    bindkey -M vicmd 'n' down-line-or-history
-    bindkey -M vicmd 'e' up-line-or-history
-    bindkey -M vicmd 'i' vi-forward-char
-}
-
-# ZVM_VI_INSERT_ESCAPE_BINDKEY=,s
-
-plugins=(
-    asdf
-    # git
-    nvm
-    # zsh-vi-mode
-    # fzf-zsh-plugin
-    zsh-autosuggestions
-    # zsh-syntax-highlighting
-    # fast-syntax-highlighting
-    zsh-autocomplete
-    forgit
-    autoswitch_virtualenv
-)
-source $ZSH/oh-my-zsh.sh
-
-# zsh-autocomplete settings
-bindkey '^I' menu-select
-bindkey "$terminfo[kcbt]" menu-select
-bindkey -M menuselect '^I' menu-complete
-bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
-
-# User configuration
-
-# export MANPATH="/usr/local/man:$MANPATH"
-
-# You may need to manually set your language environment
-# export LANG=en_US.UTF-8
 
 # Preferred editor for local and remote sessions
 if command -v nvim >/dev/null 2>&1; then
@@ -72,11 +62,11 @@ if command -v nvim >/dev/null 2>&1; then
     export ZVM_VI_EDITOR="nvim"
 fi
 
-export CHEZ_EDITOR='chezmoi edit --watch'
 
-export PATH="$HOME/.local/bin:$PATH"
-
-# NIX
+# nix
+if ! command -v nix > /dev/null 2>&1; then
+    if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
+fi
 ## https://nixos.wiki/wiki/Locales
 ## if not set, lazygit on ubuntu will complain about locale
 export LOCALE_ARCHIVE=/usr/lib/locale/locale-archive
@@ -104,7 +94,6 @@ my_nix_install() {
             "fq:nixpkgs:fq"
         )
 
-
         for package in "${packages[@]}"; do
             cmd="${package%%:*}"
             nixpkg="${package##*:}"
@@ -122,23 +111,6 @@ my-utils-install() {
   npm install xcv --global
 }
 
-# init setup
-
-## neovim
-export PATH="$PATH:/opt/nvim-linux64/bin"
-
-## zoxide
-eval "$(zoxide init zsh)"
-
-## starship
-eval "$(starship init zsh)"
-
-# echo nvm
-# ## nvm
-# export NVM_DIR="$HOME/.nvm"
-# [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
-# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
-# echo nvm end
 # zellij
 if ! command -v zellij > /dev/null 2>&1; then
   echo "warning: zellij not installed"
@@ -147,22 +119,12 @@ zellij_new_if_cannot_attach() {
   if [ -n "$TERM_PROGRAM" ] && [ "$TERM_PROGRAM" = "WezTerm" ]; then
     zellij attach -c my-wezterm
 
-export MAKEFLAGS="-j$(nproc)"
-
-# Set JAVA_HOME
-export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
-export PATH=$JAVA_HOME/bin:$PATH
   elif [ -n "$WT_SESSION" ]; then
     zellij attach -c my-winterm
 
-## CUBRID necessary env vars
   elif [ -n "$TERM" ] && [ "$TERM" = "alacritty" ]; then
     zellij attach -c my-alacritty
 
-# Check if the OS is CentOS 7 and source the devtoolset-8 script
-if [[ -f /etc/centos-release ]]; then
-  if grep -q "CentOS Linux release 7" /etc/centos-release; then
-    source /opt/rh/devtoolset-8/enable
   else
     zellij a || zellij
   fi
@@ -182,9 +144,6 @@ if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
   fi
 fi
 
-# Enable fuzzy autocomplete
-# e.g. ctda<tab> -> cu_trace_dump_all magic
-# https://superuser.com/a/815317
 # zellij_tab_name_update() {
 #     if [[ -n $ZELLIJ ]]; then
 #         local current_dir=$PWD
@@ -201,11 +160,12 @@ fi
 # chpwd_functions+=(zellij_tab_name_update)
 
 
-export LESS='-iRFSX'
-export MANWIDTH=999
+# ohmyzsh
+# export ZSH="$HOME/.oh-my-zsh"
+# source $ZSH/oh-my-zsh.sh
 
-# direnv
-eval "$(direnv hook zsh)"
+
+export CHEZ_EDITOR='chezmoi edit --watch'
 
 clip() {
     if grep -qi microsoft /proc/version; then
@@ -215,59 +175,88 @@ clip() {
     fi
 }
 
-export PATH=$PATH:/usr/local/go/bin
-
-export PATH=$PATH:$HOME/go/bin
-
-# ccache
-# Check if 'ccache' exists and if '/usr/lib/ccache' directory exists
-if command -v ccache > /dev/null 2>&1 && [ -d "/usr/lib/ccache/bin" ];then
-  # arch linux
-  export PATH="/usr/lib/ccache/bin:$PATH"
-elif command -v ccache >/dev/null 2>&1 && [ -d "/usr/lib/ccache" ]; then
-  # ubuntu
-  export PATH="/usr/lib/ccache:$PATH"
-fi
-
-if command -v fastfetch > /dev/null 2>&1; then
-    fastfetch
-fi
-
-# Check if the OS is Arch Linux
-if [[ -f /etc/os-release && $(grep -oP '(?<=^ID=).+' /etc/os-release) == "arch" ]]; then
-  export CC=gcc-13
-  export CXX=g++-13
-fi
-
-alias zalias="$CHEZ_EDITOR $HOME/.config/vimkim-scripts/zsh/aliases.zsh"
-alias zali='zalias'
-source "$HOME/.config/vimkim-scripts/zsh/aliases.zsh"
-
-# fzf configuration
+# fzf
+# https://github.com/junegunn/fzf
+# git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+# ~/.fzf/install
 if !command -v fzf >/dev/null 2>&1; then
-  echo "Warning: fzf is not in your PATH"
+  echo "warning: fzf not installed."
 fi
-
 if [ -f ~/.fzf.zsh ]; then
     source ~/.fzf.zsh
 else
     echo "Warning: ~/.fzf.zsh not found!"
 fi
-
 if [ -f ~/fzf-git.sh/fzf-git.sh ]; then
     source "$HOME/fzf-git.sh/fzf-git.sh"
 else
     echo "Warning: ~/fzf-git.sh/fzf-git.sh not found!"
 fi
 
-if [ -n "${commands[fzf-share]}" ]; then
-  source "$(fzf-share)/key-bindings.zsh"
-  source "$(fzf-share)/completion.zsh"
-else
-  echo "Warning: fzf-share not found!"
+
+## zoxide
+eval "$(zoxide init zsh)"
+
+
+## starship
+eval "$(starship init zsh)"
+
+
+# direnv
+eval "$(direnv hook zsh)"
+
+
+# asdf
+# https://asdf-vm.com/guide/getting-started.html
+# git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
+. "$HOME/.asdf/asdf.sh"
+if ! command -v asdf > /dev/null 2>&1; then
+  echo "warning: asdf not installed."
 fi
 
 
+# sheldon
+# https://github.com/rossmacarthur/sheldon
+# curl --proto '=https' -fLsS https://rossmacarthur.github.io/install/crate.sh \
+# | bash -s -- --repo rossmacarthur/sheldon --to ~/.local/bin
+eval "$(sheldon source)"
+if ! command -v sheldon > /dev/null 2>&1; then
+  echo "warning: sheldon not installed."
+fi
+
+
+# forgit, installed by sheldon
+# required to copy hash to clipboard using forgit
+export FORGIT_COPY_CMD='xclip -selection clipboard'
+# after `forgit` was loaded.
+# must be after plugin manager, such as sheldon
+export PATH="$PATH:$FORGIT_INSTALL_DIR/bin"
+
+
+# zsh-autocomplete, installed by sheldon
+bindkey '^I' menu-select
+bindkey "$terminfo[kcbt]" menu-select
+bindkey -M menuselect '^I' menu-complete
+bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
+
+
+# atuin
+# must be below sheldon, due to conflict with autocomplete
+# https://docs.atuin.sh/guide/basic-usage
+# curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
+. "$HOME/.atuin/bin/env"
+eval "$(atuin init zsh)"
+if ! command -v atuin > /dev/null 2>&1; then
+  echo "warning: atuin not installed."
+fi
+
+
+# zsh personal aliases
+# must be below export PATHs, since it checks whether each command exists.
+alias zalias="$CHEZ_EDITOR $HOME/.config/vimkim-scripts/zsh/aliases.zsh"
+alias zali='zalias'
+source "$HOME/.config/vimkim-scripts/zsh/aliases.zsh"
+
+fastfetch
 
 # zprof
-
