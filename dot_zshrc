@@ -91,7 +91,15 @@ my_nix_install() {
             "btop:nixpkgs.btop"
             "procs:nixpkgs.procs"
             "diffstat:nixpkgs.diffstat"
-            "fq:nixpkgs:fq"
+            "zellij:nixpkgs:zellij"
+            "starship:nixpkgs:starship"
+            "htop:nixpkgs:htop"
+            "atuin:nixpkgs:atuin"
+            "jq:nixpkgs:jq"
+            "asdf:nixpkgs:asdf"
+            "sheldon:nixpkgs:sheldon"
+            "fzf:nixpkgs:fzf"
+            "direnv:nixpkgs:direnv"
         )
 
         for package in "${packages[@]}"; do
