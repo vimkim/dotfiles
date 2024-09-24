@@ -71,6 +71,7 @@ if [ -x "$(command -v procs)" ]; then
   alias ps='procs --tree --thread'
 fi
 
+alias lzd='lazydocker'
 
 alias sl='ls'
 
