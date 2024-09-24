@@ -72,47 +72,76 @@ fi
 export LOCALE_ARCHIVE=/usr/lib/locale/locale-archive
 
 my_nix_install() {
-    if [ -x "$(command -v nix-env)" ]; then
-        packages=(
-            "nvim:nixpkgs.neovim"
-            "git:nixpkgs.git"
-            "lsd:nixpkgs.lsd"
-            "fd:nixpkgs.fd"
-            "zoxide:nixpkgs.zoxide"
-            "rg:nixpkgs.ripgrep"
-            "dust:nixpkgs.dust"
-            "bat:nixpkgs.bat"
-            "fastfetch:nixpkgs.fastfetch"
-            "gita:nixpkgs.gita"
-            "broot:nixpkgs.broot"
-            "delta:nixpkgs.delta"
-            "lazygit:nixpkgs.lazygit"
-            "hexyl:nixpkgs.hexyl"
-            "btop:nixpkgs.btop"
-            "procs:nixpkgs.procs"
-            "diffstat:nixpkgs.diffstat"
-            "zellij:nixpkgs:zellij"
-            "starship:nixpkgs:starship"
-            "htop:nixpkgs:htop"
-            "atuin:nixpkgs:atuin"
-            "jq:nixpkgs:jq"
-            "asdf:nixpkgs:asdf"
-            "sheldon:nixpkgs:sheldon"
-            "fzf:nixpkgs:fzf"
-            "direnv:nixpkgs:direnv"
-        )
+    # if [ -x "$(command -v nix-env)" ]; then
+    #     packages=(
+    #         "nvim:nixpkgs.neovim"
+    #         "git:nixpkgs.git"
+    #         "lsd:nixpkgs.lsd"
+    #         "fd:nixpkgs.fd"
+    #         "zoxide:nixpkgs.zoxide"
+    #         "rg:nixpkgs.ripgrep"
+    #         "dust:nixpkgs.dust"
+    #         "bat:nixpkgs.bat"
+    #         "fastfetch:nixpkgs.fastfetch"
+    #         "gita:nixpkgs.gita"
+    #         "broot:nixpkgs.broot"
+    #         "delta:nixpkgs.delta"
+    #         "lazygit:nixpkgs.lazygit"
+    #         "hexyl:nixpkgs.hexyl"
+    #         "btop:nixpkgs.btop"
+    #         "procs:nixpkgs.procs"
+    #         "diffstat:nixpkgs.diffstat"
+    #         "zellij:nixpkgs:zellij"
+    #         "starship:nixpkgs:starship"
+    #         "htop:nixpkgs:htop"
+    #         "atuin:nixpkgs:atuin"
+    #         "jq:nixpkgs:jq"
+    #         "asdf:nixpkgs:asdf"
+    #         "sheldon:nixpkgs:sheldon"
+    #         "fzf:nixpkgs:fzf"
+    #         "direnv:nixpkgs:direnv"
+    #     )
+    #
+    #     for package in "${packages[@]}"; do
+    #         cmd="${package%%:*}"
+    #         nixpkg="${package##*:}"
+    #         if ! [ -x "$(command -v $cmd)" ]; then
+    #             nix-env -iA "$nixpkg"
+    #         fi
+    #     done
+    #
+    # else
+    #     echo "my warning: nix not installed"
+    # fi
 
-        for package in "${packages[@]}"; do
-            cmd="${package%%:*}"
-            nixpkg="${package##*:}"
-            if ! [ -x "$(command -v $cmd)" ]; then
-                nix-env -iA "$nixpkg"
-            fi
-        done
+    local package_file="$HOME/.config/my-nix/nix-packages.txt"
 
-    else
-        echo "my warning: nix not installed"
+    # Early exit if Nix is not installed
+    if ! command -v nix-env > /dev/null; then
+        echo "Nix is not installed or not in PATH" >&2
+        return 1
     fi
+
+    # Early exit if the package file doesn't exist
+    if [[ ! -f "$package_file" ]]; then
+        echo "Package file not found: $package_file" >&2
+        return 1
+    fi
+
+    # Read the package file and install missing packages
+    while IFS= read -r pkg; do
+        # Skip if the package is already installed
+        if command -v "$pkg" > /dev/null; then
+            echo "$pkg is already installed"
+            continue
+        fi
+        
+        # Install the package
+        echo "Installing $pkg from nixpkgs..."
+        if ! nix-env -iA nixpkgs."$pkg"; then
+            echo "Failed to install $pkg" >&2
+        fi
+    done < "$package_file"
 }
 
 my-utils-install() {
