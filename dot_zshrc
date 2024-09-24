@@ -198,8 +198,8 @@ chpwd_functions+=(zellij_tab_name_update)
 
 
 # ohmyzsh
-# export ZSH="$HOME/.oh-my-zsh"
-# source $ZSH/oh-my-zsh.sh
+export ZSH="$HOME/.oh-my-zsh"
+source $ZSH/oh-my-zsh.sh
 
 
 export CHEZ_EDITOR='chezmoi edit --watch'
@@ -249,7 +249,10 @@ eval "$(direnv hook zsh)"
 . "$HOME/.asdf/asdf.sh"
 if ! command -v asdf > /dev/null 2>&1; then
   echo "warning: asdf not installed."
+else
+  . ~/.asdf/plugins/golang/set-env.zsh
 fi
+
 
 
 # sheldon
