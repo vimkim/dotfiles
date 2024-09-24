@@ -238,22 +238,33 @@ function github-clone {
         return 1
     fi
 
-    REPO_URL="$1"
+    INPUT="$1"
 
-    # Get the repository's objects and estimate size
-    REPO_SIZE=$(curl "https://api.github.com/repos/$REPO_URL" 2>/dev/null | jq '.size')
+    # Check if the input is a full URL or just <username>/<reponame>
+    if [[ "$INPUT" == https://github.com/* ]]; then
+        # Extract <username>/<reponame> from the full URL
+        REPO_URL=$(echo "$INPUT" | sed -E 's|https://github.com/([^/]+/[^/]+).*|\1|')
+    else
+        # Assume input is already in <username>/<reponame> format
+        REPO_URL="$INPUT"
+    fi
+
+    # Get the repository's size in KB
+    REPO_SIZE=$(curl -s "https://api.github.com/repos/$REPO_URL" | jq '.size')
 
     # Check if REPO_SIZE is null or empty
     if [[ -z "$REPO_SIZE" || "$REPO_SIZE" == "null" ]]; then
-      echo "Error: Invalid repository name. Please input a valid GitHub repository in the form of <username>/<reponame>."
+      echo "Error: Invalid repository name. Please input a valid GitHub repository in the form of <username>/<reponame> or a full URL."
       return 1
     fi
 
+    # Convert the size to MB
     HUMAN_SIZE=$(echo "scale=2; $REPO_SIZE / 1024" | bc)
 
     echo "Repository: $REPO_URL"
     echo "Repository size: $HUMAN_SIZE MB"
 
+    # Prompt the user for confirmation to clone
     echo "Do you want to clone the repository? (y/n): "
     read confirm
 
@@ -263,6 +274,8 @@ function github-clone {
         echo "Clone aborted."
     fi
 }
+
+
 alias ghclone="github-clone"
 alias ghc='github-clone'
 
@@ -498,6 +511,7 @@ clip() {
     fi
 }
 
+
 function yy() {
     local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
     yazi "$@" --cwd-file="$tmp"
@@ -507,18 +521,32 @@ function yy() {
     rm -f -- "$tmp"
 }
 
-pr_diff_fetch() {
-  local repo=$1
-  local pr_number=$2
 
-  if [ -z "$repo" ] || [ -z "$pr_number" ]; then
+gh_pr_diff() {
+
+  if [ -z "$@" ]; then
     echo "Usage: pr_diff_fetch <repo> <pr_number>"
     return 1
   fi
 
+    # Input GitHub PR URL
+  url="$@"
+
+  # Extract the repo (e.g., "CUBRID/cubrid")
+  repo=$(echo "$url" | sed -E 's|https://github.com/([^/]+/[^/]+)/pull/.*|\1|')
+
+  # Extract the PR number (e.g., "5511")
+  pr_number=$(echo "$url" | sed -E 's|.*/pull/([0-9]+).*|\1|')
+
+  # Print the results
+  echo "Repository: $repo"
+  echo "PR Number: $pr_number"
+
   curl -H "Accept: application/vnd.github.diff" \
     "https://api.github.com/repos/${repo}/pulls/${pr_number}"
 }
+alias prdiff='gh_pr_diff'
+
 
 alias mylog='$EDITOR $HOME/mylog/worklog-$(date +%Y-%m-%d).md'
 
