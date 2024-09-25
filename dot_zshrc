@@ -266,6 +266,14 @@ if ! command -v atuin > /dev/null 2>&1; then
 fi
 
 
+# gh cli
+if ! command -v gh > /dev/null 2>&1; then
+  echo "warning: gh cli not installed."
+  echo "use 'sudo apt install gh' or 'sudo pacman -S gh'"
+  echo "use 'gh extension install dlvhdr/gh-dash'"
+fi
+
+
 # zsh personal aliases
 # must be below export PATHs, since it checks whether each command exists.
 alias zalias="$CHEZ_EDITOR $HOME/.config/vimkim-scripts/zsh/aliases.zsh"
