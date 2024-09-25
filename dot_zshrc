@@ -128,16 +128,33 @@ alias za='zellij_new_if_cannot_attach'
 alias zl='zellij_new_if_cannot_attach'
 alias zell='zellij'
 
-# Auto-run zellij if not on SSH
-if [ -z "$SSH_CONNECTION" ] && [ "$TERM_PROGRAM" != "vscode" ]; then
+# Auto-run zellij if not on SSH, VS Code, Docker, etc.
+zellij_autorun() {
+  if [ -n "$SSH_CONNECTION" ]; then
+    echo "Inside an SSH session. zellij not used."
+    return
+  fi
+
+  if [ "$TERM_PROGRAM" = "vscode" ]; then
+    echo "Inside VS Code. zellij not used."
+    return
+  fi
+
+  if grep -q docker /proc/1/cgroup; then
+    echo "Inside a Docker container. zellij not used."
+    return
+  fi
+
   if ! command -v zellij &>/dev/null; then
     echo "zellij is not installed. Please install zellij to use this feature."
-  else
-    if [ -z "$ZELLIJ" ]; then
-      zl
-    fi
+    return
   fi
-fi
+
+  if [ -z "$ZELLIJ" ]; then
+    zl
+  fi
+}
+zellij_autorun
 
 zellij_tab_name_update() {
     if [[ -n $ZELLIJ ]]; then
