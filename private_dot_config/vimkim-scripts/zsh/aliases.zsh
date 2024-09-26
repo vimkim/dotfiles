@@ -496,6 +496,10 @@ alias chzh='cd ~/.local/share/chezmoi'
 alias chezd='cd ~/.local/share/chezmoi'
 alias chezh='cd ~/.local/share/chezmoi'
 alias chezcd='cd ~/.local/share/chezmoi'
+alias conf='chezmoi edit --apply'
+
+## conf
+alias confd='cd ~/.config && echo "prefer using chezmoi edit"'
 
 source ~/my-cubrid/aliases.sh
 
