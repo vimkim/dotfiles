@@ -54,11 +54,11 @@ elif command_exists difft; then
 fi
 
 if [ -x "$(command -v eza)" ]; then
-    alias ls='eza -aF'
-    alias l='eza -aF'
-    alias la='eza -laF'
-    alias ll='eza -laF'
-    alias llg='eza -laF --git'
+    alias ls='eza --icons -aF'
+    alias l='eza --icons -aF'
+    alias la='eza --icons -laF'
+    alias ll='eza --icons -laF'
+    alias llg='eza --icons -laF --git'
 elif [ -x "$(command -v lsd)" ]; then
     alias ls='lsd -aF'
     alias l='lsd -aF'
