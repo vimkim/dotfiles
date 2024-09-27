@@ -554,6 +554,8 @@ alias prdiff='gh_pr_diff'
 
 alias mylog='$EDITOR $HOME/mylog/worklog-$(date +%Y-%m-%d).md'
 alias notion='open https://notion.so'
+alias gpt='open https://chatgpt.com'
+alias goo='open https://google.com'
 
 alias arxivtotext='arxiv2text'
 
