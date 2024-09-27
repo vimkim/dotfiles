@@ -247,6 +247,9 @@ export FORGIT_COPY_CMD='xclip -selection clipboard'
 # must be after plugin manager, such as sheldon
 export PATH="$PATH:$FORGIT_INSTALL_DIR/bin"
 
+# zsh-autosuggest
+bindkey '^ ' autosuggest-accept
+
 
 # zsh-autocomplete, installed by sheldon
 bindkey '^I' menu-select
