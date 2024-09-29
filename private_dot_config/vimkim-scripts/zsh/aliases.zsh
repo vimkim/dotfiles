@@ -524,6 +524,7 @@ function yy() {
     fi
     rm -f -- "$tmp"
 }
+alias y='yy'
 
 
 gh_pr_diff() {
