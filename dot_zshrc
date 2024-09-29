@@ -164,6 +164,13 @@ zellij_tab_name_update() {
         else
             current_dir=${current_dir##*/}
         fi
+
+        # Abbreviate if the name is longer than 10 characters
+        local max_length=10
+        if [[ ${#current_dir} -gt $max_length ]]; then
+            current_dir="${current_dir:0:$max_length}~"
+        fi
+
         command nohup zellij action rename-tab "$current_dir" >/dev/null 2>&1
     fi
 }
