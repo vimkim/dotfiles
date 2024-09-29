@@ -179,9 +179,10 @@ keybinds clear-defaults=true {
         bind "Alt o" { MoveTab "Right"; }
 
         // move pane to next tab
-        bind "Alt ," { BreakPaneLeft; }
-        bind "Alt ." { BreakPaneRight; }
-        bind "Alt /" { BreakPane; }
+        bind "Alt <" { BreakPaneLeft; }
+        bind "Alt >" { BreakPaneRight; }
+        bind "Alt ," { MoveTab "Left"; }
+        bind "Alt ." { MoveTab "Right"; }
 
         bind "Alt h" "Alt Left" { MoveFocusOrTab "Left"; }
         bind "Alt l" "Alt Right" { MoveFocusOrTab "Right"; }
@@ -204,6 +205,8 @@ keybinds clear-defaults=true {
         bind "Alt %" { GoToTab 5; SwitchToMode "Normal"; }
         bind "Alt ^" { GoToTab 6; SwitchToMode "Normal"; }
         bind "Alt &" { GoToTab 7; SwitchToMode "Normal"; }
+        bind "Alt *" { GoToTab 8; SwitchToMode "Normal"; }
+        bind "Alt (" { GoToTab 9; SwitchToMode "Normal"; }
     }
     shared_except "normal" "locked" {
         bind "Enter" "Esc" { SwitchToMode "Normal"; }
