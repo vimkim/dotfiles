@@ -27,6 +27,8 @@ export PATH=$PATH:$HOME/go/bin
 export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
 export PATH=$JAVA_HOME/bin:$PATH
 
+. ~/.asdf/plugins/java/set-java-home.zsh
+
 export MAKEFLAGS="-j$(nproc)"
 export LESS='-iRFSX'
 
