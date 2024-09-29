@@ -102,7 +102,7 @@ layout {
         children
         pane size=1 borderless=true {
             plugin location="file:$HOME/.local/bin/zjstatus.wasm" {
-                hide_frame_for_single_pane "true"
+                // hide_frame_for_single_pane "true"
 
                 format_left  "{mode}#[fg=#89B4FA,bg=#181825,bold] {session}#[bg=#181825] {tabs}"
                 format_right "{command_kubectx}#[fg=#424554,bg=#181825]::{command_kubens}{datetime}"
