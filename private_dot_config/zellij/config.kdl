@@ -192,7 +192,7 @@ keybinds clear-defaults=true {
         bind "Alt -" { Resize "Decrease"; }
         bind "Alt [" { PreviousSwapLayout; }
         bind "Alt ]" { NextSwapLayout; }
-        bind "Alt !" { NextSwapLayout; }
+        bind "Alt s" { NextSwapLayout; }
 
         // toggle term
         bind "Alt t" { ToggleFocusFullscreen; SwitchFocus; }
