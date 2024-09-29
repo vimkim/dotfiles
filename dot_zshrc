@@ -292,6 +292,6 @@ alias zalias="$CHEZ_EDITOR $HOME/.config/vimkim-scripts/zsh/aliases.zsh"
 alias zali='zalias'
 source "$HOME/.config/vimkim-scripts/zsh/aliases.zsh"
 
-fastfetch
+fastfetch -l ~/.config/my-assets/ferris.txt
 
 # zprof
