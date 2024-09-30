@@ -24,3 +24,5 @@ asdf
 sheldon
 fzf
 direnv
+diskonaut
+chezmoi
