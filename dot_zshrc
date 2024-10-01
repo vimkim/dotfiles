@@ -271,7 +271,7 @@ bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
 # must be below sheldon, due to conflict with autocomplete
 # https://docs.atuin.sh/guide/basic-usage
 # curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
-. "$HOME/.atuin/bin/env"
+#. "$HOME/.atuin/bin/env"
 eval "$(atuin init zsh)"
 if ! command -v atuin > /dev/null 2>&1; then
   echo "warning: atuin not installed."
