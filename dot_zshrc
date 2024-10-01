@@ -112,6 +112,7 @@ my-utils-install() {
 if ! command -v zellij > /dev/null 2>&1; then
   echo "warning: zellij not installed"
 fi
+
 zellij_new_if_cannot_attach() {
   if [ -n "$TERM_PROGRAM" ] && [ "$TERM_PROGRAM" = "WezTerm" ]; then
     zellij attach -c my-wezterm
@@ -119,13 +120,15 @@ zellij_new_if_cannot_attach() {
   elif [ -n "$WT_SESSION" ]; then
     zellij attach -c my-winterm
 
-  elif [ -n "$TERM" ] && [ "$TERM" = "alacritty" ]; then
+
+  elif [[ "$ALACRITTY_ENV" == "true" ]]; then
     zellij attach -c my-alacritty
 
   else
     zellij a || zellij
   fi
 }
+
 alias za='zellij_new_if_cannot_attach'
 alias zl='zellij_new_if_cannot_attach'
 alias zell='zellij'
