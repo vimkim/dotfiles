@@ -105,10 +105,10 @@ layout {
             plugin location="https://github.com/dj95/zjstatus/releases/download/v0.17.0/zjstatus.wasm" {
                 // hide_frame_for_single_pane "true"
 
-                format_left  "{mode}#[fg=#89B4FA,bg=#181825,bold] {session}#[bg=#181825]"
+                format_left  "{mode}#[fg=#89B4FA,bg=#181825,bold] {session}#[bg=#181825] {tabs}"
                 format_right "{command_kubectx}#[fg=#424554,bg=#181825]::{command_kubens}{datetime}"
-                // format_space "#[bg=#181825]"
-                format_center "{tabs}"
+                format_space "#[bg=#181825]"
+                // format_center "{tabs}"
 
                 mode_normal          "#[bg=#89B4FA] "
                 mode_tmux            "#[bg=#ffc387] "
