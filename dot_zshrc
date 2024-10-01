@@ -171,7 +171,7 @@ zellij_tab_name_update() {
         fi
 
         # Abbreviate if the name is longer than 10 characters
-        local max_length=10
+        local max_length=7
         if [[ ${#current_dir} -gt $max_length ]]; then
             current_dir="${current_dir:0:$max_length}~"
         fi
