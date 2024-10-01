@@ -179,6 +179,8 @@ keybinds clear-defaults=true {
         bind "Alt v" { NewPane "Right"; SwitchToMode "Normal"; }
         bind "Alt i" { MoveTab "Left"; }
         bind "Alt o" { MoveTab "Right"; }
+        bind "Alt t" { ToggleFloatingPanes; SwitchFocus; }
+        bind "Alt e" { TogglePaneEmbedOrFloating; }
 
         // move pane to next tab
         bind "Alt <" { BreakPaneLeft; }
@@ -197,9 +199,6 @@ keybinds clear-defaults=true {
         bind "Alt [" { PreviousSwapLayout; }
         bind "Alt ]" { NextSwapLayout; }
         bind "Alt s" { NextSwapLayout; }
-
-        // toggle term
-        bind "Alt t" { ToggleFocusFullscreen; SwitchFocus; }
 
         // alt + num
         bind "Alt !" { GoToTab 1; SwitchToMode "Normal"; }
