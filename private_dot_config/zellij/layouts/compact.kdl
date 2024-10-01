@@ -1,4 +1,10 @@
 layout {
+    tab name="~" { pane; }
+    tab name="~" { pane; }
+    tab name="~" { pane; }
+    tab name="~" { pane; }
+    tab name="~" { pane; }
+
     tab_template name="ui" {
         children
         pane size=1 borderless=true {
