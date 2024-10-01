@@ -174,8 +174,9 @@ keybinds clear-defaults=true {
     shared_except "locked" {
         bind "Ctrl g" { SwitchToMode "Locked"; }
         // bind "Ctrl q" { Quit; }
-        bind "Alt n" { NewPane; }
-        bind "Alt b" { NewTab; }
+        bind "Alt n" { NewTab; }
+        bind "Alt s" { NewPane "Down"; SwitchToMode "Normal"; }
+        bind "Alt v" { NewPane "Right"; SwitchToMode "Normal"; }
         bind "Alt i" { MoveTab "Left"; }
         bind "Alt o" { MoveTab "Right"; }
 
