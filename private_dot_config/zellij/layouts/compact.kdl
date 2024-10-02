@@ -1,7 +1,7 @@
 layout {
-    tab focus=true name="~" { pane; }
-    tab name="~" { pane; }
-    tab name="~" { pane; }
+    tab focus=true name="~       " { pane; }
+    tab name="~       " { pane; }
+    tab name="~       " { pane; }
 
     tab_template name="ui" {
         children
