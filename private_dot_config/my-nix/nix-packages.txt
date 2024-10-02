@@ -26,3 +26,4 @@ fzf
 direnv
 diskonaut
 chezmoi
+atuin
