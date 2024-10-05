@@ -8,9 +8,10 @@ A reminder of how to set up my dotfiles on a new machine.
 
 ```bash
 sudo pacman -S zsh
+zsh
 ```
 
-### install oh-my-zsh
+### install oh-my-zsh (optional)
 
 ```bash
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
@@ -27,7 +28,7 @@ sh <(curl -L https://nixos.org/nix/install) --no-daemon
 ### install chezmoi
 
 ```bash
-nix-env -i chezmoi
+nix-env -iA nixpkgs.chezmoi
 chezmoi init --apply vimkim
 ```
 
@@ -35,5 +36,5 @@ chezmoi init --apply vimkim
 
 ```bash
 cd $HOME/.config
-git clone https://github.com/vimkim/lazyvim-starter nvim
+git clone https://github.com/vimkim/nvim
 ```
