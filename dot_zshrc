@@ -5,9 +5,9 @@
 
 # LOCALE
 if [[ -f /etc/centos-release ]]; then
-  if grep -q "CentOS Linux release 7" /etc/centos-release; then
-    export LANG=en_US.UTF-8
-  fi
+    if grep -q "CentOS Linux release 7" /etc/centos-release; then
+        export LANG=en_US.UTF-8
+    fi
 fi
 
 
@@ -44,26 +44,26 @@ export MAKEFLAGS="-j$(nproc)"
 
 # Check if the OS is CentOS 7 and source the devtoolset-8 script
 if [[ -f /etc/centos-release ]]; then
-  if grep -q "CentOS Linux release 7" /etc/centos-release; then
-    source /opt/rh/devtoolset-8/enable
-  fi
+    if grep -q "CentOS Linux release 7" /etc/centos-release; then
+        source /opt/rh/devtoolset-8/enable
+    fi
 fi
 
 # ccache
 # Check if 'ccache' exists and if '/usr/lib/ccache' directory exists
 if command -v ccache > /dev/null 2>&1 && [ -d "/usr/lib/ccache/bin" ];then
-  # arch linux
-  export PATH="/usr/lib/ccache/bin:$PATH"
+    # arch linux
+    export PATH="/usr/lib/ccache/bin:$PATH"
 elif command -v ccache >/dev/null 2>&1 && [ -d "/usr/lib/ccache" ]; then
-  # ubuntu
-  export PATH="/usr/lib/ccache:$PATH"
+    # ubuntu
+    export PATH="/usr/lib/ccache:$PATH"
 fi
 
 
 # Check if the OS is Arch Linux
 if [[ -f /etc/os-release && $(grep -oP '(?<=^ID=).+' /etc/os-release) == "arch" ]]; then
-  export CC=gcc-13
-  export CXX=g++-13
+    export CC=gcc-13
+    export CXX=g++-13
 fi
 
 
@@ -105,7 +105,7 @@ my_nix_install() {
             echo "$pkg is already installed"
             continue
         fi
-        
+
         # Install the package
         echo "Installing $pkg from nixpkgs..."
         if ! nix-env -iA nixpkgs."$pkg"; then
@@ -115,28 +115,28 @@ my_nix_install() {
 }
 
 my-utils-install() {
-  npm install xcv --global
+    npm install xcv --global
 }
 
 # zellij
 if ! command -v zellij > /dev/null 2>&1; then
-  echo "warning: zellij not installed"
+    echo "warning: zellij not installed"
 fi
 
 zellij_new_if_cannot_attach() {
-  if [ -n "$TERM_PROGRAM" ] && [ "$TERM_PROGRAM" = "WezTerm" ]; then
-    zellij attach -c my-wezterm
+    if [ -n "$TERM_PROGRAM" ] && [ "$TERM_PROGRAM" = "WezTerm" ]; then
+        zellij attach -c my-wezterm
 
-  elif [ -n "$WT_SESSION" ]; then
-    zellij attach -c my-winterm
+    elif [ -n "$WT_SESSION" ]; then
+        zellij attach -c my-winterm
 
 
-  elif [[ "$ALACRITTY_ENV" == "true" ]]; then
-    zellij attach -c my-alacritty
+    elif [[ "$ALACRITTY_ENV" == "true" ]]; then
+        zellij attach -c my-alacritty
 
-  else
-    zellij a || zellij
-  fi
+    else
+        zellij a || zellij
+    fi
 }
 
 alias za='zellij_new_if_cannot_attach'
@@ -145,29 +145,29 @@ alias zell='zellij'
 
 # Auto-run zellij if not on SSH, VS Code, Docker, etc.
 zellij_autorun() {
-  if [ -n "$SSH_CONNECTION" ]; then
-    echo "Inside an SSH session. zellij not used."
-    return
-  fi
+    if [ -n "$SSH_CONNECTION" ]; then
+        echo "Inside an SSH session. zellij not used."
+        return
+    fi
 
-  if [ "$TERM_PROGRAM" = "vscode" ]; then
-    echo "Inside VS Code. zellij not used."
-    return
-  fi
+    if [ "$TERM_PROGRAM" = "vscode" ]; then
+        echo "Inside VS Code. zellij not used."
+        return
+    fi
 
-  if grep -q docker /proc/1/cgroup; then
-    echo "Inside a Docker container. zellij not used."
-    return
-  fi
+    if grep -q docker /proc/1/cgroup; then
+        echo "Inside a Docker container. zellij not used."
+        return
+    fi
 
-  if ! command -v zellij &>/dev/null; then
-    echo "zellij is not installed. Please install zellij to use this feature."
-    return
-  fi
+    if ! command -v zellij &>/dev/null; then
+        echo "zellij is not installed. Please install zellij to use this feature."
+        return
+    fi
 
-  if [ -z "$ZELLIJ" ]; then
-    zl
-  fi
+    if [ -z "$ZELLIJ" ]; then
+        zl
+    fi
 }
 zellij_autorun
 
@@ -183,14 +183,14 @@ zellij_tab_name_update() {
         # Make the length of dirname exactly 8
         local max_length=8
         if [[ ${#current_dir} -gt $max_length ]]; then
-          current_dir="${current_dir:0:$((max_length-1))}~"
+            current_dir="${current_dir:0:$((max_length-1))}~"
         else
-          current_dir=$(printf "%-8s" "${current_dir}")
+            current_dir=$(printf "%-8s" "${current_dir}")
         fi
 
         # nohup zellij action rename-tab "$current_dir" >/dev/null 2>&1
         setopt LOCAL_OPTIONS NO_NOTIFY NO_MONITOR
-        { sleep 0.5 && zellij action rename-tab "$current_dir" } & disown
+        { sleep 0.3 && zellij action rename-tab "$current_dir" > /dev/null 2>&1 } & disown
     fi
 }
 
@@ -218,7 +218,7 @@ clip() {
 # git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
 # ~/.fzf/install
 if !command -v fzf >/dev/null 2>&1; then
-  echo "warning: fzf not installed."
+    echo "warning: fzf not installed."
 fi
 if [ -f ~/.fzf.zsh ]; then
     source ~/.fzf.zsh
@@ -249,10 +249,10 @@ eval "$(direnv hook zsh)"
 # git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
 . "$HOME/.asdf/asdf.sh"
 if ! command -v asdf > /dev/null 2>&1; then
-  echo "warning: asdf not installed."
+    echo "warning: asdf not installed."
 else
-  alias zsh-clear-cache='rehash'
-  . ~/.asdf/plugins/golang/set-env.zsh
+    alias zsh-clear-cache='rehash'
+    . ~/.asdf/plugins/golang/set-env.zsh
 fi
 
 
@@ -260,10 +260,10 @@ fi
 # sheldon
 # https://github.com/rossmacarthur/sheldon
 # curl --proto '=https' -fLsS https://rossmacarthur.github.io/install/crate.sh \
-# | bash -s -- --repo rossmacarthur/sheldon --to ~/.local/bin
+    # | bash -s -- --repo rossmacarthur/sheldon --to ~/.local/bin
 eval "$(sheldon source)"
 if ! command -v sheldon > /dev/null 2>&1; then
-  echo "warning: sheldon not installed."
+    echo "warning: sheldon not installed."
 fi
 
 
@@ -292,15 +292,15 @@ bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
 #. "$HOME/.atuin/bin/env"
 eval "$(atuin init zsh)"
 if ! command -v atuin > /dev/null 2>&1; then
-  echo "warning: atuin not installed."
+    echo "warning: atuin not installed."
 fi
 
 
 # gh cli
 if ! command -v gh > /dev/null 2>&1; then
-  echo "warning: gh cli not installed."
-  echo "use 'sudo apt install gh' or 'sudo pacman -S gh'"
-  echo "use 'gh extension install dlvhdr/gh-dash'"
+    echo "warning: gh cli not installed."
+    echo "use 'sudo apt install gh' or 'sudo pacman -S gh'"
+    echo "use 'gh extension install dlvhdr/gh-dash'"
 fi
 
 
