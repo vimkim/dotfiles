@@ -40,7 +40,7 @@ else
 fi
 
 export MAKEFLAGS="-j$(nproc)"
-export LESS='-iRFSX'
+# export LESS='-iRFSX'
 
 # Check if the OS is CentOS 7 and source the devtoolset-8 script
 if [[ -f /etc/centos-release ]]; then
