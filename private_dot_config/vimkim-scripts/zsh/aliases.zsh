@@ -67,8 +67,19 @@ elif [ -x "$(command -v lsd)" ]; then
     alias llg='lsd -laF --git'
 fi
 
+alias pscp='ps -ef | fzf | awk "{print \$2}" | xclip -selection clipboard'
 if [ -x "$(command -v procs)" ]; then
-    alias ps='procs --tree --thread'
+    alias pps='procs'
+    alias ppstt='procs --tree --thread'
+    pscopy() {
+        local selection=$(procs --no-header --color=always | fzf --ansi --height 40%)
+        local pid=$(echo "$selection" | awk '{print $1}')
+        procs $pid
+        echo "$pid" | xclip -selection clipboard # Copy only the PID to the clipboard
+    }
+
+    alias pscp='pscopy'
+    source <(procs --gen-completion-out zsh)
 fi
 
 alias lzd='lazydocker'
@@ -388,7 +399,7 @@ alias gfz="git fuzzy"
 # Deveplopment and Programming aliases
 
 ## python
-alias py='python3'
+alias py='python'
 
 run_project() {
     if [ -f Cargo.toml ]; then
