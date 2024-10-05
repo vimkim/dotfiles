@@ -1,6 +1,9 @@
 git:
   log:
     # showWholeGraph: true
+  paging:
+    colorArgs: always
+    pager: delta --dark --paging=never
 
 customCommands:
   - key: "C"
