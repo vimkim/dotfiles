@@ -276,6 +276,11 @@ export FORGIT_COPY_CMD='xclip -selection clipboard'
 # after `forgit` was loaded.
 # must be after plugin manager, such as sheldon
 export PATH="$PATH:$FORGIT_INSTALL_DIR/bin"
+# required for delta to make it show diff in full width
+export COLUMNS
+export FZF_PREVIEW_COLUMNS
+export FORGIT_PAGER='delta --side-by-side -w ${FZF_PREVIEW_COLUMNS:-$COLUMNS}'
+
 
 # zsh-autosuggest
 bindkey '^ ' autosuggest-accept
