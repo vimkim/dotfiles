@@ -178,7 +178,7 @@ alias cr='DIR=$(dirs -v | head -n 20 | awk '\''{print $2}'\'' | fzf --height 40%
 # in order to include ".." to the selection list supplied to fzf, use $dirs
 cv() {
   # Combine the parent directory and subdirectories into an array
-  local dirs=("../" $(fd --max-depth 1 -H --type d --strip-cwd-prefix))
+  local dirs=("../" $(fd --max-depth 1 -H -I --type d --strip-cwd-prefix))
   # Pass the array to fzf for selection
   local dir=$(printf "%s\n" "${dirs[@]}" | fzf --height 40% --reverse)
   # If a directory was selected, change to that directory
