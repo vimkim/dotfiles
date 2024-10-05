@@ -24,10 +24,20 @@ export PATH=$PATH:/usr/local/go/bin
 export PATH=$PATH:$HOME/go/bin
 
 ## java
-export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f $(/usr/bin/which java)))))
-export PATH=$JAVA_HOME/bin:$PATH
+# Check if Java is installed and JAVA_HOME is valid
+if JAVA_PATH=$(readlink -f $(/usr/bin/which java)) && [[ -n $JAVA_PATH && -d $(dirname $(dirname $(dirname $JAVA_PATH))) ]]; then
+    export JAVA_HOME=$(dirname $(dirname $(dirname $JAVA_PATH)))
+    export PATH=$JAVA_HOME/bin:$PATH
+else
+    echo "Warning: system-wide Java not found or JAVA_HOME cannot be set."
+fi
 
-. ~/.asdf/plugins/java/set-java-home.zsh
+# Check if the set-java-home.zsh file exists
+if [[ -f ~/.asdf/plugins/java/set-java-home.zsh ]]; then
+    . ~/.asdf/plugins/java/set-java-home.zsh
+else
+    echo "Warning: ~/.asdf/plugins/java/set-java-home.zsh not found."
+fi
 
 export MAKEFLAGS="-j$(nproc)"
 export LESS='-iRFSX'
@@ -241,6 +251,7 @@ eval "$(direnv hook zsh)"
 if ! command -v asdf > /dev/null 2>&1; then
   echo "warning: asdf not installed."
 else
+  alias zsh-clear-cache='rehash'
   . ~/.asdf/plugins/golang/set-env.zsh
 fi
 
