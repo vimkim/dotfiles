@@ -1,3 +1,6 @@
+# vim: filetype=zsh
+# why above?: https://www.chezmoi.io/user-guide/frequently-asked-questions/design/#do-i-have-to-use-chezmoi-edit-to-edit-my-dotfiles
+
 # zmodload zsh/zprof
 
 # set -v
