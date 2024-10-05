@@ -68,7 +68,7 @@ elif [ -x "$(command -v lsd)" ]; then
 fi
 
 if [ -x "$(command -v procs)" ]; then
-  alias ps='procs --tree --thread'
+    alias ps='procs --tree --thread'
 fi
 
 alias lzd='lazydocker'
@@ -103,10 +103,10 @@ alias vim='nvim'
 alias vx='FILE=$(fd . -H --type f | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
 
 function relative_gitdir() {
-  local git_root rel_path
-  git_root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
-  rel_path=$(realpath --relative-to="$PWD" "$git_root") || return 1
-  echo "$rel_path"
+    local git_root rel_path
+    git_root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+    rel_path=$(realpath --relative-to="$PWD" "$git_root") || return 1
+    echo "$rel_path"
 }
 
 function vxg() {
@@ -135,27 +135,27 @@ function cl() {
 
 # Function to compare two directories using diff and delta
 diff_dir() {
-  if [[ -d "$1" && -d "$2" ]]; then
-    /bin/diff -ur "$1" "$2" | delta
-  else
-    echo "Please provide two valid directories."
-  fi
+    if [[ -d "$1" && -d "$2" ]]; then
+        /bin/diff -ur "$1" "$2" | delta
+    else
+        echo "Please provide two valid directories."
+    fi
 }
 alias ddr='diff_dir'
 
 # Function to compare two directories using diff and diffstat
 diff_dir_stat() {
-  if [[ -d "$1" && -d "$2" ]]; then
-    /bin/diff -ur "$1" "$2" | diffstat -C
-  else
-    echo "Please provide two valid directories."
-  fi
+    if [[ -d "$1" && -d "$2" ]]; then
+        /bin/diff -ur "$1" "$2" | diffstat -C
+    else
+        echo "Please provide two valid directories."
+    fi
 }
 alias ddrstat='diff_dir_stat'
 
 
 function cdfile() {
-  if [[ -z "$1" ]]; then
+    if [[ -z "$1" ]]; then
         echo "Usage: cdtofile <filepath>"
         return 1
     fi
@@ -177,12 +177,12 @@ alias cr='DIR=$(dirs -v | head -n 20 | awk '\''{print $2}'\'' | fzf --height 40%
 
 # in order to include ".." to the selection list supplied to fzf, use $dirs
 cv() {
-  # Combine the parent directory and subdirectories into an array
-  local dirs=("../" $(fd --max-depth 1 -H -I --type d --strip-cwd-prefix))
-  # Pass the array to fzf for selection
-  local dir=$(printf "%s\n" "${dirs[@]}" | fzf --height 40% --reverse)
-  # If a directory was selected, change to that directory
-  [[ -n $dir ]] && cd "$dir"
+    # Combine the parent directory and subdirectories into an array
+    local dirs=("../" $(fd --max-depth 1 -H -I --type d --strip-cwd-prefix))
+    # Pass the array to fzf for selection
+    local dir=$(printf "%s\n" "${dirs[@]}" | fzf --height 40% --reverse)
+    # If a directory was selected, change to that directory
+    [[ -n $dir ]] && cd "$dir"
 }
 alias c='cv'
 
@@ -230,14 +230,14 @@ git_log_fzf() {
 alias glf='git_log_fzf'
 
 git_blame_file() {
-  git log -1 --format="$@:%C(green)%Creset %C(red)%h%Creset %C(yellow)%ai%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- $@
+    git log -1 --format="$@:%C(green)%Creset %C(red)%h%Creset %C(yellow)%ai%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- $@
 }
 alias gbf='git_blame_file'
 
 git_blame_directory() {
-  for file in "$1"/*; do
-    git log -1 --format="$file:%C(green)%Creset %C(red)%h%Creset %C(yellow)%ai%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file"
-  done
+    for file in "$1"/*; do
+        git log -1 --format="$file:%C(green)%Creset %C(red)%h%Creset %C(yellow)%ai%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file"
+    done
 }
 alias gbd='git_blame_directory'
 
@@ -264,8 +264,8 @@ function github-clone {
 
     # Check if REPO_SIZE is null or empty
     if [[ -z "$REPO_SIZE" || "$REPO_SIZE" == "null" ]]; then
-      echo "Error: Invalid repository name. Please input a valid GitHub repository in the form of <username>/<reponame> or a full URL."
-      return 1
+        echo "Error: Invalid repository name. Please input a valid GitHub repository in the form of <username>/<reponame> or a full URL."
+        return 1
     fi
 
     # Convert the size to MB
@@ -391,79 +391,79 @@ alias gfz="git fuzzy"
 alias py='python3'
 
 run_project() {
-  if [ -f Cargo.toml ]; then
-    echo "Detected Rust project."
-    cargo run
-  elif [ -f main.rs ]; then
-    echo "Detected main.rs."
-    rustc main.rs && ./main
-  elif [ -f package.json ]; then
-    echo "Detected Node.js project."
-    npm start
-  elif [ -f setup.py ]; then
-    echo "Detected Python project."
-    python setup.py
-  elif [ -f main.py ]; then
-    echo "Detected Python project."
-    python main.py
-  elif [ -f src/main.py ]; then
-    echo "Detected Python project."
-    python src/main.py
-  elif [ -f Makefile ]; then
-    echo "Detected project with Makefile."
-    make
-  elif [ -f go.mod ]; then
-    echo "Detected Go module."
-    go run .
-  elif [ -f main.go ]; then
-    echo "Detected Go project."
-    go run main.go
-  elif [ -f CMakeLists.txt ]; then
-    echo "Detected CMake project."
-    cmake . && make
-  elif [ -f build.gradle ]; then
-    echo "Detected Gradle project."
-    ./gradlew run
-  elif [ -f pom.xml ]; then
-    echo "Detected Maven project."
-    mvn compile exec:java
-  elif [ -f requirements.txt ]; then
-    echo "Detected Python project with requirements.txt."
-    python -m pip install -r requirements.txt
-    python main.py
-  elif [ -f Gemfile ]; then
-    echo "Detected Ruby project."
-    bundle exec ruby main.rb
-  elif [ -f manage.py ]; then
-    echo "Detected Django project."
-    python manage.py runserver
-  else
-    echo "No recognized project files found. Please add a specific case to the script."
-  fi
+    if [ -f Cargo.toml ]; then
+        echo "Detected Rust project."
+        cargo run
+    elif [ -f main.rs ]; then
+        echo "Detected main.rs."
+        rustc main.rs && ./main
+    elif [ -f package.json ]; then
+        echo "Detected Node.js project."
+        npm start
+    elif [ -f setup.py ]; then
+        echo "Detected Python project."
+        python setup.py
+    elif [ -f main.py ]; then
+        echo "Detected Python project."
+        python main.py
+    elif [ -f src/main.py ]; then
+        echo "Detected Python project."
+        python src/main.py
+    elif [ -f Makefile ]; then
+        echo "Detected project with Makefile."
+        make
+    elif [ -f go.mod ]; then
+        echo "Detected Go module."
+        go run .
+    elif [ -f main.go ]; then
+        echo "Detected Go project."
+        go run main.go
+    elif [ -f CMakeLists.txt ]; then
+        echo "Detected CMake project."
+        cmake . && make
+    elif [ -f build.gradle ]; then
+        echo "Detected Gradle project."
+        ./gradlew run
+    elif [ -f pom.xml ]; then
+        echo "Detected Maven project."
+        mvn compile exec:java
+    elif [ -f requirements.txt ]; then
+        echo "Detected Python project with requirements.txt."
+        python -m pip install -r requirements.txt
+        python main.py
+    elif [ -f Gemfile ]; then
+        echo "Detected Ruby project."
+        bundle exec ruby main.rb
+    elif [ -f manage.py ]; then
+        echo "Detected Django project."
+        python manage.py runserver
+    else
+        echo "No recognized project files found. Please add a specific case to the script."
+    fi
 }
 alias x='run_project'
 
 test_project() {
-  if [ -f Cargo.toml ]; then
-    echo "Detected Rust project."
-    cargo test
-  else
-    echo "No recognized project files found. Please add a specific case to the script."
-  fi
+    if [ -f Cargo.toml ]; then
+        echo "Detected Rust project."
+        cargo test
+    else
+        echo "No recognized project files found. Please add a specific case to the script."
+    fi
 }
 alias xt='test_project'
 
 configure_project() {
-  if [ -f CMakePresets.json ]; then
-    cmake --preset debug
-  fi
+    if [ -f CMakePresets.json ]; then
+        cmake --preset debug
+    fi
 }
 alias confp='configure_project'
 
 build_project() {
-  if [ -f CMakePresets.json ]; then
-    cmake --build --prese debug
-  fi
+    if [ -f CMakePresets.json ]; then
+        cmake --build --prese debug
+    fi
 }
 alias bb='build_project'
 alias bp='build_project'
@@ -539,26 +539,26 @@ alias y='yy'
 
 gh_pr_diff() {
 
-  if [ -z "$@" ]; then
-    echo "Usage: pr_diff_fetch <repo> <pr_number>"
-    return 1
-  fi
+    if [ -z "$@" ]; then
+        echo "Usage: pr_diff_fetch <repo> <pr_number>"
+        return 1
+    fi
 
     # Input GitHub PR URL
-  url="$@"
+    url="$@"
 
-  # Extract the repo (e.g., "CUBRID/cubrid")
-  repo=$(echo "$url" | sed -E 's|https://github.com/([^/]+/[^/]+)/pull/.*|\1|')
+    # Extract the repo (e.g., "CUBRID/cubrid")
+    repo=$(echo "$url" | sed -E 's|https://github.com/([^/]+/[^/]+)/pull/.*|\1|')
 
-  # Extract the PR number (e.g., "5511")
-  pr_number=$(echo "$url" | sed -E 's|.*/pull/([0-9]+).*|\1|')
+    # Extract the PR number (e.g., "5511")
+    pr_number=$(echo "$url" | sed -E 's|.*/pull/([0-9]+).*|\1|')
 
-  # Print the results
-  echo "Repository: $repo"
-  echo "PR Number: $pr_number"
+    # Print the results
+    echo "Repository: $repo"
+    echo "PR Number: $pr_number"
 
-  curl -H "Accept: application/vnd.github.diff" \
-    "https://api.github.com/repos/${repo}/pulls/${pr_number}"
+    curl -H "Accept: application/vnd.github.diff" \
+        "https://api.github.com/repos/${repo}/pulls/${pr_number}"
 }
 alias prdiff='gh_pr_diff'
 
