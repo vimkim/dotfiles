@@ -199,9 +199,9 @@ alias c='cv'
 
 alias cb='cd ..'
 
-alias cx='DIR=$(fd . -H --type d | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
-alias cxh='DIR=$(fd . -H --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
-alias cxg='DIR=$(fd . -H --type d $(relative_gitdir) | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+alias cx='DIR=$(fd . -H -I --type d | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
+alias cxh='DIR=$(fd . -H -I --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+alias cxg='DIR=$(fd . -H -I --type d $(relative_gitdir) | fzf) && [[ -n $DIR ]] && cd "$DIR"'
 
 alias cf='cd "$(fd . -H --type f | fzf --height 40% --reverse | xargs -I {} dirname {})"'
 alias cfh='cd "$(fd . -H --type f $HOME | fzf --height 40% --reverse | xargs -I {} dirname {})"'
