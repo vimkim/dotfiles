@@ -283,6 +283,13 @@ export FORGIT_PAGER='delta --side-by-side -w ${FZF_PREVIEW_COLUMNS:-$COLUMNS}'
 # git forgit log --all shows graph edges the wrong way
 # https://github.com/wfxr/forgit/issues/71#issuecomment-627997261
 export FORGIT_LOG_FZF_OPTS='--reverse'
+export FORGIT_FZF_DEFAULT_OPTS="
+--exact
+--border
+--cycle
+--reverse
+--height '80%'
+"
 
 
 # zsh-autosuggest
