@@ -169,7 +169,8 @@ keybinds clear-defaults=true {
         bind "o" { FocusNextPane; }
         bind "d" { Detach; }
         bind "Space" { NextSwapLayout; }
-        bind "x" { CloseFocus; SwitchToMode "Normal"; }
+        bind "Ctrl x" { CloseFocus; SwitchToMode "Normal"; }
+        bind "Ctrl q" { Quit; }
     }
     shared_except "locked" {
         bind "Ctrl g" { SwitchToMode "Locked"; }
