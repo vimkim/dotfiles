@@ -280,6 +280,9 @@ export PATH="$PATH:$FORGIT_INSTALL_DIR/bin"
 export COLUMNS
 export FZF_PREVIEW_COLUMNS
 export FORGIT_PAGER='delta --side-by-side -w ${FZF_PREVIEW_COLUMNS:-$COLUMNS}'
+# git forgit log --all shows graph edges the wrong way
+# https://github.com/wfxr/forgit/issues/71#issuecomment-627997261
+export FORGIT_LOG_FZF_OPTS='--reverse'
 
 
 # zsh-autosuggest
