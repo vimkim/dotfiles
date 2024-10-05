@@ -331,8 +331,19 @@ alias gdc='git diff --cached'
 
 ## git log
 alias gg='git-graph'
-alias gl='GIT_PAGER="less -iRFSX" git log --graph --color --pretty=format:"%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(red)%ad%C(reset)%C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
-alias gloga='GIT_PAGER="less -iRFSX" git log --graph --all --color --pretty=format:"%C(yellow)%h%C(reset) %C(blue)%an%C(reset) %C(red)%ad%C(reset)%C(cyan)%d%C(reset) %C(white)%s%C(reset)" --date=short'
+export GIT_PRETTY_FORMAT='%C(auto)%h %C(blue)%an%C(reset) %C(magenta)%as%C(reset)%C(auto)%d %s %C(black)%C(bold)%cr%reset'
+gl() {
+    GIT_PAGER="less -iRFSX" \
+        git log --graph --color \
+        --pretty=format:"$GIT_PRETTY_FORMAT"
+}
+
+# Function to show all branches with git log
+gloga() {
+    GIT_PAGER="less -iRFSX" \
+        git log --graph --color --all \
+        --pretty=format:"$GIT_PRETTY_FORMAT"
+}
 alias gla='gloga'
 alias glh='gl HEAD' # useful when followed by a branch like develop
 alias gld='gl develop HEAD'
