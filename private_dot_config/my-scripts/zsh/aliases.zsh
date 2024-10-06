@@ -262,11 +262,21 @@ git_blame_file() {
 alias gbf='git_blame_file'
 
 git_blame_directory() {
+    # Find the maximum filename length for alignment
+    max_length=0
     for file in "$1"/*; do
-        git log -1 --format="$file:%C(green)%Creset %C(red)%h%Creset %C(yellow)%ai%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file"
+        if [ ${#file} -gt $max_length ]; then
+            max_length=${#file}
+        fi
+    done
+
+    # Iterate through each file and display the git log in the aligned format
+    for file in "$1"/*; do
+        commit_info=$(git log --color=always -1 --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
+        printf "%-${max_length}s | %s\n" "$file" "$commit_info"
     done
 }
-alias gbd='git_blame_directory'
+alias gbd='git_blame_directory . | less -iRFSX'
 
 # Function to estimate Git repository size and prompt before cloning
 function github-clone {
