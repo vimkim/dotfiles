@@ -61,7 +61,7 @@ if [ -x "$(command -v eza)" ]; then
     alias lss="eza $EZA_COMMON_OPTIONS --icons $EZA_SORT_MODIFIED"
     alias la='lss'
     alias llsz="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons --total-size --sort=size -r"
-    alias lll="eza $EZA_LONG_OPTIONS $EZA_SORT_MODIFIED --inode | less -RFiX" # no icons since modern less -r usage not recommended
+    alias lll="eza $EZA_LONG_OPTIONS $EZA_SORT_MODIFIED --header --inode | less -RFiX" # no icons since modern less -r usage not recommended
 
     function my-list-long() {
         eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid
