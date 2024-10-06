@@ -290,6 +290,32 @@ git_blame_directory() {
 }
 alias gbd='git_blame_directory . | less -iRFSX'
 
+export GBDLIMIT=99
+git_blame_directory_long() {
+    # Find the maximum filename length for alignment
+    max_length=0
+    for file in "$1"/*; do
+        if [ -d "$file" ]; then
+            file="$file/"
+        fi
+        if [ ${#file} -gt $max_length ]; then
+            max_length=${#file}
+        fi
+    done
+
+    # Iterate through each file and display the git log in the aligned format
+    for file in "$1"/*; do
+        if [ -d "$file" ]; then
+            file="$file/"
+        fi
+        echo "$file"
+        commit_info=$(git log --oneline -n $GBDLIMIT --color=always --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
+        printf "%s\n" "$commit_info"
+
+    done
+}
+alias gbdl='git_blame_directory_long . | less -iRFSX'
+
 # Function to estimate Git repository size and prompt before cloning
 function github-clone {
     if [ -z "$1" ]; then
