@@ -344,7 +344,7 @@ alias gdc='git diff --cached'
 
 ## git log
 alias gg='git-graph'
-export GIT_PRETTY_FORMAT='%C(auto)%h %C(blue)%an%C(reset) %C(magenta)%as%C(reset)%C(auto)%d %s %C(black)%C(bold)%cr%reset'
+export GIT_PRETTY_FORMAT='%C(auto)%h %C(blue)%an%C(reset) %C(magenta)%as%C(reset)%C(auto)%d %s %C(black)%C(bold)%cr%Creset'
 gl() {
     GIT_PAGER="less -iRFSX" \
         git log --graph --color \
