@@ -55,15 +55,22 @@ fi
 
 if [ -x "$(command -v eza)" ]; then
 
-    export EZA_COMMON_OPTIONS='--group-directories-last -aF --sort=modified -r --time-style=relative'
-    export EZA_LONG_OPTIONS="$EZA_COMMON_OPTIONS --long --git -aF --color=always"
-    export EZA_SORT_MODIFIED='--sort=modified -r'
+    export EZA_COMMON_OPTIONS=(--group-directories-last -aF -r --time-style=relative)
+    export EZA_LONG_OPTIONS=($EZA_COMMON_OPTIONS --long --git -aF --color=always)
+    export EZA_SORT_MODIFIED=(--sort=modified -r)
     alias lss="eza $EZA_COMMON_OPTIONS --icons $EZA_SORT_MODIFIED"
     alias la='lss'
-    alias ll="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid"
     alias llsz="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons --total-size --sort=size -r"
     alias lll="eza $EZA_LONG_OPTIONS $EZA_SORT_MODIFIED --inode | less -RFiX" # no icons since modern less -r usage not recommended
-    alias llg='ll && my-git-status'
+
+    function my-list-long() {
+        eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid
+        git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+        [[ -n $git_root ]] && my-git-status
+    }
+    alias ll='my-list-long'
+    alias ls='my-list-long'
+    alias l='my-list-long'
 elif [ -x "$(command -v lsd)" ]; then
     alias ls='lsd -aF'
     alias l='lsd -aF'
@@ -71,8 +78,7 @@ elif [ -x "$(command -v lsd)" ]; then
     alias ll='lsd -laF'
     alias llg='lsd -laF --git'
 fi
-alias ls='ll && git_root=$(git rev-parse --show-toplevel 2>/dev/null); [[ -n $git_root ]] && my-git-status'
-alias l='ls'
+
 
 
 alias pscp='ps -ef | fzf | awk "{print \$2}" | xclip -selection clipboard'
