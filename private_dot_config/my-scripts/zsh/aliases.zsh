@@ -415,24 +415,17 @@ alias gg='git-graph'
 export GIT_PRETTY_FORMAT='%C(auto)%h %C(magenta)%as%C(reset) %C(blue)%an%C(reset)%C(auto)%d %s %C(black)%C(bold)%cr%Creset'
 export FORGIT_LOG_FORMAT=$GIT_PRETTY_FORMAT
 
-export GL_OPS=()
+export GL_OPS=''
 gl() {
-    GIT_PAGER="less -iRFSX" \
-        git log --graph $GL_OPS --color \
-        --pretty=format:"$GIT_PRETTY_FORMAT"
+    GIT_PAGER="less -iRFSX"
+    git log $GL_OPS --graph --oneline --color --pretty=format:"$GIT_PRETTY_FORMAT"
 }
-
-# Function to show all branches with git log
-gloga() {
-    GIT_PAGER="less -iRFSX" \
-        git log --graph $GL_OPS --color --all \
-        --pretty=format:"$GIT_PRETTY_FORMAT"
-}
+alias gloga='GL_OPS=(--all) gl'
 alias gla='gloga'
 alias glh='gl HEAD' # useful when followed by a branch like develop
 alias gld='gl develop HEAD'
-alias glstat='GL_OPS=--stat gl'
-alias glogastat='GL_OPS=--stat gloga'
+alias glstat='GL_OPS=(--stat) gl'
+alias glogastat='GL_OPS=(--all --stat) gl'
 
 ## git pull
 alias gpl='git pull'
