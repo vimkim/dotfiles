@@ -55,7 +55,7 @@ fi
 
 if [ -x "$(command -v eza)" ]; then
 
-    export EZA_COMMON_OPTIONS='--group-directories-last --grid -aF --sort=modified -r --time-style=relative --header'
+    export EZA_COMMON_OPTIONS='--group-directories-last --grid -aF --sort=modified -r --time-style=relative'
     export EZA_LONG_OPTIONS="$EZA_COMMON_OPTIONS --long --git -aF --grid --color=always"
     export EZA_SORT_MODIFIED='--sort=modified -r'
     alias lss="eza $EZA_COMMON_OPTIONS --icons $EZA_SORT_MODIFIED"
