@@ -55,12 +55,12 @@ fi
 
 if [ -x "$(command -v eza)" ]; then
 
-    export EZA_COMMON_OPTIONS='--group-directories-last --grid -aF --sort=modified -r --time-style=relative'
-    export EZA_LONG_OPTIONS="$EZA_COMMON_OPTIONS --long --git -aF --grid --color=always"
+    export EZA_COMMON_OPTIONS='--group-directories-last -aF --sort=modified -r --time-style=relative'
+    export EZA_LONG_OPTIONS="$EZA_COMMON_OPTIONS --long --git -aF --color=always"
     export EZA_SORT_MODIFIED='--sort=modified -r'
     alias lss="eza $EZA_COMMON_OPTIONS --icons $EZA_SORT_MODIFIED"
     alias la='lss'
-    alias ll="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED"
+    alias ll="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid"
     alias llsz="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons --total-size --sort=size -r"
     alias lll="eza $EZA_LONG_OPTIONS $EZA_SORT_MODIFIED --inode | less -RFiX" # no icons since modern less -r usage not recommended
     alias llg='ll && my-git-status'
