@@ -55,14 +55,15 @@ fi
 
 if [ -x "$(command -v eza)" ]; then
 
-    export EZA_COMMON_OPTIONS='--group-directories-first --icons -aF'
-    export EZA_LONG_OPTIONS='--long --git -ahF --grid --group-directories-first --color=always'
-    alias ls="eza $EZA_COMMON_OPTIONS --icons"
+    export EZA_COMMON_OPTIONS='--group-directories-last --grid -ahF --sort=modified -r'
+    export EZA_LONG_OPTIONS="$EZA_COMMON_OPTIONS --long --git -ahF --grid --color=always"
+    export EZA_SORT_MODIFIED='--sort=modified -r'
+    alias ls="eza $EZA_COMMON_OPTIONS --icons $EZA_SORT_MODIFIED"
     alias la='ls'
-    alias ll="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons"
+    alias ll="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED"
+    alias llsz="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons --total-size --sort=size -r"
+    alias lll="eza $EZA_LONG_OPTIONS $EZA_SORT_MODIFIED --inode | less -RFiX" # no icons since modern less -r usage not recommended
     alias l='ll'
-    alias llsz="ll --total-size --sort=size -r"
-    alias lll="eza $EZA_LONG_OPTIONS --inode | less -RFiX" # no icons since modern less -r usage not recommended
 elif [ -x "$(command -v lsd)" ]; then
     alias ls='lsd -aF'
     alias l='lsd -aF'
