@@ -257,7 +257,13 @@ git_log_fzf() {
 alias glf='git_log_fzf'
 
 git_blame_file() {
-    git log -1 --format="$@:%C(green)%Creset %C(red)%h%Creset %C(yellow)%ai%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- $@
+    file=$1
+    max_length=10
+    if [ -d "$file" ]; then
+        file="$file/"
+    fi
+    commit_info=$(git log --color=always -1 --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
+    printf "%-${max_length}s | %s\n" "$file" "$commit_info"
 }
 alias gbf='git_blame_file'
 
