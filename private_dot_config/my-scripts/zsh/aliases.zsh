@@ -308,13 +308,30 @@ git_blame_directory_long() {
         if [ -d "$file" ]; then
             file="$file/"
         fi
+        echo ""
         echo "$file"
-        commit_info=$(git log --oneline -n $GBDLIMIT --color=always --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
-        printf "%s\n" "$commit_info"
+        commit_info=$(git log --stat --oneline -n $GBDLIMIT --color=always --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
+        # printf "%s\n" "$commit_info"
 
+        echo "$commit_info" | while IFS= read -r line; do
+            stripped_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
+
+            # Skip blank lines and lines containing 'file changed'
+            if [[ -z "$stripped_line" || "$stripped_line" == *"file changed"* ]]; then
+                continue
+            fi
+
+            if [[ "$stripped_line" == *"|"* ]]; then
+                echo "${line#*|}"  # Print only the part after the pipe, keeping the colors
+            else
+                printf "%s " "$line"
+            fi
+        done
     done
+
 }
 alias gbdl='git_blame_directory_long . | less -iRFSX'
+alias lb='gbdl'
 
 # Function to estimate Git repository size and prompt before cloning
 function github-clone {
