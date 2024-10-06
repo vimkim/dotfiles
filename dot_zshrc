@@ -202,6 +202,10 @@ chpwd_functions+=(zellij_tab_name_update)
 
 
 # ohmyzsh
+if [ ! -d "$HOME/.cache/omz" ]; then
+    mkdir -p "$HOME/.cache/omz"
+fi
+export ZSH_COMPDUMP=$HOME/.cache/omz/.zcompdump-$HOST
 export ZSH="$HOME/.oh-my-zsh"
 source $ZSH/oh-my-zsh.sh
 
