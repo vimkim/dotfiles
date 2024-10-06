@@ -265,6 +265,9 @@ git_blame_directory() {
     # Find the maximum filename length for alignment
     max_length=0
     for file in "$1"/*; do
+        if [ -d "$file" ]; then
+            file="$file/"
+        fi
         if [ ${#file} -gt $max_length ]; then
             max_length=${#file}
         fi
@@ -272,6 +275,9 @@ git_blame_directory() {
 
     # Iterate through each file and display the git log in the aligned format
     for file in "$1"/*; do
+        if [ -d "$file" ]; then
+            file="$file/"
+        fi
         commit_info=$(git log --color=always -1 --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
         printf "%-${max_length}s | %s\n" "$file" "$commit_info"
     done
