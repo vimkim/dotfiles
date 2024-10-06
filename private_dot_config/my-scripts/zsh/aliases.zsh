@@ -65,6 +65,7 @@ if [ -x "$(command -v eza)" ]; then
     alias lll="eza $EZA_LONG_OPTIONS $EZA_SORT_MODIFIED --inode | less -RFiX" # no icons since modern less -r usage not recommended
     alias ls='ll'
     alias l='ll'
+    alias llg='ll && my-git-status'
 elif [ -x "$(command -v lsd)" ]; then
     alias ls='lsd -aF'
     alias l='lsd -aF'
@@ -148,6 +149,9 @@ alias vxg='vxg'
 ## Navigation aliases
 function cl() {
     builtin cd "$@" && ll
+    if git rev-parse --is-inside-work-tree &> /dev/null; then
+        my-git-status
+    fi
 }
 
 
@@ -369,7 +373,10 @@ alias gpsoh='git push origin HEAD'
 alias gpoh='git push origin HEAD'
 
 ## git status
-alias gst="$MY_SCRIPTS/gst.sh"
+function my-git-status() {
+    "$MY_SCRIPTS/gst.sh"
+}
+alias gst="my-git-status"
 alias gs='gst'
 
 ## git switch
