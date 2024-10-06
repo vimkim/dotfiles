@@ -417,8 +417,7 @@ export FORGIT_LOG_FORMAT=$GIT_PRETTY_FORMAT
 
 export GL_OPS=''
 gl() {
-    GIT_PAGER="less -iRFSX"
-    git log $GL_OPS --graph --oneline --color --pretty=format:"$GIT_PRETTY_FORMAT"
+    GIT_PAGER="less -iRFSX" git log $GL_OPS --graph --oneline --color --pretty=format:"$GIT_PRETTY_FORMAT"
 }
 alias gloga='GL_OPS=(--all) gl'
 alias gla='gloga'
