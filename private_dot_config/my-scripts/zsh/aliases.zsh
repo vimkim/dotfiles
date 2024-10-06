@@ -58,10 +58,10 @@ if [ -x "$(command -v eza)" ]; then
     export EZA_COMMON_OPTIONS='--group-directories-first --icons -aF'
     export EZA_LONG_OPTIONS='--long --git -ahF --grid --group-directories-first --color=always'
     alias ls="eza $EZA_COMMON_OPTIONS --icons"
-    alias l='ls'
     alias la='ls'
     alias ll="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons"
-    alias llsz="ll --total-size"
+    alias l='ll'
+    alias llsz="ll --total-size --sort=size -r"
     alias lll="eza $EZA_LONG_OPTIONS --inode | less -RFiX" # no icons since modern less -r usage not recommended
 elif [ -x "$(command -v lsd)" ]; then
     alias ls='lsd -aF'
