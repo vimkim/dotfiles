@@ -330,5 +330,6 @@ alias zali='zalias'
 source "$MY_SCRIPTS/zsh/aliases.zsh"
 
 fastfetch -l ~/.config/my-assets/ferris.txt
+ll
 
 # zprof

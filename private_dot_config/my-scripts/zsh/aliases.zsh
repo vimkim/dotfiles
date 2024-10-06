@@ -55,8 +55,8 @@ fi
 
 if [ -x "$(command -v eza)" ]; then
 
-    export EZA_COMMON_OPTIONS='--group-directories-last --grid -ahF --sort=modified -r'
-    export EZA_LONG_OPTIONS="$EZA_COMMON_OPTIONS --long --git -ahF --grid --color=always"
+    export EZA_COMMON_OPTIONS='--group-directories-last --grid -aF --sort=modified -r --time-style=relative'
+    export EZA_LONG_OPTIONS="$EZA_COMMON_OPTIONS --long --git -aF --grid --color=always"
     export EZA_SORT_MODIFIED='--sort=modified -r'
     alias ls="eza $EZA_COMMON_OPTIONS --icons $EZA_SORT_MODIFIED"
     alias la='ls'
@@ -145,7 +145,7 @@ alias vxg='vxg'
 
 ## Navigation aliases
 function cl() {
-    builtin cd "$@" && ls
+    builtin cd "$@" && ll
 }
 
 
