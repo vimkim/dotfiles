@@ -367,8 +367,8 @@ alias gpsoh='git push origin HEAD'
 alias gpoh='git push origin HEAD'
 
 ## git status
-alias gs='git status'
-alias gst='git status'
+alias gst="$MY_SCRIPTS/gst.sh"
+alias gs='gst'
 
 ## git switch
 alias gb='git branch'
