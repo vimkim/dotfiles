@@ -63,8 +63,6 @@ if [ -x "$(command -v eza)" ]; then
     alias ll="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED"
     alias llsz="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons --total-size --sort=size -r"
     alias lll="eza $EZA_LONG_OPTIONS $EZA_SORT_MODIFIED --inode | less -RFiX" # no icons since modern less -r usage not recommended
-    alias ls='ll'
-    alias l='ll'
     alias llg='ll && my-git-status'
 elif [ -x "$(command -v lsd)" ]; then
     alias ls='lsd -aF'
@@ -73,6 +71,9 @@ elif [ -x "$(command -v lsd)" ]; then
     alias ll='lsd -laF'
     alias llg='lsd -laF --git'
 fi
+alias ls='ll && git_root=$(git rev-parse --show-toplevel 2>/dev/null); [[ -n $git_root ]] && my-git-status'
+alias l='ls'
+
 
 alias pscp='ps -ef | fzf | awk "{print \$2}" | xclip -selection clipboard'
 if [ -x "$(command -v procs)" ]; then
