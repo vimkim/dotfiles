@@ -232,8 +232,9 @@ alias gup='git_checkout_child'
 alias gdown='git checkout HEAD~1'
 alias grs='git reset'
 
-alias rfv='$HOME/.config/vimkim-scripts/rfv.sh'
-alias frf='$HOME/.config/vimkim-scripts/frf.sh'
+export MY_SCRIPTS="$HOME/.config/my-scripts"
+alias rfv='$MY_SCRIPTS/rfv.sh'
+alias frf='$MY_SCRIPTS/frf.sh'
 
 git_log_fzf() {
     git log --oneline --graph --decorate | fzf | awk '{print $2}'
