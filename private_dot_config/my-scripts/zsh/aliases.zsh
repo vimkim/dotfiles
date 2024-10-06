@@ -262,7 +262,7 @@ git_blame_file() {
     if [ -d "$file" ]; then
         file="$file/"
     fi
-    commit_info=$(git log --color=always -1 --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
+    commit_info=$(git log --follow --color=always -1 --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
     printf "%-${max_length}s | %s\n" "$file" "$commit_info"
 }
 alias gbf='git_blame_file'
@@ -284,7 +284,7 @@ git_blame_directory() {
         if [ -d "$file" ]; then
             file="$file/"
         fi
-        commit_info=$(git log --color=always -1 --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
+        commit_info=$(git log --follow --color=always -1 --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
         printf "%-${max_length}s | %s\n" "$file" "$commit_info"
     done
 }
@@ -310,7 +310,7 @@ git_blame_directory_long() {
         fi
         echo ""
         echo "$file"
-        commit_info=$(git log --stat --oneline -n $GBDLIMIT --color=always --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
+        commit_info=$(git log --follow --stat --oneline -n $GBDLIMIT --color=always --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
         # printf "%s\n" "$commit_info"
 
         echo "$commit_info" | while IFS= read -r line; do
