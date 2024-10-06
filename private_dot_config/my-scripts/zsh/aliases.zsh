@@ -110,7 +110,7 @@ mc() {
 alias nv='nvim'
 alias v='nvim'
 alias vim='nvim'
-
+alias vv='FILE=$(fd . -H -I --type f --max-depth 1 | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
 alias vx='FILE=$(fd . -H --type f | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
 
 function relative_gitdir() {
