@@ -54,11 +54,15 @@ elif command_exists difft; then
 fi
 
 if [ -x "$(command -v eza)" ]; then
-    alias ls='eza --icons -aF'
-    alias l='eza --icons -aF'
-    alias la='eza --icons -laF'
-    alias ll='eza --icons -laF'
-    alias llg='eza --icons -laF --git'
+
+    export EZA_COMMON_OPTIONS='--group-directories-first --icons -aF'
+    export EZA_LONG_OPTIONS='--long --git -ahF --grid --group-directories-first --color=always'
+    alias ls="eza $EZA_COMMON_OPTIONS --icons"
+    alias l='ls'
+    alias la='ls'
+    alias ll="eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons"
+    alias llsz="ll --total-size"
+    alias lll="eza $EZA_LONG_OPTIONS --inode | less -RFiX" # no icons since modern less -r usage not recommended
 elif [ -x "$(command -v lsd)" ]; then
     alias ls='lsd -aF'
     alias l='lsd -aF'
