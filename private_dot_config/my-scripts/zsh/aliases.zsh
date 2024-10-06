@@ -155,10 +155,7 @@ alias vxg='vxg'
 
 ## Navigation aliases
 function cl() {
-    builtin cd "$@" && ll
-    if git rev-parse --is-inside-work-tree &> /dev/null; then
-        my-git-status
-    fi
+    builtin cd "$@" && my-list-long
 }
 
 
