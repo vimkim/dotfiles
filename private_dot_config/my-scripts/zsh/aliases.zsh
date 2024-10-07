@@ -423,8 +423,8 @@ alias gloga='GL_OPS=(--all) gl'
 alias gla='gloga'
 alias glh='gl HEAD' # useful when followed by a branch like develop
 alias gld='gl develop HEAD'
-alias glstat='GL_OPS=(--stat) gl'
-alias glogastat='GL_OPS=(--all --stat) gl'
+alias glstat='GL_OPS=(--stat) GIT_PRETTY_FORMAT="$GIT_PRETTY_FORMAT%n" gl'
+alias glogastat='GL_OPS=(--all --stat) GIT_PRETTY_FORMAT="$GIT_PRETTY_FORMAT%n" gl'
 
 ## git pull
 alias gpl='git pull'
