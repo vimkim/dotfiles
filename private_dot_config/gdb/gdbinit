@@ -17,8 +17,12 @@ set print elements 100
 # Configure pretty printers for STL
 python
 import sys
-print("hello this is gdbinit!!")
+print("hello from python!")
+print("Load: ~/.config/gdb/gdbinit")
 end
+
+# source ~/.gdbinit
+# echo "Load: ~/.gdbinit\n"
 
 # Colorize output
 set print pretty on
@@ -31,10 +35,16 @@ define hook-quit
   set confirm on
 end
 
+define load-dashboard
+  source ~/.config/gdb/dashboard.gdbinit
+  echo Dashboard loaded\n
+end
+load-dashboard
+
 # Add a command to easily reload .gdbinit
 define reload-init
   source ~/.gdbinit
-  echo ".gdbinit reloaded\n"
+  echo .gdbinit reloaded\n
 end
 
 # Command to print the current stack trace with function arguments
