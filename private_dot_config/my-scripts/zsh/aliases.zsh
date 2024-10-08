@@ -40,6 +40,12 @@ if command_exists bat; then
     alias cat='bat'
     alias bh='bat -l help'
     export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+
+    function help() {
+       $@ --help | bat -l help
+    }
+    alias h='help'
+
 fi
 
 # Conditionally set alias for `broot`
@@ -610,6 +616,7 @@ alias chzh='cd ~/.local/share/chezmoi'
 alias chezd='cd ~/.local/share/chezmoi'
 alias chezh='cd ~/.local/share/chezmoi'
 alias chezcd='cd ~/.local/share/chezmoi'
+alais ch='cd $HOME'
 alias conf='chezd && chezmoi edit --apply'
 
 ## conf
