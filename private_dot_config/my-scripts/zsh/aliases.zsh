@@ -17,7 +17,8 @@ alias vimprofile="$EDITOR ~/.vimrc"
 alias nvimrc="$EDITOR ~/.config/nvim/init.lua"
 
 # System aliases
-alias rm='rm -i'
+# alias rm='rm -i'
+alias rm='trash'
 
 alias ls='ls -aF'
 alias l='ls -AF'
