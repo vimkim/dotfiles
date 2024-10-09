@@ -42,7 +42,7 @@ if command_exists bat; then
     export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 
     function help() {
-       $@ --help | bat -l help
+        $@ --help | bat -l help
     }
     alias h='help'
 
@@ -71,7 +71,7 @@ if [ -x "$(command -v eza)" ]; then
     alias lll="eza $EZA_LONG_OPTIONS $EZA_SORT_MODIFIED --header --inode | less -RFiX" # no icons since modern less -r usage not recommended
 
     function my-list-long() {
-        eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid
+        eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid $@
         git_root=$(git rev-parse --show-toplevel 2>/dev/null)
         [[ -n $git_root ]] && my-git-status
     }
@@ -530,7 +530,8 @@ run_project() {
         go run main.go
     elif [ -f CMakeLists.txt ]; then
         echo "Detected CMake project."
-        cmake . && make
+        cmake -S . -B build_auto
+        cmake --build build_auto
     elif [ -f build.gradle ]; then
         echo "Detected Gradle project."
         ./gradlew run
@@ -616,7 +617,7 @@ alias chzh='cd ~/.local/share/chezmoi'
 alias chezd='cd ~/.local/share/chezmoi'
 alias chezh='cd ~/.local/share/chezmoi'
 alias chezcd='cd ~/.local/share/chezmoi'
-alais ch='cd $HOME'
+alias ch='cd $HOME'
 alias conf='chezd && chezmoi edit --apply'
 
 ## conf
