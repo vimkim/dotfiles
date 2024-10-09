@@ -23,8 +23,8 @@ export MANPATH="/usr/local/man:$MANPATH"
 export MANWIDTH=999
 
 ##  go
-export PATH=$PATH:/usr/local/go/bin
-export PATH=$PATH:$HOME/go/bin
+# export PATH=$PATH:/usr/local/go/bin
+# export PATH=$PATH:$HOME/go/bin
 
 ## java
 # Check if Java is installed and JAVA_HOME is valid
@@ -251,18 +251,6 @@ eval "$(starship init zsh)"
 eval "$(direnv hook zsh)"
 
 
-# asdf
-# https://asdf-vm.com/guide/getting-started.html
-# git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
-. "$HOME/.asdf/asdf.sh"
-if ! command -v asdf > /dev/null 2>&1; then
-    echo "warning: asdf not installed."
-else
-    alias zsh-clear-cache='rehash'
-    . ~/.asdf/plugins/golang/set-env.zsh
-fi
-
-
 
 # sheldon
 # https://github.com/rossmacarthur/sheldon
@@ -271,6 +259,20 @@ fi
 eval "$(sheldon source)"
 if ! command -v sheldon > /dev/null 2>&1; then
     echo "warning: sheldon not installed."
+fi
+
+# asdf, installed by sheldon
+if ! command -v asdf > /dev/null 2>&1; then
+    echo "warning: asdf not installed."
+else
+    alias zsh-clear-cache='rehash'
+
+    # go
+    . ~/.asdf/plugins/golang/set-env.zsh
+    # https://github.com/asdf-community/asdf-golang/issues/28
+    export GOPATH=$(asdf where golang)/packages
+    export GOROOT=$(asdf where golang)/go
+    export PATH="${PATH}:$(go env GOPATH)/bin"
 fi
 
 
