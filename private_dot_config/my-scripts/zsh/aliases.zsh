@@ -103,6 +103,8 @@ if [ -x "$(command -v procs)" ]; then
     source <(procs --gen-completion-out zsh)
 fi
 
+alias penv='env | fzf --exact -i'
+
 alias lzd='lazydocker'
 
 alias sl='ls'
@@ -563,6 +565,11 @@ test_project() {
     fi
 }
 alias xt='test_project'
+
+# direnv
+alias mode-debug='export ENV_MODE=debug && direnv allow'
+alias mode-profile='export ENV_MODE=profile && direnv allow'
+alias mode-release='export ENV_MODE=release && direnv allow'
 
 configure_project() {
     if [ -f CMakePresets.json ]; then
