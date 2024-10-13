@@ -169,6 +169,8 @@ zellij_autorun() {
     fi
 
     if [ -z "$ZELLIJ" ]; then
+        echo "Loading zellij..."
+        sleep 3
         zl
     fi
 }
