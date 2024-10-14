@@ -62,6 +62,7 @@ fi
 
 if [ -x "$(command -v eza)" ]; then
 
+    export EZA_COLORS="da=35;$EZA_COLORS"
     export EZA_COMMON_OPTIONS=(--group-directories-last -aF -r --time-style=relative)
     export EZA_LONG_OPTIONS=($EZA_COMMON_OPTIONS --long --git -aF --color=always)
     export EZA_SORT_MODIFIED=(--sort=modified -r)
