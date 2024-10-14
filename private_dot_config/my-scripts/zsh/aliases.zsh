@@ -74,7 +74,9 @@ if [ -x "$(command -v eza)" ]; then
     function my-list-long() {
         eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid $@
         git_root=$(git rev-parse --show-toplevel 2>/dev/null)
-        [[ -n $git_root ]] && my-git-status
+        if [[ -n $git_root ]]; then
+            my-git-status
+        fi
     }
     alias ll='my-list-long'
     alias ls='my-list-long'
