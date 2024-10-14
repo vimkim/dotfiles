@@ -204,6 +204,7 @@ chpwd_functions+=(zellij_tab_name_update)
 
 
 # ohmyzsh
+# sh -c "$(curl -fsSL https://install.ohmyz.sh/)"
 if [ ! -d "$HOME/.cache/omz" ]; then
     mkdir -p "$HOME/.cache/omz"
 fi
