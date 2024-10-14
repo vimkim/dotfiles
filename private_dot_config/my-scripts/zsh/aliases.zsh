@@ -657,7 +657,7 @@ function yy() {
     if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
         cd -- "$cwd"
     fi
-    rm -f -- "$tmp"
+    /bin/rm -f -- "$tmp"
 }
 alias y='yy'
 
