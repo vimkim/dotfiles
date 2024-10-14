@@ -695,4 +695,6 @@ alias goo='open https://google.com'
 
 alias arxivtotext='arxiv2text'
 
+alias tj='tjournal'
+
 # alias end
