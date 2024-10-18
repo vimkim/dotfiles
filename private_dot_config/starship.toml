@@ -17,3 +17,6 @@ disabled = false
 
 [direnv]
 disabled = false
+
+[env_var.ENV_MODE]
+[env_var.CUBRID]
