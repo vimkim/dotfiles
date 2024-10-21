@@ -338,6 +338,10 @@ alias zalias="$CHEZ_EDITOR $MY_SCRIPTS/zsh/aliases.zsh"
 alias zali='zalias'
 source "$MY_SCRIPTS/zsh/aliases.zsh"
 
+if ! command -v diffnav > /dev/null 2>&1; then
+  echo "warning: diffnav not installed."
+fi
+
 fastfetch -l ~/.config/my-assets/ferris.txt
 ll
 
