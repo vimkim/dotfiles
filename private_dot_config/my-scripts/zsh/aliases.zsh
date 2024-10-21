@@ -227,7 +227,7 @@ cv() {
 }
 alias c='cv'
 
-alias cb='cd ..'
+alias H='cd ..'
 
 alias cx='DIR=$(fd . -H -I --type d | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
 alias cxh='DIR=$(fd . -H -I --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
