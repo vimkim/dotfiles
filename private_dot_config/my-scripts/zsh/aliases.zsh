@@ -143,6 +143,10 @@ alias vx='FILE=$(fd . -H -I --type f | fzf --height 40% --reverse) && [[ -n $FIL
 alias fdall='fd -H -I'
 alias rgall='rg --no-ignore -.'
 
+function fdrg() {
+    fd "$1" -H -I --type f -X rg "$2"
+}
+
 function relative_gitdir() {
     local git_root rel_path
     git_root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
