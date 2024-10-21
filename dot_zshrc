@@ -193,13 +193,14 @@ zellij_tab_name_update() {
             current_dir=$(printf "%-8s" "${current_dir}")
         fi
 
-        # nohup zellij action rename-tab "$current_dir" >/dev/null 2>&1
-        setopt LOCAL_OPTIONS NO_NOTIFY NO_MONITOR
-        { sleep 0.3 && zellij action rename-tab "$current_dir" > /dev/null 2>&1 } & disown
+        nohup zellij action rename-tab "$current_dir" >/dev/null 2>&1
+        # setopt LOCAL_OPTIONS NO_NOTIFY NO_MONITOR
+        # { sleep 0.3 && zellij action rename-tab "$current_dir" > /dev/null 2>&1 } & disown
+        # nohup zellij action rename-tab "$current_dir" > /dev/null 2>&1
     fi
 }
 
-zellij_tab_name_update
+# zellij_tab_name_update
 chpwd_functions+=(zellij_tab_name_update)
 
 
