@@ -27,3 +27,6 @@ direnv
 diskonaut
 chezmoi
 atuin
+serpl
+igrep
+serie
