@@ -54,7 +54,7 @@ if command_exists broot; then
 fi
 
 if command_exists delta; then
-    alias diff='delta'
+    # alias diff='delta'
     source <(delta --generate-completion zsh)
 elif command_exists difft; then
     alias diff='difft --color=always'
