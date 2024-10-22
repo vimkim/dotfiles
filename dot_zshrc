@@ -170,8 +170,7 @@ zellij_autorun() {
 
     if [ -z "$ZELLIJ" ]; then
         echo "Loading zellij..."
-        sleep 3
-        zl
+        zellij_new_if_cannot_attach
     fi
 }
 zellij_autorun
