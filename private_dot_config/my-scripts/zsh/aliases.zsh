@@ -702,4 +702,7 @@ alias arxivtotext='arxiv2text'
 
 alias tj='tjournal'
 
+# colorize
+alias ip='ip -c=always'
+
 # alias end
