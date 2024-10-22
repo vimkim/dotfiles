@@ -255,6 +255,10 @@ eval "$(direnv hook zsh)"
 
 
 
+# In order to use grc (generic colorizer), change forgit alias.
+# This must come before eval sheldon.
+export forgit_revert_commit='grcm'
+
 # sheldon
 # https://github.com/rossmacarthur/sheldon
 # curl --proto '=https' -fLsS https://rossmacarthur.github.io/install/crate.sh \
