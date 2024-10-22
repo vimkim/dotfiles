@@ -90,7 +90,7 @@ elif [ -x "$(command -v lsd)" ]; then
 fi
 
 
-
+alias pfzf='ps -ef | fzf | awk "{print \$2}"'
 alias pscp='ps -ef | fzf | awk "{print \$2}" | xclip -selection clipboard'
 if [ -x "$(command -v procs)" ]; then
     alias pps='procs'
