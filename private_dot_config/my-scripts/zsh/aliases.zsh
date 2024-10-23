@@ -505,6 +505,13 @@ function git_status_tracked() {
 }
 alias gls='git_status_tracked'
 
+
+git-ls-ignored() {
+    git ls-files $@ --others --ignored --exclude-standard
+}
+alias gli='git-ls-ignored'
+
+
 ## git etc
 alias gcz="~/.local/bin/cz"
 alias gfz="git fuzzy"
