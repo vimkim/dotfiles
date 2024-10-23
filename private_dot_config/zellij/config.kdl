@@ -147,6 +147,8 @@ keybinds clear-defaults=true {
             SwitchToMode "Normal"
         }
 
+        bind "s" { ToggleActiveSyncTab; SwitchToMode "Normal"; }
+
         bind "e" { SwitchToMode "Scroll"; }
         bind "Ctrl a" { Write 2; SwitchToMode "Normal"; }
         bind "\"" { NewPane "Down"; SwitchToMode "Normal"; }
