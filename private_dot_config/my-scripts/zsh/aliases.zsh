@@ -41,10 +41,11 @@ if command_exists bat; then
     alias bh='bat -l help'
     export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 
-    function help() {
-        $@ --help | bat -l help
+    function help-bat() {
+        $@ --help | bat -l help -p
     }
-    alias h='help'
+    alias help='help-bat'
+    alias h='help-bat'
 
 fi
 
