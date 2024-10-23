@@ -342,17 +342,6 @@ alias gbd='git_blame_directory . | less -iRFSX'
 
 export GBDLIMIT=99
 git_blame_directory_long() {
-    # Find the maximum filename length for alignment
-    max_length=0
-    for file in "$1"/*; do
-        if [ -d "$file" ]; then
-            file="$file/"
-        fi
-        if [ ${#file} -gt $max_length ]; then
-            max_length=${#file}
-        fi
-    done
-
     # Iterate through each file and display the git log in the aligned format
     for file in "$1"/*; do
         if [ -d "$file" ]; then
