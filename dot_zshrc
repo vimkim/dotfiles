@@ -133,7 +133,6 @@ zellij_new_if_cannot_attach() {
     elif [ -n "$WT_SESSION" ]; then
         zellij attach -c my-winterm
 
-
     elif [[ "$ALACRITTY_ENV" == "true" ]]; then
         zellij attach -c my-alacritty
 
@@ -173,7 +172,6 @@ zellij_autorun() {
         zellij_new_if_cannot_attach
     fi
 }
-zellij_autorun
 
 zellij_tab_name_update() {
     if [[ -n $ZELLIJ ]]; then
@@ -212,6 +210,7 @@ export ZSH_COMPDUMP=$HOME/.cache/omz/.zcompdump-$HOST
 export ZSH="$HOME/.oh-my-zsh"
 source $ZSH/oh-my-zsh.sh
 
+zellij_autorun
 
 export CHEZ_EDITOR='chezmoi edit --watch'
 
