@@ -276,6 +276,7 @@ git_log_fzf() {
 }
 alias glf='git_log_fzf'
 
+export GBFLIMIT=99
 git_blame_file() {
     file=$1
     max_length=10
@@ -286,6 +287,35 @@ git_blame_file() {
     printf "%-${max_length}s | %s\n" "$file" "$commit_info"
 }
 alias gbf='git_blame_file'
+
+git_blame_file_long() {
+    file=$1
+    max_length=10
+    if [ -d "$file" ]; then
+        file="$file/"
+    fi
+    commit_info=$(git log --follow --stat --oneline -n $GBFLIMIT --color=always --format="%C(green)%Creset %C(red)%h%Creset %C(yellow)%as%Creset %C(cyan)%an%Creset %C(white)%s%Creset" -- "$file")
+    # printf "%s\n" "$commit_info"
+
+    echo "$commit_info" | while IFS= read -r line; do
+        stripped_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
+
+        # Skip blank lines and lines containing 'file changed'
+        if [[ -z "$stripped_line" || "$stripped_line" == *"file changed"* ]]; then
+            continue
+        fi
+
+        if [[ "$stripped_line" == *"|"* ]]; then
+            echo "${line#*|}"  # Print only the part after the pipe, keeping the colors
+        else
+            printf "%s " "$line"
+        fi
+    done
+}
+
+gbfl() {
+    git_blame_file_long $@ | less -iRFSX
+}
 
 git_blame_directory() {
     # Find the maximum filename length for alignment
