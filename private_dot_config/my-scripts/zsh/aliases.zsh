@@ -73,11 +73,11 @@ if [ -x "$(command -v eza)" ]; then
     alias lll="eza $EZA_LONG_OPTIONS $EZA_SORT_MODIFIED --header --inode | less -RFiX" # no icons since modern less -r usage not recommended
 
     function my-list-long() {
-        eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid $@
         git_root=$(git rev-parse --show-toplevel 2>/dev/null)
         if [[ -n $git_root ]]; then
             my-git-status
         fi
+        eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid $@
     }
     alias ll='my-list-long'
     alias ls='my-list-long'
