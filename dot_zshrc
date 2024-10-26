@@ -349,3 +349,5 @@ fastfetch -l ~/.config/my-assets/ferris.txt
 ll
 
 # zprof
+
+source /home/dkubnt/.config/broot/launcher/bash/br
