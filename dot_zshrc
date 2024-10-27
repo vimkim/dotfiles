@@ -345,9 +345,14 @@ if ! command -v diffnav > /dev/null 2>&1; then
   echo "warning: diffnav not installed."
 fi
 
+if ! command -v broot > /dev/null 2>&1; then
+  echo "warning: broot not installed."
+else
+  source /home/dkubnt/.config/broot/launcher/bash/br
+  alias B='br -g -d -s --sort-by-date --tree --sort-by-type-dirs-last'
+fi
+
 fastfetch -l ~/.config/my-assets/ferris.txt
 ll
 
 # zprof
-
-source /home/dkubnt/.config/broot/launcher/bash/br
