@@ -224,6 +224,12 @@ alias cr='DIR=$(dirs -v | head -n 20 | awk '\''{print $2}'\'' | fzf --height 40%
 
 # in order to include ".." to the selection list supplied to fzf, use $dirs
 cv() {
+    # If an argument is provided, act like 'cd' and go to that directory
+    if [[ -n $1 ]]; then
+        cl "$1"
+        return
+    fi
+
     # Combine the parent directory and subdirectories into an array
     local dirs=("../" $(fd --max-depth 1 -H -I --type d --strip-cwd-prefix))
     # Pass the array to fzf for selection
@@ -235,13 +241,38 @@ alias c='cv'
 
 alias H='cd ..'
 
-alias cx='DIR=$(fd . -H -I --type d | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
-alias cxh='DIR=$(fd . -H -I --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
-alias cxg='DIR=$(fd . -H -I --type d $(relative_gitdir) | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+# alias cx='DIR=$(fd . -H -I --type d | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
+# alias cxh='DIR=$(fd . -H -I --type d $HOME | fzf) && [[ -n $DIR ]] && cd "$DIR"'
+# alias cxg='DIR=$(fd . -H -I --type d $(relative_gitdir) | fzf) && [[ -n $DIR ]] && cd "$DIR"'
 
-alias cf='cd "$(fd . -H -I --type f | fzf --height 40% --reverse | xargs -I {} dirname {})"'
-alias cfh='cd "$(fd . -H -I --type f $HOME | fzf --height 40% --reverse | xargs -I {} dirname {})"'
-alias cfg='cd "$(fd . -H -I --type f $(relative_gitdir) | fzf --height 40% --reverse | xargs -I {} dirname {})"'
+# Unified function for navigation
+function cd_fzf() {
+    local search_path="${1:-.}"
+
+    # Build the fd command with optional type filtering
+    local OBJECT=$(fd . -H -I $FD_OPS "$search_path" | fzf --height 40% --reverse)
+
+    # Check if a selection was made and navigate accordingly
+    if [[ -n $OBJECT ]]; then
+        if [[ -d $OBJECT ]]; then
+            cd "$OBJECT"
+        elif [[ -f $OBJECT ]]; then
+            cd "$(dirname "$OBJECT")"
+        fi
+    fi
+}
+
+# Aliases for specific navigation
+alias cx='FD_OPS=(--type d) cd_fzf .'          # Navigate to directories
+alias cxh='cd_fzf "$HOME" d'   # Navigate to directories under $HOME
+alias cxg='cd_fzf "$(relative_gitdir)" d'  # Navigate to directories under Git root
+
+alias cf='FD_OPS=(--type f) cd_fzf .'          # Navigate to file-containing directories
+alias cfh='cd_fzf "$HOME" f'   # Navigate to file-containing directories under $HOME
+alias cfg='cd_fzf "$(relative_gitdir)" f'  # Navigate to file-containing directories under Git root
+
+alias ca='FD_OPS=(-tf -td) cd_fzf .'              # Navigate to either files or directories
+
 
 alias ff='vxg'
 
@@ -249,6 +280,7 @@ alias gcd='cd $(relative_gitdir 2>/dev/null || echo ".")'
 alias cdg='gcd'
 alias pcd='gcd'
 alias cdw='gcd'
+alias cg='cdg'
 
 alias up='cd ..'                                            # Move up one directory
 alias back='cd $OLDPWD'                                    # Return to the previous directory
