@@ -32,3 +32,5 @@ igrep
 serie
 asdf
 binsider
+serpl
+repgrep
