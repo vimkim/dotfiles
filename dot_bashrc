@@ -4,7 +4,7 @@ echo $PATH | tr ':' '\n'
 
 # Source global definitions
 if [ -f /etc/bashrc ]; then
-	. /etc/bashrc
+  . /etc/bashrc
 fi
 
 # Uncomment the following line if you don't like systemctl's auto-paging feature:
@@ -33,20 +33,14 @@ export CUBRID_DATABASES=$CUBRID/databases
 export PATH=$CUBRID/bin:$PATH
 export LD_LIBRARY_PATH=$CUBRID/lib:$CUBRID/cci/lib:$LD_LIBRARY_PATH
 
-
 # DHKIM
 # -----
 
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
 
-# Preferred editor for local and remote sessions
-if [[ -n $SSH_CONNECTION ]]; then
-    export EDITOR='nvim'
-else
-    export EDITOR='code'
-fi
+export EDITOR='nvim'
 
 export TERM=xterm
 
@@ -78,23 +72,23 @@ alias vimprofile="$EDITOR ~/.vimrc"
 # System aliases
 
 if [ -x "$(command -v exa)" ]; then
-    alias ls='exa -aF'
-    alias l='exa -aF'
-    alias la='exa -laF'
-    alias ll='exa -laF'
-    alias lsd='exa -laF --only-dirs'
+  alias ls='exa -aF'
+  alias l='exa -aF'
+  alias la='exa -laF'
+  alias ll='exa -laF'
+  alias lsd='exa -laF --only-dirs'
 else
-    alias ls='ls -aF'
-    alias l='ls -AF'
-    alias la=' -lAF'
-    alias ll='ls -lAF'
-    alias lsd='ls -lAF --color=auto --group-directories-first | grep --color=never "^d"'
+  alias ls='ls -aF'
+  alias l='ls -AF'
+  alias la=' -lAF'
+  alias ll='ls -lAF'
+  alias lsd='ls -lAF --color=auto --group-directories-first | grep --color=never "^d"'
 fi
 
 alias which="which -a"
 
 which-alias() {
-    alias | grep "^$1"
+  alias | grep "^$1"
 }
 alias du='dust'
 
@@ -104,13 +98,13 @@ alias mv='mv -i' # confirm before overwriting something
 
 ## utility aliases
 mc() {
-    mkdir $@
-    cd $@
+  mkdir $@
+  cd $@
 }
 
 ## Navigation aliases
 function cl() {
-    builtin cd "$@" && ls
+  builtin cd "$@" && ls
 }
 alias cd='cl'
 alias c='cd'
@@ -125,15 +119,15 @@ alias gr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root dir
 alias gcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
 
 function gcx() {
-    local gitRoot=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
-    cd "$gitRoot" || return
+  local gitRoot=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+  cd "$gitRoot" || return
 
-    local DIR=$(fdfind --type d . | fzf) && [[ -n $DIR ]] && cd "$DIR"
+  local DIR=$(fdfind --type d . | fzf) && [[ -n $DIR ]] && cd "$DIR"
 }
 
 ## Networking and System Information
 alias ports='netstat -tulanp'
-alias ipinfo='curl ipinfo.io' # Quick IP address and network info
+alias ipinfo='curl ipinfo.io'                  # Quick IP address and network info
 alias myip='curl http://ipecho.net/plain echo' # External IP address
 
 # Git Aliases
@@ -201,7 +195,6 @@ alias dcl='docker compose logs'
 alias ws="webstorm64.exe"
 alias ii="explorer.exe"
 
-
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 
 ## zoxide
@@ -209,8 +202,8 @@ eval "$(zoxide init bash)"
 
 # If not running interactively, don't do anything
 case $- in
-  *i*) ;;
-    *) return;;
+*i*) ;;
+*) return ;;
 esac
 
 # bash-it
