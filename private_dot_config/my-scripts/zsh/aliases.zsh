@@ -765,4 +765,7 @@ alias tj='tjournal'
 # colorize
 alias ip='ip -c=always'
 
+# taskwarrior
+alias  tt='taskwarrior-tui'
+
 # alias end
