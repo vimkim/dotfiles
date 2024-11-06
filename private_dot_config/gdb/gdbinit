@@ -1,9 +1,6 @@
 # Set prompt to include current function and line number
 set prompt \033[1;34m(gdb) \033[0m
 
-# Enable pagination
-set pagination on
-
 # Enable history
 set history save on
 set history filename ~/.gdb_history
@@ -17,8 +14,6 @@ set print elements 100
 # Configure pretty printers for STL
 python
 import sys
-print("hello from python!")
-print("Load: ~/.config/gdb/gdbinit")
 end
 
 # source ~/.gdbinit
@@ -89,3 +84,6 @@ end
 define ptree
   printf "%s\n", debug_parse_tree($arg0, $arg1).c_str()
 end
+
+set pagination on
+
