@@ -348,7 +348,7 @@ fi
 if ! command -v broot > /dev/null 2>&1; then
   echo "warning: broot not installed."
 else
-  source /home/dkubnt/.config/broot/launcher/bash/br
+  source $HOME/.config/broot/launcher/bash/br
   alias B='br -g -d -s --sort-by-date --tree --sort-by-type-dirs-last'
 fi
 
