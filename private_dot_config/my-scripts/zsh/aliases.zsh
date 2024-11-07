@@ -144,6 +144,7 @@ alias vx='FILE=$(fd . -H -I --type f | fzf --height 40% --reverse) && [[ -n $FIL
 
 alias fdall='fd -H -I'
 alias rgall='rg --no-ignore -.'
+alias tg='tgrep'
 
 function fdrg() {
     fd "$1" -H -I --type f -X rg "$2"
