@@ -16,6 +16,7 @@ alias zshrc="$CHEZ_EDITOR ~/.zshrc"
 alias profile="zshrc"
 alias vimprofile="$EDITOR ~/.vimrc"
 alias nvimrc="$EDITOR ~/.config/nvim/init.lua"
+alias gdbinit="$EDITOR ~/.config/gdb/gdbinit"
 
 # System aliases
 # alias rm='rm -i'
