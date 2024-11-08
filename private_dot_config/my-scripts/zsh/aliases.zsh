@@ -145,6 +145,7 @@ alias vx='FILE=$(fd . -H -I --type f | fzf --height 40% --reverse) && [[ -n $FIL
 alias fdall='fd -H -I'
 alias rgall='rg --no-ignore -.'
 alias tg='tgrep'
+alias gg='git grep -n -p -C 5'
 
 function fdrg() {
     fd "$1" -H -I --type f -X rg "$2"
@@ -484,7 +485,6 @@ alias gds='git diff --staged'
 alias gdc='git diff --cached'
 
 ## git log
-alias gg='git-graph'
 export GIT_PRETTY_FORMAT='%C(auto)%h %C(magenta)%as%C(reset) %C(blue)%an%C(reset)%C(auto)%d %s %C(black)%C(bold)%cr%Creset'
 export FORGIT_LOG_FORMAT=$GIT_PRETTY_FORMAT
 
