@@ -351,9 +351,24 @@ fi
 if ! command -v broot > /dev/null 2>&1; then
   echo "warning: broot not installed."
 else
-  source $HOME/.config/broot/launcher/bash/br
+  function br {
+    local cmd cmd_file code
+    cmd_file=$(mktemp)
+    if broot --outcmd "$cmd_file" "$@"; then
+        cmd=$(<"$cmd_file")
+        command rm -f "$cmd_file"
+        eval "$cmd"
+    else
+          code=$?
+        command rm -f "$cmd_file"
+        return "$code"
+    fi
+  }
+
   alias B='br -g -d -s --sort-by-date --tree --sort-by-type-dirs-last'
 fi
+
+. "$HOME/.asdf/installs/rust/1.82/env"
 
 fastfetch -l ~/.config/my-assets/ferris.txt
 ll
