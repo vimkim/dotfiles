@@ -232,10 +232,10 @@ if [ -f ~/.fzf.zsh ]; then
 else
     echo "Warning: ~/.fzf.zsh not found!"
 fi
-if [ -f ~/fzf-git.sh/fzf-git.sh ]; then
-    source "$HOME/fzf-git.sh/fzf-git.sh"
+if [ -f ~/.config/fzf-git/fzf-git.sh ]; then
+    source "$HOME/.config/fzf-git/fzf-git.sh"
 else
-    echo "Warning: ~/fzf-git.sh/fzf-git.sh not found!"
+    echo "Warning: $HOME/.config/fzf-git/fzf-git.sh not found!"
 fi
 
 
