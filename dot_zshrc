@@ -136,6 +136,9 @@ zellij_new_if_cannot_attach() {
     elif [[ "$ALACRITTY_ENV" == "true" ]]; then
         zellij attach -c my-alacritty
 
+    elif [[ -n "$ALACRITTY_LOG" ]]; then
+        zellij attach -c my-alacritty
+
     elif [ -n "$KITTY_PID" ]; then
         zellij attach -c my-kitty
 
