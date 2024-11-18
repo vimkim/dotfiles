@@ -67,6 +67,14 @@ fi
 if [[ -f /etc/os-release && $(grep -oP '(?<=^ID=).+' /etc/os-release) == "arch" ]]; then
     export CC=gcc-13
     export CXX=g++-13
+
+    # Check if fcitx5 binary exists
+    if command -v fcitx5 >/dev/null 2>&1; then
+        export GTK_IM_MODULE=fcitx
+        export QT_IM_MODULE=fcitx
+        export XMODIFIERS=@im=fcitx
+    fi
+
 fi
 
 
