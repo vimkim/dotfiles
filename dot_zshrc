@@ -379,8 +379,6 @@ else
   alias B='br -g -d -s --sort-by-date --tree --sort-by-type-dirs-last'
 fi
 
-. "$HOME/.asdf/installs/rust/1.82/env"
-
 fastfetch -l ~/.config/my-assets/ferris.txt
 ll
 
