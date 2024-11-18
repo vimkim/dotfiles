@@ -4,4 +4,13 @@ sort_by = "modified"
 sort_dir_first = false
 sort_reverse = true
 linemode = "mtime"
-show_symlink = true
+
+[[plugin.prepend_fetchers]]
+id   = "git"
+name = "*"
+run  = "git"
+
+[[plugin.prepend_fetchers]]
+id   = "git"
+name = "*/"
+run  = "git"
