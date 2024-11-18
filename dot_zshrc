@@ -26,22 +26,6 @@ export MANWIDTH=999
 # export PATH=$PATH:/usr/local/go/bin
 # export PATH=$PATH:$HOME/go/bin
 
-## java
-# Check if Java is installed and JAVA_HOME is valid
-if JAVA_PATH=$(readlink -f $(/usr/bin/which java)) && [[ -n $JAVA_PATH && -d $(dirname $(dirname $(dirname $JAVA_PATH))) ]]; then
-    export JAVA_HOME=$(dirname $(dirname $(dirname $JAVA_PATH)))
-    export PATH=$JAVA_HOME/bin:$PATH
-else
-    echo "Warning: system-wide Java not found or JAVA_HOME cannot be set."
-fi
-
-# Check if the set-java-home.zsh file exists
-if [[ -f ~/.asdf/plugins/java/set-java-home.zsh ]]; then
-    . ~/.asdf/plugins/java/set-java-home.zsh
-else
-    echo "Warning: ~/.asdf/plugins/java/set-java-home.zsh not found."
-fi
-
 export MAKEFLAGS="-j$(nproc)"
 # export LESS='-iRFSX'
 
@@ -293,6 +277,19 @@ else
     export GOPATH=$(asdf where golang)/packages
     export GOROOT=$(asdf where golang)/go
     export PATH="${PATH}:$(go env GOPATH)/bin"
+fi
+
+## asdf-java
+# Check if the set-java-home.zsh file exists
+if [[ -f ~/.asdf/plugins/java/set-java-home.zsh ]]; then
+    . ~/.asdf/plugins/java/set-java-home.zsh
+else
+    echo "Warning: ~/.asdf/plugins/java/set-java-home.zsh not found."
+fi
+
+## java
+if [[ -z $JAVA_HOME ]] || ! command -v java &>/dev/null; then
+    echo "Warning: System-wide Java not found or JAVA_HOME is not set."
 fi
 
 
