@@ -86,4 +86,7 @@ define ptree
 end
 
 set pagination on
+# detach-on-fork off: https://stackoverflow.com/questions/6199270/how-do-i-debug-the-child-process-after-fork-in-gdb
+set detach-on-fork off
 set debuginfod enabled on
+
