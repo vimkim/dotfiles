@@ -703,7 +703,7 @@ alias conf='chezd && chezmoi edit --apply'
 ## conf
 alias confd='cd ~/.config && echo "prefer using chezmoi edit"'
 
-source ~/my-cubrid/aliases.sh
+source $HOME/my-cubrid/aliases.sh
 
 alias rrkernel='sudo sysctl kernel.perf_event_paranoid=1'
 alias rrkerneloff='sudo sysctl kernel.perf_event_paranoid=0'
