@@ -32,13 +32,14 @@ export MAKEFLAGS="-j$(nproc)"
 # Check if the OS is CentOS 7 and source the devtoolset-8 script
 if [[ -f /etc/centos-release ]]; then
     if grep -q "CentOS Linux release 7" /etc/centos-release; then
-        source /opt/rh/devtoolset-8/enable
+        # source /opt/rh/devtoolset-8/enable
+        alias enable-gcc-toolset='source /opt/rh/devtoolset-8/enable'
     fi
 fi
 
 # Check if the system is Rocky Linux
 if grep -q "Rocky Linux" /etc/os-release; then
-  alias enable-gcc-toolset='scl enable gcc-toolset-13 zsh'
+    alias enable-gcc-toolset='scl enable gcc-toolset-13 zsh'
 fi
 
 # ccache
