@@ -575,7 +575,7 @@ alias gfz="git fuzzy"
 ## python
 alias py='python'
 
-run_project() {
+build_project() {
     if [ -f Cargo.toml ]; then
         echo "Detected Rust project."
         cargo run
@@ -603,10 +603,14 @@ run_project() {
     elif [ -f main.go ]; then
         echo "Detected Go project."
         go run main.go
+    elif [ -f CMakeUserPresets.json ]; then
+        echo "Detected CMake User Presets."
+        # cmake --preset $ENV_MODE
+        cmake --build --preset $ENV_MODE --target install
     elif [ -f CMakeLists.txt ]; then
         echo "Detected CMake project."
-        cmake -S . -B build_auto
-        cmake --build build_auto
+        # cmake -S . -B build_with_x
+        cmake --build build_with_x --target install
     elif [ -f build.gradle ]; then
         echo "Detected Gradle project."
         ./gradlew run
@@ -627,7 +631,21 @@ run_project() {
         echo "No recognized project files found. Please add a specific case to the script."
     fi
 }
-alias x='run_project'
+alias x='build_project'
+
+run_project() {
+    if [ -f "cubrid/CMakeLists.txt" ]; then
+        echo "Detected CUBRID project."
+        csql_run
+    fi
+}
+alias r='run_project'
+
+
+alias cdd='csql -u dba demodb'
+alias cdds='csql -u dba demodb -S'
+alias cdt='csql -u dba testdb'
+alias cdts='csql -u dba testdb -S'
 
 test_project() {
     if [ -f Cargo.toml ]; then
@@ -651,11 +669,6 @@ configure_project() {
 }
 alias confp='configure_project'
 
-build_project() {
-    if [ -f CMakePresets.json ]; then
-        cmake --build --prese debug
-    fi
-}
 alias bb='build_project'
 alias bp='build_project'
 
@@ -769,5 +782,12 @@ alias ip='ip -c=always'
 
 # taskwarrior
 alias  tt='taskwarrior-tui'
+
+# just
+alias j='just'
+alias .j='just --justfile ./.user.justfile'
+if command_exists just; then
+    source <(just --completions zsh)
+fi
 
 # alias end
