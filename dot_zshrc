@@ -36,6 +36,11 @@ if [[ -f /etc/centos-release ]]; then
     fi
 fi
 
+# Check if the system is Rocky Linux
+if grep -q "Rocky Linux" /etc/os-release; then
+  alias enable-gcc-toolset='scl enable gcc-toolset-13 zsh'
+fi
+
 # ccache
 # Check if 'ccache' exists and if '/usr/lib/ccache' directory exists
 if command -v ccache > /dev/null 2>&1 && [ -d "/usr/lib/ccache/bin" ];then
