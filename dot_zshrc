@@ -324,6 +324,10 @@ bindkey '^I' menu-select
 bindkey "$terminfo[kcbt]" menu-select
 bindkey -M menuselect '^I' menu-complete
 bindkey -M menuselect "$terminfo[kcbt]" reverse-menu-complete
+# Enable recent file sorting in completions
+zstyle ':completion:*' file-sort modification
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*' menu select
 
 
 # atuin
