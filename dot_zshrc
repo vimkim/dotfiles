@@ -122,6 +122,11 @@ my-utils-install() {
 # zellij
 if ! command -v zellij > /dev/null 2>&1; then
     echo "warning: zellij not installed"
+else
+    # workaround for zellij completion
+    # https://github.com/zellij-org/zellij/issues/1933#issuecomment-2274464004
+    autoload -U +X compinit && compinit
+    . <( zellij setup --generate-completion zsh | sed -Ee 's/^(_(zellij) ).*/compdef \1\2/' )
 fi
 
 zellij_new_if_cannot_attach() {
