@@ -20,3 +20,6 @@ disabled = false
 
 [env_var.PRESET_MODE]
 [env_var.CUBRID]
+
+[os]
+disabled = false
