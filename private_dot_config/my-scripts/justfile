@@ -1,0 +1,13 @@
+default:
+    echo "hello"
+
+cpp-build:
+    g++ -ggdb3 -pthread main.cpp
+
+cpp-run:
+    ./a.out
+
+cpp-clean:
+    /bin/rm -rf a.out
+
+cpp-build-run: cpp-clean cpp-build cpp-run

@@ -16,7 +16,7 @@ alias zshrc="$CHEZ_EDITOR ~/.zshrc"
 alias profile="zshrc"
 alias vimprofile="$EDITOR ~/.vimrc"
 alias nvimrc="$EDITOR ~/.config/nvim/init.lua"
-alias gdbinit="$EDITOR ~/.config/gdb/gdbinit"
+alias gdbinit="$CHEZ_EDITOR ~/.config/gdb/gdbinit"
 
 # System aliases
 # alias rm='rm -i'
@@ -822,5 +822,10 @@ cgdb-recent-core() {
     cgdb "$executable" "$core_file"
 }
 alias crc='cgdb-recent-core'
+
+# just global
+alias ja="just --justfile=$HOME/.config/my-scripts/justfile --working-directory=."
+alias jc='ja --choose'
+alias jali="$CHEZ_EDITOR $HOME/.config/my-scripts/justfile"
 
 # alias end
