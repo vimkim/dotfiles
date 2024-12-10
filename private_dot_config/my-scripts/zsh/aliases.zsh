@@ -792,23 +792,23 @@ fi
 
 # cgdb
 cgdb-recent-core() {
-  local core_file=$(/bin/ls -t core* 2>/dev/null | head -n 1)
-  if [[ -z "$core_file" ]]; then
-    echo "No core files found in the current directory."
-    return 1
-  fi
+    local core_file=$(/bin/ls -t core* 2>/dev/null | head -n 1)
+    if [[ -z "$core_file" ]]; then
+        echo "No core files found in the current directory."
+        return 1
+    fi
 
-  # Extract the execfn field from the file command output
-  local executable=$(file "$core_file" | grep -o "execfn: '[^']*" | cut -d"'" -f2)
+    # Extract the execfn field from the file command output
+    local executable=$(file "$core_file" | grep -o "execfn: '[^']*" | cut -d"'" -f2)
 
-  if [[ -z "$executable" ]]; then
-    echo "Could not determine the executable for $core_file."
-    return 1
-  fi
+    if [[ -z "$executable" ]]; then
+        echo "Could not determine the executable for $core_file."
+        return 1
+    fi
 
-  # Run gdb with the core file and the executable
-  echo "Analyzing core file: $core_file with executable: $executable"
-  cgdb "$executable" "$core_file"
+    # Run gdb with the core file and the executable
+    echo "Analyzing core file: $core_file with executable: $executable"
+    cgdb "$executable" "$core_file"
 }
 alias crc='cgdb-recent-core'
 
