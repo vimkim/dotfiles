@@ -800,6 +800,7 @@ alias .j='just --justfile ./.user.justfile'
 if command_exists just; then
     source <(just --completions zsh)
 fi
+export JUST_CHOOSER="fzf --reverse --multi --height 50% --preview 'just --unstable --color always --show {}'"
 
 # cgdb
 cgdb-recent-core() {
