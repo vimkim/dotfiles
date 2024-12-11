@@ -19,7 +19,12 @@ disabled = false
 disabled = false
 
 [env_var.PRESET_MODE]
+format = "\nMOD: [$env_value]($style) "
+style = "bold dimmed yellow"
+
 [env_var.CUBRID]
+format = "CUB: [$env_value]($style) "
+style = "bold dimmed yellow"
 
 [os]
 disabled = false
