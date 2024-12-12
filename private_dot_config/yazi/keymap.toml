@@ -43,4 +43,8 @@ prepend_keymap = [
     "b",
     "i",
   ], run = "plugin dual-pane --args='shell_fzf --interactive /home/dawsers/.config/yazi/dual-pane.txt'", desc = "Dual-pane: run command interactively (use fzf)" },
+  { on = "h", run = "leave", desc = "Move left (to parent directory)" },
+  { on = "n", run = "arrow 1", desc = "Move down (to next item)" },
+  { on = "e", run = "arrow -1", desc = "Move up (to previous item)" },
+  { on = "i", run = "enter", desc = "Move right (to child directory)" },
 ]
