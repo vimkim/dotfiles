@@ -234,7 +234,8 @@ function cdfile() {
 
 alias cd='cl'
 alias cz='DIR=$(zoxide query -l | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
-alias cr='DIR=$(dirs -v | head -n 20 | awk '\''{print $2}'\'' | fzf --height 40% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
+alias cr='DIR=$(dirs -v | sed "1d" | head -n 20 | awk '\''{print $2}'\'' | fzf --height 40% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
+alias ch='cr'
 
 # in order to include ".." to the selection list supplied to fzf, use $dirs
 cv() {
@@ -721,7 +722,6 @@ alias chzh='cd ~/.local/share/chezmoi'
 alias chezd='cd ~/.local/share/chezmoi'
 alias chezh='cd ~/.local/share/chezmoi'
 alias chezcd='cd ~/.local/share/chezmoi'
-alias ch='cd $HOME'
 alias conf='chezd && chezmoi edit --apply'
 
 ## conf
