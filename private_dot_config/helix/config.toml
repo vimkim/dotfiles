@@ -12,3 +12,10 @@ select = "underline"
 
 [editor.indent-guides]
 render = true
+
+[keys.normal]
+h = "move_char_left"
+n = "move_line_down"
+e = "move_line_up"
+i = "move_char_right"
+l = "insert_mode"
