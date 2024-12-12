@@ -742,6 +742,7 @@ clip() {
 }
 
 
+# yazi
 function yy() {
     local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
     yazi "$@" --cwd-file="$tmp"
@@ -750,7 +751,13 @@ function yy() {
     fi
     /bin/rm -f -- "$tmp"
 }
+
 alias y='yy'
+function yazi-plugin-install() {
+    ya pack -a Rolv-Apneseth/starship
+    ya pack -a yazi-rs/plugins:git
+    ya pack -a dawsers/dual-pane
+}
 
 
 gh_pr_diff() {
