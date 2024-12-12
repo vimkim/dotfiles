@@ -47,4 +47,5 @@ prepend_keymap = [
   { on = "n", run = "arrow 1", desc = "Move down (to next item)" },
   { on = "e", run = "arrow -1", desc = "Move up (to previous item)" },
   { on = "i", run = "enter", desc = "Move right (to child directory)" },
+  { on = "!", run = 'shell "$SHELL" --block', desc = "Open shell here" },
 ]
