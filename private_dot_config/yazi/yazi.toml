@@ -1,16 +1,16 @@
 [manager]
 show_hidden = true
-sort_by = "modified"
+sort_by = "mtime"
 sort_dir_first = false
 sort_reverse = true
 linemode = "mtime"
 
 [[plugin.prepend_fetchers]]
-id   = "git"
+id = "git"
 name = "*"
-run  = "git"
+run = "git"
 
 [[plugin.prepend_fetchers]]
-id   = "git"
+id = "git"
 name = "*/"
-run  = "git"
+run = "git"
