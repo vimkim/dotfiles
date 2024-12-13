@@ -236,6 +236,7 @@ alias cd='cl'
 alias cz='DIR=$(zoxide query -l | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
 alias cr='DIR=$(dirs -v | sed "1d" | head -n 20 | awk '\''{print $2}'\'' | fzf --height 40% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias ch='cr'
+alias co='popd >/dev/null'
 
 # in order to include ".." to the selection list supplied to fzf, use $dirs
 cv() {
