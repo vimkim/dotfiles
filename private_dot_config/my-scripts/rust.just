@@ -13,8 +13,10 @@ tests:
 build:
     cargo build
 
+binary-name := `cargo metadata --format-version 1 | jq -r '.packages[].targets[] | select( .kind | map(. == "bin") | any ) | select ( .src_path | contains(".cargo/registry") | . != true ) | .name'`
+
 run:
-    cargo run -- -E
+    cargo run
 
 run-hello:
     echo "hello world" | cargo run -- -E 'hello'
@@ -37,3 +39,11 @@ clean:
     find . -type f -name "*.orig" -exec rm {} \;
     find . -type f -name "*.bk" -exec rm {} \;
     find . -type f -name ".*~" -exec rm {} \;
+
+build-for-uftrace:
+    export RUSTFLAGS="-Z instrument-mcount -C passes=ee-instrument<post-inline>"
+    export RUST_TRACE="full"
+    cargo build
+
+check-for-uftrace:
+    nm ./target/debug/{{ binary-name }} | grep mcount
