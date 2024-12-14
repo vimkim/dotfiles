@@ -6,6 +6,9 @@ _default:
 rust:
     @just --choose -f $MY_SCRIPTS/rust.just -d {{ invocation_directory() }}
 
+edit:
+    @just --choose -f $MY_SCRIPTS/edit.just -d {{ invocation_directory() }}
+
 cpp-build:
     g++ -ggdb3 -pthread main.cpp
 
