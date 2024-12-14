@@ -1,5 +1,5 @@
-default:
-    echo "hello"
+_default:
+    @just --choose -f {{ justfile() }} -d  {{ invocation_directory() }}
 
 cpp-build:
     g++ -ggdb3 -pthread main.cpp

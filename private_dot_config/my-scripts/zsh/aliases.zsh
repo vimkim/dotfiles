@@ -288,6 +288,7 @@ alias cfh='cd_fzf "$HOME" f'   # Navigate to file-containing directories under $
 alias cfg='cd_fzf "$(relative_gitdir)" f'  # Navigate to file-containing directories under Git root
 
 alias ca='FD_OPS=(-tf -td -tl) cd_fzf .'              # Navigate to either files or directories
+alias cb='cd "$(cat ~/.directory_bookmarks | fzf --prompt="Select a directory: ") || echo "No directory selected." >&2"'
 
 
 alias ff='vxg'
@@ -804,11 +805,15 @@ alias  tt='taskwarrior-tui'
 
 # just
 alias j='just'
-alias .j='just --justfile ./.user.justfile'
+alias ju='just --justfile ./.user.justfile'
 if command_exists just; then
     source <(just --completions zsh)
 fi
 export JUST_CHOOSER="fzf --reverse --multi --height 50% --preview 'just --unstable --color always --show {}'"
+alias jj='just --justfile $HOME/.config/my-scripts/justfile --working-directory=.'
+alias ja="just --justfile=$HOME/.config/my-scripts/justfile --working-directory=."
+alias jc='ja --choose'
+alias jali="$CHEZ_EDITOR $HOME/.config/my-scripts/justfile"
 
 # cgdb
 cgdb-recent-core() {
@@ -831,10 +836,5 @@ cgdb-recent-core() {
     cgdb "$executable" "$core_file"
 }
 alias crc='cgdb-recent-core'
-
-# just global
-alias ja="just --justfile=$HOME/.config/my-scripts/justfile --working-directory=."
-alias jc='ja --choose'
-alias jali="$CHEZ_EDITOR $HOME/.config/my-scripts/justfile"
 
 # alias end
