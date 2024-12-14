@@ -152,7 +152,7 @@ alias v='nvim'
 alias vim='nvim'
 alias vv='FILE=$(fd . -H -I --type f --type l --max-depth 1 | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
 alias vc='vv'
-alias vx='FILE=$(fd . -H -I --type f | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
+alias vx='FILE=$(fd . -H -I --type f --type l | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
 
 alias fdall='fd -H -I'
 alias rgall='rg --no-ignore -.'
@@ -247,7 +247,7 @@ cv() {
     fi
 
     # Combine the parent directory and subdirectories into an array
-    local dirs=("../" $(fd --max-depth 1 -H -I --type d --strip-cwd-prefix))
+    local dirs=("../" $(fd --max-depth 1 -H -I --type d --type l -L --strip-cwd-prefix))
     # Pass the array to fzf for selection
     local dir=$(printf "%s\n" "${dirs[@]}" | fzf --height 40% --reverse)
     # If a directory was selected, change to that directory
@@ -279,15 +279,15 @@ function cd_fzf() {
 }
 
 # Aliases for specific navigation
-alias cx='FD_OPS=(--type d) cd_fzf .'          # Navigate to directories
+alias cx='FD_OPS=(--type d --type l) cd_fzf .'          # Navigate to directories
 alias cxh='cd_fzf "$HOME" d'   # Navigate to directories under $HOME
 alias cxg='cd_fzf "$(relative_gitdir)" d'  # Navigate to directories under Git root
 
-alias cf='FD_OPS=(--type f) cd_fzf .'          # Navigate to file-containing directories
+alias cf='FD_OPS=(--type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
 alias cfh='cd_fzf "$HOME" f'   # Navigate to file-containing directories under $HOME
 alias cfg='cd_fzf "$(relative_gitdir)" f'  # Navigate to file-containing directories under Git root
 
-alias ca='FD_OPS=(-tf -td) cd_fzf .'              # Navigate to either files or directories
+alias ca='FD_OPS=(-tf -td -tl) cd_fzf .'              # Navigate to either files or directories
 
 
 alias ff='vxg'
