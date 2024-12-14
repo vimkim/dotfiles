@@ -1,5 +1,10 @@
+alias r := rust
+
 _default:
     @just --choose -f {{ justfile() }} -d  {{ invocation_directory() }}
+
+rust:
+    @just --choose -f $MY_SCRIPTS/rust.just -d {{ invocation_directory() }}
 
 cpp-build:
     g++ -ggdb3 -pthread main.cpp
