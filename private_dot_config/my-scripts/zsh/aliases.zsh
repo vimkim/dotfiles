@@ -653,8 +653,6 @@ run_project() {
         csql_run
     fi
 }
-alias r='run_project'
-
 
 alias cdd='csql -u dba demodb'
 alias cdds='csql -u dba demodb -S'
