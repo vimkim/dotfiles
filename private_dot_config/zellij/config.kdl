@@ -184,6 +184,7 @@ keybinds clear-defaults=true {
         bind "Alt o" { MoveTab "Right"; }
         bind "Alt t" { ToggleFloatingPanes; SwitchFocus; }
         bind "Alt e" { TogglePaneEmbedOrFloating; }
+        bind "Alt f" { ToggleFocusFullscreen; }
 
         // move pane to next tab
         bind "Alt <" { BreakPaneLeft; }
