@@ -4,7 +4,12 @@ _default:
 hello:
     echo "hello from rust just!"
 
-add:
+prepare:
+    echo '' > .envrc
+    echo 'export RUST_TRACE="full"' >> .envrc
+    direnv allow
+
+cargo-add:
     cargo add $(gum input)
 
 tests:
