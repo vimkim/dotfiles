@@ -4,8 +4,8 @@
 
 # Check if the current directory is a Git repository
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "Error: This directory is not a Git repository."
-  exit 1
+    echo "Error: This directory is not a Git repository."
+    exit 1
 fi
 
 awk -vOFS='' '
@@ -32,5 +32,5 @@ awk -vOFS='' '
         }
     }
 ' \
-  <(git diff --color --stat=$(($(tput cols) - 3)) HEAD | sed '$d; s/^ //') \
-  <(git -c color.status=always status -sb)
+    <(git diff --color --stat=$(($(tput cols) - 3)) HEAD | sed '$d; s/^ //') \
+    <(git -c color.status=always status -sb)
