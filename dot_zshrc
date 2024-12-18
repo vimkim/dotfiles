@@ -13,13 +13,22 @@ if [[ -f /etc/centos-release ]]; then
     fi
 fi
 
+# Function to add to PATH only if not already present
+add_to_path() {
+    case ":$PATH:" in
+        *":$1:"*) ;;
+        *) export PATH="$1:$PATH" ;;
+    esac
+}
 
 # PATH
-export PATH=$HOME/bin:/usr/local/bin:$PATH
-export PATH=$HOME/mybin:$PATH
+add_to_path "$HOME/bin"
+add_to_path "/usr/local/bin"
+add_to_path "$HOME/mybin"
 
-## rust
-export PATH="$HOME/.local/bin:$PATH"
+# rust
+add_to_path "$HOME/.local/bin"
+
 export MANPATH="/usr/local/man:$MANPATH"
 export MANWIDTH=999
 
@@ -47,10 +56,10 @@ fi
 # Check if 'ccache' exists and if '/usr/lib/ccache' directory exists
 if command -v ccache > /dev/null 2>&1 && [ -d "/usr/lib/ccache/bin" ];then
     # arch linux
-    export PATH="/usr/lib/ccache/bin:$PATH"
+    add_to_path "/usr/lib/ccache/bin"
 elif command -v ccache >/dev/null 2>&1 && [ -d "/usr/lib/ccache" ]; then
     # ubuntu
-    export PATH="/usr/lib/ccache:$PATH"
+    add_to_path "/usr/lib/ccache"
 fi
 
 
@@ -394,6 +403,7 @@ else
 fi
 
 fastfetch -l ~/.config/my-assets/ferris.txt
+asdf current
 ll
 
 # zprof
