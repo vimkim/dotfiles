@@ -799,7 +799,7 @@ alias tj='tjournal'
 alias ip='ip -c=always'
 
 # taskwarrior
-alias  tt='taskwarrior-tui'
+alias tw='taskwarrior-tui'
 
 # just
 alias j='just'
