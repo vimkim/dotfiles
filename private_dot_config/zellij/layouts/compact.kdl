@@ -64,7 +64,7 @@ layout {
 
     swap_floating_layout name="staggered" {
         floating_panes max_panes=1 {
-            pane {y "0%"; x "40%"; width "60%"; height "100%"; }
+            pane {y "0%"; x "40%"; width "80%"; height "100%"; }
         }
     }
 
