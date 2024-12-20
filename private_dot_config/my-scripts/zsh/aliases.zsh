@@ -811,7 +811,6 @@ export JUST_CHOOSER="fzf --reverse --multi --height 50% --preview 'just --unstab
 alias jj='just --justfile=$HOME/.config/my-scripts/justfile --working-directory=.'
 alias ja="just --justfile=$HOME/.config/my-scripts/justfile --working-directory=."
 alias jc='ja --choose'
-alias jali="$CHEZ_EDITOR $HOME/.config/my-scripts/justfile"
 
 # cgdb
 cgdb-recent-core() {
