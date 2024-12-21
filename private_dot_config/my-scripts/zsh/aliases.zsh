@@ -807,10 +807,12 @@ alias ju='just --justfile ./.user.justfile'
 if command_exists just; then
     source <(just --completions zsh)
 fi
+
 export JUST_CHOOSER="fzf --reverse --multi --height 50% --preview 'just --unstable --color always --show {}'"
 alias jj='just --justfile=$HOME/.config/my-scripts/justfile --working-directory=.'
 alias ja="just --justfile=$HOME/.config/my-scripts/justfile --working-directory=."
 alias jc='ja --choose'
+alias jz='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "just $CMD"'
 
 # cgdb
 cgdb-recent-core() {
