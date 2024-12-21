@@ -180,8 +180,6 @@ keybinds clear-defaults=true {
         bind "Alt n" { NewTab; }
         bind "Alt s" { NewPane "Down"; SwitchToMode "Normal"; }
         bind "Alt v" { NewPane "Right"; SwitchToMode "Normal"; }
-        bind "Alt i" { MoveTab "Left"; }
-        bind "Alt o" { MoveTab "Right"; }
         bind "Alt t" { ToggleFloatingPanes; SwitchFocus; }
         bind "Alt e" { TogglePaneEmbedOrFloating; }
         bind "Alt f" { ToggleFocusFullscreen; }
