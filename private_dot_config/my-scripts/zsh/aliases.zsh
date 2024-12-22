@@ -129,7 +129,7 @@ lg()
     fi
 }
 
-alias which="which -a"
+alias wa="which -a"
 which-alias() {
     alias | grep "^$1"
 }
@@ -299,7 +299,6 @@ alias pcd='gcd'
 alias cdw='gcd'
 alias cg='cdg'
 
-alias up='cd ..'                                            # Move up one directory
 alias back='cd $OLDPWD'                                    # Return to the previous directory
 
 ## Networking and System Information
