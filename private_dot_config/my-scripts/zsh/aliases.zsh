@@ -1,3 +1,4 @@
+# vim: filetype=zsh
 # alias begin
 
 export EDITOR='nvim'
@@ -846,5 +847,20 @@ cgdb-recent-core() {
     cgdb "$executable" "$core_file"
 }
 alias crc='cgdb-recent-core'
+
+forever() {
+    args="$*"
+    zellij action rename-tab $args
+    while true; do
+        # Execute the command entered by the user
+        eval "$@"
+
+        # Display the contents of the current directory
+        # Read user input
+        echo -n "Press Enter to rerun: $@"  # Optional: Prompt symbol
+        read -r command
+    done
+}
+alias jf='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "forever just $CMD"'
 
 # alias end
