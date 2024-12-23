@@ -504,15 +504,23 @@ export FORGIT_LOG_FORMAT=$GIT_PRETTY_FORMAT
 
 export GL_OPS_DEFAULT=(--graph --oneline --color --author-date-order)
 export GL_OPS=''
-gl() {
+git-log() {
     GIT_PAGER="less -iRFSX" git log $GL_OPS_DEFAULT $GL_OPS --pretty=format:"$GIT_PRETTY_FORMAT" $@
 }
-alias gloga='GL_OPS=(--all) gl'
+alias gl='git-log'
+alias gloga='GL_OPS=(--all) git-log'
 alias gla='gloga'
-alias glh='gl HEAD' # useful when followed by a branch like develop
-alias gld='gl develop HEAD'
-alias glstat='GL_OPS=(--stat) GIT_PRETTY_FORMAT="$GIT_PRETTY_FORMAT%n" gl'
-alias glogastat='GL_OPS=(--all --stat) GIT_PRETTY_FORMAT="$GIT_PRETTY_FORMAT%n" gl'
+alias glh='git-log HEAD' # useful when followed by a branch like develop
+alias gld='git-log develop HEAD'
+alias glstat='GL_OPS=(--stat) GIT_PRETTY_FORMAT="$GIT_PRETTY_FORMAT%n" git-log'
+alias glogastat='GL_OPS=(--all --stat) GIT_PRETTY_FORMAT="$GIT_PRETTY_FORMAT%n" git-log'
+alias git-log-upstream-head='git-log $(git rev-parse upstream/$(git rev-parse --abbrev-ref HEAD)) HEAD'
+alias git-log-origin-head='git-log $(git rev-parse origin/$(git rev-parse --abbrev-ref HEAD)) HEAD'
+alias git-log-cub-head='git-log $(git rev-parse cub/$(git rev-parse --abbrev-ref HEAD)) HEAD'
+alias gluh='git-log-upstream-head'
+alias gloh='git-log-origin-head'
+alias glch='git-log-cub-head'
+
 
 ## git pull
 alias gpl='git pull'
