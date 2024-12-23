@@ -5,6 +5,7 @@ keybinds clear-defaults=true {
         // bind "Alt c" { Copy; }
     }
     locked {
+        bind "Ctrl g" { SwitchToMode "Normal"; }
         bind "Ctrl u" { SwitchToMode "Normal"; }
     }
     resize {
@@ -129,6 +130,9 @@ keybinds clear-defaults=true {
 
         // pane
         bind "f" { ToggleFocusFullscreen; SwitchToMode "Normal"; }
+
+        // locked
+        bind "g" { SwitchToMode "Locked"; }
 
         // move pane
         bind "<" "Tab" { MovePane; }
