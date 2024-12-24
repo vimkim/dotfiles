@@ -503,14 +503,17 @@ alias gdc='git diff --cached'
 export GIT_PRETTY_FORMAT='%C(auto)%h %C(magenta)%as%C(reset) %C(blue)%an%C(reset)%C(auto)%d %s %C(black)%C(bold)%cr%Creset'
 export FORGIT_LOG_FORMAT=$GIT_PRETTY_FORMAT
 
-export GL_OPS_DEFAULT=(--graph --oneline --color --author-date-order)
+export GL_OPS_DEFAULT=(--graph --oneline --color --date-order)
 export GL_OPS=''
 git-log() {
     GIT_PAGER="less -iRFSX" git log $GL_OPS_DEFAULT $GL_OPS --pretty=format:"$GIT_PRETTY_FORMAT" $@
 }
 alias gl='git-log'
+alias gla='GL_OPS=(--all) git-log'
 alias gloga='GL_OPS=(--all) git-log'
-alias gla='gloga'
+alias gla-topo='GL_OPS=(--all --topo-order) git-log'
+alias gla-date='GL_OPS=(--all --date-order) git-log'
+alias gla-author-date='GL_OPS=(--all --author-date-order) git-log'
 alias glh='git-log HEAD' # useful when followed by a branch like develop
 alias gld='git-log develop HEAD'
 alias glstat='GL_OPS=(--stat) GIT_PRETTY_FORMAT="$GIT_PRETTY_FORMAT%n" git-log'
@@ -857,6 +860,10 @@ forever() {
 
         # Display the contents of the current directory
         # Read user input
+        # Prompt user for input
+        echo -n "Press Enter to rerun: $@ or send a signal to $event_fd: "
+        read -r  # Wait for Enter before proceeding
+
         echo -n "Press Enter to rerun: $@"  # Optional: Prompt symbol
         read -r command
     done
