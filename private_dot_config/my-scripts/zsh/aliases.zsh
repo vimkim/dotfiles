@@ -858,12 +858,6 @@ forever() {
         # Execute the command entered by the user
         eval "$@"
 
-        # Display the contents of the current directory
-        # Read user input
-        # Prompt user for input
-        echo -n "Press Enter to rerun: $@ or send a signal to $event_fd: "
-        read -r  # Wait for Enter before proceeding
-
         echo -n "Press Enter to rerun: $@"  # Optional: Prompt symbol
         read -r command
     done
