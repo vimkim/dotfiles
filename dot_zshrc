@@ -305,12 +305,6 @@ else
     echo "Warning: ~/.asdf/plugins/java/set-java-home.zsh not found."
 fi
 
-## java
-if [[ -z $JAVA_HOME ]] || ! command -v java &>/dev/null; then
-    echo "Warning: System-wide Java not found or JAVA_HOME is not set."
-fi
-
-
 # forgit, installed by sheldon
 # required to copy hash to clipboard using forgit
 export FORGIT_COPY_CMD='xclip -selection clipboard'
