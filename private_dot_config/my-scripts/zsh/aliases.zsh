@@ -857,12 +857,14 @@ forever() {
     zellij action rename-tab $args
     while true; do
         # Execute the command entered by the user
-        eval "$@"
+        eval "$*"
 
         echo -n "Press Enter to rerun: $@"  # Optional: Prompt symbol
         read -r command
     done
 }
 alias jf='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "forever just $CMD"'
+alias fo='forever'
+alias f='forever'
 
 # alias end
