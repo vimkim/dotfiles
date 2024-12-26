@@ -116,7 +116,6 @@ alias lzd='lazydocker'
 
 alias sl='ls'
 
-alias lz='lazygit'
 # https://github.com/jesseduffield/lazygit?tab=readme-ov-file#changing-directory-on-exit
 lg()
 {
@@ -129,6 +128,7 @@ lg()
         rm -f $LAZYGIT_NEW_DIR_FILE > /dev/null
     fi
 }
+alias lz='lg'
 
 alias wa="which -a"
 which-alias() {
@@ -731,6 +731,7 @@ alias cheze='chezmoi edit --watch'
 alias chzd='cd ~/.local/share/chezmoi'
 alias chzh='cd ~/.local/share/chezmoi'
 alias chezd='cd ~/.local/share/chezmoi'
+alias chzed='chezd' # for typo
 alias chezh='cd ~/.local/share/chezmoi'
 alias chezcd='cd ~/.local/share/chezmoi'
 alias conf='chezd && chezmoi edit --apply'
