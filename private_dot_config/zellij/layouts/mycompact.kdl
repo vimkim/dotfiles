@@ -249,7 +249,7 @@ layout {
                 // mode_tmux            "#[bg=#ffc387] "
                 // mode_default_to_mode "tmux"
                 mode_normal "#[bg=#89B4FA] Normal "
-                mode_locked "#[bg=#FF0000] Locked "
+                mode_locked "#[bg=#808080] Locked "
                 mode_resize "#[bg=#00FF00] Resize "
                 mode_pane "#[bg=#FFA500] Pane "
                 mode_tab "#[bg=#1E90FF] Tab "
