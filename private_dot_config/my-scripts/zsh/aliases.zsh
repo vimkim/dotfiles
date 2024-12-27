@@ -325,11 +325,6 @@ export MY_SCRIPTS="$HOME/.config/my-scripts"
 alias rfv='$MY_SCRIPTS/rfv.sh'
 alias frf='$MY_SCRIPTS/frf.sh'
 
-git_log_fzf() {
-    git log --oneline --graph --decorate | fzf | awk '{print $2}'
-}
-alias glf='git_log_fzf'
-
 export GBFLIMIT=99
 git_blame_file() {
     file=$1
@@ -528,6 +523,13 @@ alias git-log-cub-head='git-log $(git rev-parse cub/$(git rev-parse --abbrev-ref
 alias gluh='git-log-upstream-head'
 alias gloh='git-log-origin-head'
 alias glch='git-log-cub-head'
+
+alias git-log-cubvec='git branch --all --format="%(refname:short)" | rg cubvec | xargs -d "\n" git-log.sh develop'
+alias glc='git-log-cubvec'
+alias git-log-fzf='git branch --all --format="%(refname:short)" | fzf $MYFZF_OPS --multi --prompt="Select branches: " | xargs -d "\n" git-log.sh'
+alias glf='git-log-fzf'
+alias git-log-fzf-all='git branch --all --format="%(refname:short)" | fzf $MYFZF_OPS --multi --bind "enter:select-all+accept" | xargs -d "\n" git-log.sh'
+alias glfa='git-log-fzf-all'
 
 
 ## git pull
@@ -738,10 +740,10 @@ alias chezd='cd ~/.local/share/chezmoi'
 alias chzed='chezd' # for typo
 alias chezh='cd ~/.local/share/chezmoi'
 alias chezcd='cd ~/.local/share/chezmoi'
-alias conf='chezd && chezmoi edit --apply'
 
 ## conf
 alias confd='cd ~/.config && echo "prefer using chezmoi edit"'
+alias conf='confd'
 
 source $HOME/my-cubrid/aliases.sh
 

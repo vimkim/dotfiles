@@ -364,6 +364,7 @@ fi
 # zsh personal aliases
 # must be below export PATHs, since it checks whether each command exists.
 export MY_SCRIPTS="$HOME/.config/my-scripts"
+add_to_path "$MY_SCRIPTS/bin"
 alias zalias="$CHEZ_EDITOR $MY_SCRIPTS/zsh/aliases.zsh"
 alias zali='zalias'
 source "$MY_SCRIPTS/zsh/aliases.zsh"
