@@ -396,4 +396,13 @@ fastfetch -l ~/.config/my-assets/ferris.txt
 asdf current
 ll
 
+# Check if the system is Rocky Linux and GCC version is 8
+if grep -q "Rocky Linux" /etc/os-release; then
+    current_gcc_version=$(gcc --version | head -n 1 | awk '{print $NF}' | cut -d. -f1)
+    if [[ "$current_gcc_version" -eq 8 ]]; then
+        echo "Warning: You are using GCC version 8 on Rocky Linux."
+        echo "You might want to run 'scl enable gcc-toolset-13 zsh' before proceeding."
+    fi
+fi
+
 # zprof
