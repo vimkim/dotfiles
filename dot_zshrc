@@ -393,7 +393,7 @@ else
 fi
 
 fastfetch -l ~/.config/my-assets/ferris.txt
-asdf current
+# asdf current
 ll
 
 # Check if the system is Rocky Linux and GCC version is 8
