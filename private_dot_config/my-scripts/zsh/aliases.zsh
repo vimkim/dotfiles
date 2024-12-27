@@ -307,6 +307,7 @@ alias ports='netstat -tulanp'
 alias ipinfo='curl ipinfo.io' # Quick IP address and network info
 alias myip='curl http://ipecho.net/plain' # External IP address
 
+export MYFZF_OPS=(--height 40% --reverse)
 # Git Aliases
 # alias ga='git add'
 alias gc='git commit'
@@ -316,6 +317,9 @@ alias git_checkout_child='git checkout $(git log --all --ancestry-path ^HEAD --f
 alias gup='git_checkout_child'
 alias gdown='git checkout HEAD~1'
 alias grs='git reset'
+alias git-assume-unchanged-list='git ls-files -v | grep "^h"'
+alias git-assume-unchanged-add='git update-index --assume-unchanged'
+alias git-assume-unchanged-add-interactive='git status --porcelain=v1 | awk "{print \$2}" | fzf $MYFZF_OPS | xargs git update-index --assume-unchanged && echo "added."'
 
 export MY_SCRIPTS="$HOME/.config/my-scripts"
 alias rfv='$MY_SCRIPTS/rfv.sh'
