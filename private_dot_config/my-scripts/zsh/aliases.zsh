@@ -468,6 +468,7 @@ function github-clone {
 
 alias ghclone="github-clone"
 alias ghc='github-clone'
+alias ghcf='gh-clone-fuzzy.sh'
 
 function gitclonehash() {
     if [ $# -ne 2 ]; then
@@ -802,6 +803,7 @@ gh_pr_diff() {
         "https://api.github.com/repos/${repo}/pulls/${pr_number}"
 }
 alias prdiff='gh_pr_diff'
+
 
 
 alias mylog='$EDITOR $HOME/mylog/worklog-$(date +%Y-%m-%d).md'
