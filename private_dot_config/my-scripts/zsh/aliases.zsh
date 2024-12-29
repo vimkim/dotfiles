@@ -822,10 +822,6 @@ alias ip='ip -c=always'
 alias tw='taskwarrior-tui'
 
 # just
-alias jz='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "just $CMD"'
-alias j=jz
-alias ju='just'
-alias jus='just --justfile ./.user.justfile'
 if command_exists just; then
     source <(just --completions zsh)
 fi
@@ -835,8 +831,13 @@ export JUST_CHOOSER="fzf --reverse --multi --height 50% --preview 'just --unstab
 alias jj='CMD=$(just --justfile=$HOME/.config/my-scripts/justfile --working-directory=. --summary | tr " " "\n" | eval "$JUST_CHOOSER") \
     && print -z "just --justfile=$HOME/.config/my-scripts/justfile --working-directory=. $CMD"'
 
+alias jz='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "just $CMD"'
+alias ju='just'
+alias jus='just --justfile ./.user.justfile'
 alias ja="just --justfile=$HOME/.config/my-scripts/justfile --working-directory=."
 alias jc='ja --choose'
+alias j='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "$(just --dry-run $CMD 2>&1) "'
+
 
 # cgdb
 cgdb-recent-core() {
