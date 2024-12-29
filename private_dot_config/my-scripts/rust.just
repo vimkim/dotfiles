@@ -6,7 +6,7 @@ hello:
 
 prepare:
     echo '' > .envrc
-    echo 'export RUST_TRACE="full"' >> .envrc
+    echo 'export RUST_BACKTRACE="full"' >> .envrc
     direnv allow
 
 cargo-add:
@@ -22,9 +22,6 @@ binary-name := `cargo metadata --format-version 1 | jq -r '.packages[].targets[]
 
 run:
     cargo run
-
-run-hello:
-    echo "hello world" | cargo run -- -E 'hello'
 
 @bench:
     cargo bench
