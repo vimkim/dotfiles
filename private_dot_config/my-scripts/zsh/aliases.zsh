@@ -298,7 +298,8 @@ alias gcd='cd $(relative_gitdir 2>/dev/null || echo ".")'
 alias cdg='gcd'
 alias pcd='gcd'
 alias cdw='gcd'
-alias cg='cdg'
+
+alias cg='cargo'
 
 alias back='cd $OLDPWD'                                    # Return to the previous directory
 
