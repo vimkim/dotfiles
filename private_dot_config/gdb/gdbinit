@@ -90,3 +90,4 @@ set pagination on
 set detach-on-fork off
 set debuginfod enabled on
 
+set print frame-arguments all
