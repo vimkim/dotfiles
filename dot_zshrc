@@ -406,4 +406,6 @@ if grep -q "Rocky Linux" /etc/os-release; then
     fi
 fi
 
+export NIXBIN="$HOME/.nix-profile/bin"
+
 # zprof
