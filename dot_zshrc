@@ -408,4 +408,5 @@ fi
 
 export NIXBIN="$HOME/.nix-profile/bin"
 
+source $HOME/.config/zsh/mdbook.zsh
 # zprof

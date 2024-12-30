@@ -1,0 +1,1 @@
+source <(mdbook completions zsh)
