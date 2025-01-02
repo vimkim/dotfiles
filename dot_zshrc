@@ -412,4 +412,6 @@ source <(chezmoi completion zsh)
 export NIXBIN="$HOME/.nix-profile/bin"
 
 source $HOME/.config/zsh/mdbook.zsh
+
+autoload -U +X compinit && compinit
 # zprof
