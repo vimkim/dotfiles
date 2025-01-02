@@ -366,9 +366,10 @@ fi
 # must be below export PATHs, since it checks whether each command exists.
 export MY_SCRIPTS="$HOME/.config/my-scripts"
 add_to_path "$MY_SCRIPTS/bin"
+
+source "$MY_SCRIPTS/zsh/aliases.zsh"
 alias zalias="$CHEZ_EDITOR $MY_SCRIPTS/zsh/aliases.zsh"
 alias zali='zalias'
-source "$MY_SCRIPTS/zsh/aliases.zsh"
 
 if ! command -v diffnav > /dev/null 2>&1; then
   echo "warning: diffnav not installed."

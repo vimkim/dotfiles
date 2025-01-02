@@ -2,8 +2,13 @@
 # alias begin
 
 export EDITOR='nvim'
-export CHEZ_EDITOR='chezmoi edit --watch'
+# export CHEZ_EDITOR='chezmoi edit --watch'
 # export CHEZ_EDITOR='nvim' # thanks to chezmoi plugin
+
+chez-open () {
+    nvim $(chezmoi source-path $@)
+}
+export CHEZ_EDITOR='chez-open'
 
 alias nvimrc="$EDITOR ~/.config/nvim/init.lua"
 alias nvimh="cd ~/.config/nvim"
