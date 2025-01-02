@@ -279,6 +279,7 @@ export forgit_revert_commit='grcm'
 # curl --proto '=https' -fLsS https://rossmacarthur.github.io/install/crate.sh \
     # | bash -s -- --repo rossmacarthur/sheldon --to ~/.local/bin
 eval "$(sheldon source)"
+source <(sheldon completions --shell zsh)
 if ! command -v sheldon > /dev/null 2>&1; then
     echo "warning: sheldon not installed."
 fi
@@ -405,6 +406,8 @@ if grep -q "Rocky Linux" /etc/os-release; then
         echo "You might want to run 'scl enable gcc-toolset-13 zsh' before proceeding."
     fi
 fi
+
+source <(chezmoi completion zsh)
 
 export NIXBIN="$HOME/.nix-profile/bin"
 
