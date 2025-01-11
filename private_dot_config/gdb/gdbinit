@@ -34,7 +34,7 @@ define load-dashboard
   source ~/.config/gdb/dashboard.gdbinit
   echo Dashboard loaded\n
 end
-load-dashboard
+# load-dashboard
 
 # Add a command to easily reload .gdbinit
 define reload-init
