@@ -843,7 +843,7 @@ alias ju='just'
 alias jus='just --justfile ./.user.justfile'
 alias ja="just --justfile=$HOME/.config/my-scripts/justfile --working-directory=."
 alias jc='ja --choose'
-alias j='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "$(just --dry-run $CMD 2>&1) "'
+alias j='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "$(just --dry-run $CMD 2>&1 | sed '"'"'$!s/$/\ \&\&/'"'"')"'
 
 
 # cgdb
