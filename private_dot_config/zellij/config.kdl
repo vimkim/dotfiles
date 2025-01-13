@@ -187,6 +187,13 @@ keybinds clear-defaults=true {
         bind "Alt t" { ToggleFloatingPanes; SwitchFocus; }
         bind "Alt e" { TogglePaneEmbedOrFloating; }
         bind "Alt f" { ToggleFocusFullscreen; }
+        bind "Alt w" {
+            LaunchOrFocusPlugin "session-manager" {
+                floating true
+                move_to_focused_tab true
+            };
+            SwitchToMode "Normal"
+        }
 
         // move pane to next tab
         bind "Alt <" { BreakPaneLeft; }
