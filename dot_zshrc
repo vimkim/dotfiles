@@ -245,10 +245,6 @@ eval "$(direnv hook zsh)"
 # This must come before eval sheldon.
 export forgit_revert_commit='grcm'
 
-if command -v grc &> /dev/null; then
-    source $MY_SCRIPTS/grc.zsh
-fi
-
 # sheldon
 # https://github.com/rossmacarthur/sheldon
 # curl --proto '=https' -fLsS https://rossmacarthur.github.io/install/crate.sh \
@@ -348,6 +344,10 @@ alias zali='zalias'
 
 if ! command -v diffnav > /dev/null 2>&1; then
   echo "warning: diffnav not installed."
+fi
+
+if command -v grc &> /dev/null; then
+    source $MY_SCRIPTS/grc.zsh
 fi
 
 if ! command -v broot > /dev/null 2>&1; then
