@@ -95,36 +95,7 @@ fi
 ## if not set, lazygit on ubuntu will complain about locale
 export LOCALE_ARCHIVE=/usr/lib/locale/locale-archive
 
-my_nix_install() {
-    local package_file="$HOME/.config/my-nix/nix-packages.txt"
-
-    # Early exit if Nix is not installed
-    if ! command -v nix-env > /dev/null; then
-        echo "Nix is not installed or not in PATH" >&2
-        return 1
-    fi
-
-    # Early exit if the package file doesn't exist
-    if [[ ! -f "$package_file" ]]; then
-        echo "Package file not found: $package_file" >&2
-        return 1
-    fi
-
-    # Read the package file and install missing packages
-    while IFS= read -r pkg; do
-        # Skip if the package is already installed
-        if command -v "$pkg" > /dev/null; then
-            echo "$pkg is already installed"
-            continue
-        fi
-
-        # Install the package
-        echo "Installing $pkg from nixpkgs..."
-        if ! nix-env -iA nixpkgs."$pkg"; then
-            echo "Failed to install $pkg" >&2
-        fi
-    done < "$package_file"
-}
+alias my-nix-install='my-nix-install.sh'
 
 my-utils-install() {
     npm install xcv --global
