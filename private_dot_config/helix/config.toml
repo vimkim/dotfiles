@@ -13,9 +13,41 @@ select = "underline"
 [editor.indent-guides]
 render = true
 
+[keys.insert]
+"," = { s = ["normal_mode", ":w"] }
+"C-q" = ":q!"
+
 [keys.normal]
-h = "move_char_left"
+"," = { s = ":w", q = ":buffer-close" }
+"C-q" = ":q!"
 n = "move_line_down"
 e = "move_line_up"
 i = "move_char_right"
-l = "insert_mode"
+l = ["insert_mode", "collapse_selection"]
+L = ["insert_at_line_start", "collapse_selection"]
+k = ["find_next_char"]
+K = ["find_prev_char"]
+j = "move_next_word_end"
+J = "move_next_long_word_end"
+N = "join_selections"
+E = "hover"
+I = "goto_line_end"
+
+# Restore some replaced functionalities
+"A-n" = "search_next"
+"A-N" = "search_prev"
+"A-e" = "move_next_word_end"
+"A-j" = "move_prev_word_end"
+
+[keys.select]
+n = "move_line_down"
+e = "move_line_up"
+i = "move_char_right"
+k = ["find_next_char"]
+K = ["find_prev_char"]
+j = "move_next_word_end"
+J = "move_next_long_word_end"
+N = "join_selections"
+E = "hover"
+I = "goto_line_end"
+"," = { s = ["normal_mode", ":w"] }
