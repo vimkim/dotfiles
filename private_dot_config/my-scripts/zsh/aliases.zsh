@@ -52,7 +52,6 @@ if command_exists bat; then
     function help-bat() {
         $@ --help | bat -l help -p
     }
-    alias help='help-bat'
     alias h='help-bat'
 
 fi
@@ -882,5 +881,7 @@ forever() {
 alias jf='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "forever just $CMD"'
 alias fo='forever'
 alias f='forever'
+
+alias na='print -z $(navi --print)'
 
 # alias end
