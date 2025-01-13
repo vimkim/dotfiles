@@ -725,6 +725,11 @@ alias dcl='docker compose logs'
 # nix aliases
 alias nx='nix-shell'
 
+nix-profile-install() {
+    nix profile install "nixpkgs#$@"
+}
+alias nixi='nix-profile-install'
+
 ## wsl aliases
 if [ -x "$(command -v wslpath)" ]; then
     alias wh="cd $(wslpath $(cmd.exe /C "echo %USERPROFILE%" 2>/dev/null | tr -d '\r'))"
