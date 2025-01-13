@@ -6,6 +6,8 @@ packages=(
     astyle
     atuin
     bandwhich
+    zellij
+    zoxide
     bat
     bind
     binsider
