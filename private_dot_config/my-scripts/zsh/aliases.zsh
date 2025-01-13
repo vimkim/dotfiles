@@ -393,7 +393,7 @@ git_blame_directory() {
         printf "%-${max_length}s | %s\n" "$file" "$commit_info"
     done
 }
-alias gbd='git_blame_directory . | less -iRFSX'
+alias gbd='git_blame_dir.py'
 
 export GBDLIMIT=99
 git_blame_directory_long() {
