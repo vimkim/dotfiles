@@ -47,7 +47,7 @@ fi
 if command_exists bat; then
     alias cat='bat'
     alias bh='bat -l help'
-    export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+    export MANPAGER="sh -c 'sed -u -e \"s/\\x1B\[[0-9;]*m//g; s/.\\x08//g\" | bat -p -lman'" # as recommended in bat repo readme
 
     function help-bat() {
         $@ --help | bat -l help -p
