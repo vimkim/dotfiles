@@ -29,9 +29,9 @@ cmds=(
   fdisk
   findmnt
   free
-  g++
+  #g++
   gas
-  gcc
+  #gcc
   getfacl
   getsebool
   gmake
