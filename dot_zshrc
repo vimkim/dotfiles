@@ -370,7 +370,7 @@ else
   alias B='br -g -d -s --sort-by-date --tree --sort-by-type-dirs-last'
 fi
 
-fastfetch -l ~/.config/my-assets/ferris.txt
+fastfetch.zsh
 # asdf current
 ll
 
