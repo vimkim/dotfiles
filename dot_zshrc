@@ -370,7 +370,7 @@ else
   alias B='br -g -d -s --sort-by-date --tree --sort-by-type-dirs-last'
 fi
 
-fastfetch.zsh
+$MY_SCRIPTS/bin/fastfetch.zsh
 # asdf current
 ll
 
