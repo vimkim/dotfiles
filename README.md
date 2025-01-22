@@ -4,7 +4,17 @@ A reminder of how to set up my dotfiles on a new machine.
 
 ## Installation
 
-### install nix package manager
+### Install zsh using distro package manager (Optional)
+
+```bash
+sudo apt install zsh
+
+sudo dnf install zsh
+
+sudo pacman -S zsh
+```
+
+### Install nix package manager
 
 ```bash
 sh <(curl -L https://nixos.org/nix/install) --daemon
@@ -23,7 +33,7 @@ Note: nix-command and flakes are automatically enabled with chezmoi apply.
 chezmoi init --apply vimkim
 ```
 
-### install oh-my-zsh
+### Install oh-my-zsh
 
 ```bash
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
@@ -36,7 +46,7 @@ mv .zshrc.pre-oh-my-zsh .zshrc
 my-nix-install.sh
 ```
 
-### install nvim dotfiles
+### Install nvim dotfiles
 
 ```bash
 cd $HOME/.config
