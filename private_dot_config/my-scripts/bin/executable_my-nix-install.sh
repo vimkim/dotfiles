@@ -9,14 +9,11 @@ packages=(
     zellij
     zoxide
     bat
-    bind
     binsider
-    bison
     broot
     btop
     ccache
     cgdb
-    chezmoi
     clang-tools
     cmake
     croc
@@ -24,10 +21,8 @@ packages=(
     diffnav
     diffstat
     direnv
-    diskonaut
     du-dust
     dua
-    entr
     eza
     fastfetch
     fd
@@ -38,7 +33,6 @@ packages=(
     git
     git-extras
     gita
-    gitui
     helix
     hexyl
     htop
@@ -47,10 +41,7 @@ packages=(
     lazydocker
     lazygit
     lnav
-    lsd
     mdbook
-    mosh
-    mprocs
     navi
     neovim
     nethogs
@@ -59,12 +50,11 @@ packages=(
     procs
     ripgrep
     sheldon
-    skim
     starship
     stow
-    taskwarrior
     tealdeer
     television
+    termshark
     trash-cli
     trippy
     tt
