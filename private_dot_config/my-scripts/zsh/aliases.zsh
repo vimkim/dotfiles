@@ -848,6 +848,9 @@ alias jus='just --justfile ./.user.justfile'
 alias ja="just --justfile=$HOME/.config/my-scripts/justfile --working-directory=."
 alias jc='ja --choose'
 alias j='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "$(just --dry-run $CMD 2>&1 | sed '"'"'$!s/$/\ \&\&/'"'"')"'
+alias just-remote='CMD=$(just -f $MY_CUBRID/remote/justfile -d $MY_CUBRID/remote --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "$(just -f $MY_CUBRID/remote/justfile --dry-run $CMD 2>&1 | sed '"'"'$!s/$/\ \&\&/'"'"')"'
+alias jr='just-remote'
+
 
 
 # cgdb
