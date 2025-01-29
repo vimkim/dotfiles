@@ -32,6 +32,12 @@ command = "gcc --version | head -n 1 | awk '{print $1 $3}'"
 detect_files = ['CMakeLists.txt']
 style = "green"
 
+[custom.clang]
+description = "Show Clang version"
+command = "clang --version | head -n 1 | awk '{print $1 $3}'"
+detect_files = ['CMakeLists.txt']
+style = "green"
+
 [os]
 disabled = false
 
