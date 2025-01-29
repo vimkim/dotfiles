@@ -43,6 +43,7 @@ packages=(
     lazygit
     lnav
     mdbook
+    mise
     navi
     neovim
     nethogs
