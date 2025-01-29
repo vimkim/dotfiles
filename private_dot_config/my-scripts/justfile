@@ -19,3 +19,9 @@ cpp-clean:
     /bin/rm -rf a.out
 
 cpp-build-run: cpp-clean cpp-build cpp-run
+
+mise-install-java:
+    mise install "java@$(mise ls-remote java)"
+
+mise-global-java:
+    mise use --global "java@$(mise ls-remote java)"

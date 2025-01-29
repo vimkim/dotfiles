@@ -2,7 +2,8 @@
 
 # Array of packages to install
 packages=(
-    asdf
+    gum
+    gnum4
     astyle
     atuin
     bandwhich

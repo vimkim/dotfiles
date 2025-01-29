@@ -255,28 +255,6 @@ if ! command -v sheldon > /dev/null 2>&1; then
     echo "warning: sheldon not installed."
 fi
 
-# asdf, installed by sheldon
-if ! command -v asdf > /dev/null 2>&1; then
-    echo "warning: asdf not installed."
-else
-    alias zsh-clear-cache='rehash'
-
-    # go
-    . ~/.asdf/plugins/golang/set-env.zsh
-    # https://github.com/asdf-community/asdf-golang/issues/28
-    export GOPATH=$(asdf where golang)/packages
-    export GOROOT=$(asdf where golang)/go
-    export PATH="${PATH}:$(go env GOPATH)/bin"
-fi
-
-## asdf-java
-# Check if the set-java-home.zsh file exists
-if [[ -f ~/.asdf/plugins/java/set-java-home.zsh ]]; then
-    . ~/.asdf/plugins/java/set-java-home.zsh
-else
-    echo "Warning: ~/.asdf/plugins/java/set-java-home.zsh not found."
-fi
-
 # forgit, installed by sheldon
 # required to copy hash to clipboard using forgit
 export FORGIT_COPY_CMD='xclip -selection clipboard'
