@@ -41,7 +41,6 @@ packages=(
     just
     lazydocker
     lazygit
-    lnav
     mdbook
     mise
     navi
