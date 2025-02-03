@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# TIP: it is not a good idea to use nix profile install zsh.
+# Sometimes, in RHEL based distros, zsh-autocompletion won't work properly in nix zsh.
+# due to locale not being properly set. I suspect this issue arises from en_US.utf8 vs. en_US.UTF-8.
+
 # Array of packages to install
 packages=(
     gum
