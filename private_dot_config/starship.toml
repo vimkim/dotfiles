@@ -28,14 +28,14 @@ style = "bold dimmed yellow"
 
 [custom.gcc]
 description = "Show GCC version"
-command = "gcc --version | head -n 1 | awk '{print $1 $3}'"
+command = "echo gcc$(gcc --version | head -n 1 | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n 1)"
 detect_files = ['CMakeLists.txt']
 style = "green"
 
 [custom.clang]
-description = "Show Clang version"
-command = "clang --version | head -n 1 | awk '{print $1 $3}'"
+command = "echo clang$(clang --version | head -n1 | sed -n 's/.*clang version \\([0-9]\\+\\.[0-9]\\+\\.[0-9]\\+\\).*/\\1/p')"
 detect_files = ['CMakeLists.txt']
+description = "Show Clang version"
 style = "green"
 
 [os]
