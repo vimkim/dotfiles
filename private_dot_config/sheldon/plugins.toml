@@ -26,8 +26,8 @@ github = "wfxr/forgit"
 [plugins.autoswitch-virtualenv]
 github = "MichaelAquilina/zsh-autoswitch-virtualenv"
 
-[plugins.asdf]
-github = "asdf-vm/asdf"
+# [plugins.asdf]
+# github = "asdf-vm/asdf"
 
 # For example:
 #
