@@ -839,19 +839,14 @@ if command_exists just; then
     source <(just --completions zsh)
 fi
 
-export JUST_CHOOSER="fzf --reverse --multi --height 50% --preview 'just --unstable --color always --show {}'"
-# alias jj='just --justfile=$HOME/.config/my-scripts/justfile --working-directory=.'
-alias jj='CMD=$(just --justfile=$HOME/.config/my-scripts/justfile --working-directory=. --summary | tr " " "\n" | eval "$JUST_CHOOSER") \
-    && print -z "just --justfile=$HOME/.config/my-scripts/justfile --working-directory=. $CMD"'
-
-alias jz='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "just $CMD"'
 alias ju='just'
-alias jus='just --justfile ./.user.justfile'
-alias ja="just --justfile=$HOME/.config/my-scripts/justfile --working-directory=."
-alias jc='ja --choose'
-alias j='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "$(just --dry-run $CMD 2>&1 | sed '"'"'$!s/$/\ \&\&/'"'"')"'
-alias just-remote='CMD=$(just -f $MY_CUBRID/remote/justfile -d $MY_CUBRID/remote --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z "$(just -f $MY_CUBRID/remote/justfile --dry-run $CMD 2>&1 | sed '"'"'$!s/$/\ \&\&/'"'"')"'
-alias jr='just-remote'
+alias jus='print -z $(just.sh -j ./.user.justfile -d .)'
+alias ja='print -z $(just.sh -j $HOME/.config/my-scripts/justfile -d .)'
+alias jc='ja'
+alias jj='ja'
+alias jg='ja'
+alias j='print -z $(just.sh -j ./justfile -d .)'
+alias jr='print -z $(just.sh -j $MY_CUBRID/remote/justfile -d .)'
 
 
 
