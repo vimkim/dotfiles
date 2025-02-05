@@ -840,13 +840,13 @@ if command_exists just; then
 fi
 
 alias ju='just'
-alias jus='print -z $(just.sh -j ./.user.justfile -d .)'
-alias ja='print -z $(just.sh -j $HOME/.config/my-scripts/justfile -d .)'
+alias jus='print -z "$(just.sh -j ./.user.justfile -d .)"'
+alias ja='print -z "$(just.sh -j $HOME/.config/my-scripts/justfile -d .)"'
 alias jc='ja'
 alias jj='ja'
 alias jg='ja'
-alias j='print -z $(just.sh -j ./justfile -d .)'
-alias jr='print -z $(just.sh -j $MY_CUBRID/remote/justfile -d .)'
+alias j='print -z "$(just.sh -j ./justfile -d .)"'
+alias jr='print -z "$(just.sh -j $MY_CUBRID/remote/justfile -d .)"'
 
 
 
