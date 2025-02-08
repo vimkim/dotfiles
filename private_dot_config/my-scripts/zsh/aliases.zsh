@@ -685,6 +685,10 @@ alias cdds='csql -u dba demodb -S'
 alias cdt='csql -u dba testdb'
 alias cdts='csql -u dba testdb -S'
 
+alias ct='cargo test'
+alias ca='cargo'
+alias cts='$MY_SCRIPTS/bin/cargo-test-select.sh'
+
 test_project() {
     if [ -f Cargo.toml ]; then
         echo "Detected Rust project."
