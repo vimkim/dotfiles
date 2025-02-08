@@ -476,6 +476,7 @@ function github-clone {
 alias ghclone="github-clone"
 alias ghc='github-clone'
 alias ghcf='gh-clone-fuzzy.sh'
+alias ghcu='$MY_SCRIPTS/bin/git-clone-user.sh'
 
 function gitclonehash() {
     if [ $# -ne 2 ]; then
