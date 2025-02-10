@@ -5,9 +5,9 @@ import re
 import subprocess
 import sys
 
-from pygments import highlight
-from pygments.formatters.terminal import TerminalFormatter
+from pygments import lex
 from pygments.lexers.c_cpp import CppLexer
+from pygments.token import Token
 
 # ---------------------------------------------------------------------------
 # Constants and Regular Expressions
@@ -16,16 +16,8 @@ from pygments.lexers.c_cpp import CppLexer
 SEPARATOR = "Stack trace (most recent call first):"
 DEFAULT_EDITOR = os.environ.get("EDITOR", "nvim")  # Default editor if not set.
 
-# Regex to remove ANSI escape sequences.
+# Regex to remove ANSI escape sequences (used in file parsing only)
 ANSI_ESCAPE_REGEX = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
-
-# Regex for finding ANSI SGR (Select Graphic Rendition) codes.
-ANSI_SGR_REGEX = re.compile(r"\033\[((?:\d+;)*\d*)m")
-
-# Regex to capture a line number and the code from a stack frame header.
-ANSI_LINE_NUMBER_REGEX = re.compile(
-    r"^(?P<line_num>(?:\x1b\[[0-9;]*m)*\s*\d+:\s*(?:\x1b\[[0-9;]*m)*)(?P<code>.*)$"
-)
 
 # ---------------------------------------------------------------------------
 # Trace Processing Functions
@@ -63,6 +55,65 @@ def simplify_trace(lines: list[str]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Curses Rendering Helper Functions
+# ---------------------------------------------------------------------------
+
+
+def get_curses_attr_for_token(ttype, token_colors):
+    """
+    Walk up the token type hierarchy until we find a matching entry in our token_colors dict.
+    """
+    while ttype not in token_colors and ttype.parent is not None:
+        ttype = ttype.parent
+    return token_colors.get(ttype, curses.A_NORMAL)
+
+
+def render_line(window, y, x, line, lexer, token_colors, base_attr=0):
+    """
+    Render a line of text at position (y, x) by tokenizing it using Pygments and applying
+    the corresponding curses color attribute for each token. The base_attr (e.g. curses.A_REVERSE)
+    can be used to add extra styling such as for a selected line.
+    """
+    pos = x
+    for ttype, token in lex(line, lexer):
+        attr = get_curses_attr_for_token(ttype, token_colors)
+        combined_attr = attr | base_attr
+        try:
+            window.addstr(y, pos, token, combined_attr)
+        except curses.error:
+            # Likely ran off the screen.
+            break
+        pos += len(token)
+
+
+def parse_file_and_line(text: str) -> tuple[str, int] | None:
+    """
+    Parse a file path and a line number from a stack frame header.
+    It expects a pattern like 'at <filename>:<line>' in the text.
+    Returns (filename, line_number) if successful, or None otherwise.
+    """
+    clean_text = ANSI_ESCAPE_REGEX.sub("", text)
+    match = re.search(r"\bat\s+(?P<file>\S+?)(?=:\d+\b):(?P<line>\d+)\b", clean_text)
+    if match:
+        return match.group("file"), int(match.group("line"))
+    return None
+
+
+def open_file_in_editor(stdscr: curses.window, filename: str, line_number: int) -> None:
+    """
+    Exit curses mode, open the specified file in the configured editor at the given line,
+    and then reinitialize curses.
+    """
+    curses.endwin()
+    try:
+        subprocess.call([DEFAULT_EDITOR, f"+{line_number}", filename])
+    except Exception as e:
+        print("Failed to open editor:", e)
+    stdscr.clear()
+    curses.doupdate()
+
+
+# ---------------------------------------------------------------------------
 # Main Curses Loop
 # ---------------------------------------------------------------------------
 
@@ -76,13 +127,34 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
         except Exception:
             pass
 
+        # Initialize color pairs for syntax highlighting.
+        curses.init_pair(1, curses.COLOR_GREEN, -1)  # Comments
+        curses.init_pair(2, curses.COLOR_BLUE, -1)  # Keywords
+        curses.init_pair(3, curses.COLOR_WHITE, -1)  # Names (identifiers)
+        curses.init_pair(4, curses.COLOR_MAGENTA, -1)  # Strings
+        curses.init_pair(5, curses.COLOR_CYAN, -1)  # Numbers
+        curses.init_pair(6, curses.COLOR_RED, -1)  # Operators
+        curses.init_pair(7, curses.COLOR_YELLOW, -1)  # Punctuation
+        curses.init_pair(8, curses.COLOR_WHITE, -1)  # Generic
+
+        token_colors = {
+            Token.Comment: curses.color_pair(1),
+            Token.Keyword: curses.color_pair(2),
+            Token.Name: curses.color_pair(3),
+            Token.String: curses.color_pair(4),
+            Token.Number: curses.color_pair(5),
+            Token.Operator: curses.color_pair(6),
+            Token.Punctuation: curses.color_pair(7),
+            Token.Generic: curses.color_pair(8),
+        }
+    else:
+        token_colors = {}
+
+    lexer = CppLexer()
     current_trace_idx = 0
     selected_frame = 0
     frame_scroll_offset = 0
-    show_full_trace = False  # Toggle state
-
-    lexer = CppLexer()
-    formatter = TerminalFormatter()
+    show_full_trace = False  # Toggle state for full/simplified trace
 
     while True:
         stdscr.clear()
@@ -113,20 +185,13 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
         except curses.error:
             pass
 
-        highlights = []
-        for f in frames:
-            highlights.append(highlight(f, lexer, formatter))
-
+        # Render each frame line with syntax highlighting.
         for idx in range(
             frame_scroll_offset, min(len(frames), frame_scroll_offset + available_lines)
         ):
             y = 1 + idx - frame_scroll_offset
-            extra_attr = curses.A_REVERSE if idx == selected_frame else 0
-            frame_line = frames[idx]
-            try:
-                stdscr.addstr(y, 0, frame_line[:width], extra_attr)
-            except curses.error:
-                pass
+            base_attr = curses.A_REVERSE if idx == selected_frame else 0
+            render_line(stdscr, y, 0, frames[idx], lexer, token_colors, base_attr)
 
         stdscr.refresh()
         key = stdscr.getch()
@@ -158,7 +223,6 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
                     filename, line_number = file_line_info
                     open_file_in_editor(stdscr, filename, line_number)
                 else:
-                    # Inform the user if no file information was found.
                     try:
                         stdscr.addstr(
                             height - 1,
@@ -175,40 +239,6 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
             selected_frame = 0
 
 
-def strip_ansi(text: str) -> str:
-    """
-    Remove ANSI escape sequences from the text.
-    """
-    return ANSI_ESCAPE_REGEX.sub("", text)
-
-
-def parse_file_and_line(text: str) -> tuple[str, int] | None:
-    """
-    Parse a file path and a line number from a stack frame header.
-    It expects a pattern like 'at <filename>:<line>' in the text.
-    Returns (filename, line_number) if successful, or None otherwise.
-    """
-    clean_text = strip_ansi(text)
-    match = re.search(r"\bat\s+(?P<file>\S+?)(?=:\d+\b):(?P<line>\d+)\b", clean_text)
-    if match:
-        return match.group("file"), int(match.group("line"))
-    return None
-
-
-def open_file_in_editor(stdscr: curses.window, filename: str, line_number: int) -> None:
-    """
-    Exit curses mode, open the specified file in the configured editor at the given line,
-    and then reinitialize curses.
-    """
-    curses.endwin()
-    try:
-        subprocess.call([DEFAULT_EDITOR, f"+{line_number}", filename])
-    except Exception as e:
-        print("Failed to open editor:", e)
-    stdscr.clear()
-    curses.doupdate()
-
-
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python stack_viewer.py <log_file>")
@@ -221,4 +251,3 @@ if __name__ == "__main__":
         sys.exit(1)
 
     curses.wrapper(main, traces)
-
