@@ -3,6 +3,10 @@ import curses
 import sys
 import re
 
+from pygments.lexers.c_cpp import CppLexer
+from pygments.formatters.terminal import TerminalFormatter
+from pygments import highlight
+
 # Separator used in the log file to split stack traces.
 SEPARATOR = "Stack trace (most recent call first):"
 
@@ -28,6 +32,10 @@ ansi_bg_colors = {
     46: curses.COLOR_CYAN,
     47: curses.COLOR_WHITE,
 }
+
+ansi_line_number_regex = re.compile(
+    r"^(?P<line_num>(?:\x1b\[[0-9;]*m)*\s*\d+:\s*(?:\x1b\[[0-9;]*m)*)(?P<code>.*)$"
+)
 
 # Global cache for our color pairs.
 color_pair_cache = {}
@@ -191,12 +199,32 @@ def main(stdscr, traces):
         if scroll_offset > max(total_lines - available_lines, 0):
             scroll_offset = max(total_lines - available_lines, 0)
 
+        lexer = CppLexer()
+        formatter = TerminalFormatter()
+
+        highlighted_lines = []
+        for line in lines:
+            match = ansi_line_number_regex.match(line)
+            if match:
+                # Extract the line number (with ANSI codes intact) and the code portion.
+                line_number = match.group("line_num")
+                code_part = match.group("code")
+                # Highlight only the code part.
+                highlighted_code = highlight(code_part, lexer, formatter).rstrip("\n")
+                # Reassemble the line with the original (already colored) line number.
+                highlighted_line = f"{line_number}{highlighted_code}"
+            else:
+                # If no match, highlight the whole line.
+                highlighted_line = highlight(line, lexer, formatter).rstrip("\n")
+            highlighted_lines.append(highlighted_line)
+
         # Render the visible portion of the trace.
         for idx in range(
             scroll_offset, min(total_lines, scroll_offset + available_lines)
         ):
             y = idx - scroll_offset + 1  # row 0 is the header
-            render_ansi_line(stdscr, y, 0, lines[idx], width)
+
+            render_ansi_line(stdscr, y, 0, highlighted_lines[idx], width)
         stdscr.refresh()
 
         key = stdscr.getch()
