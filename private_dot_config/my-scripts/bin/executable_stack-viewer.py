@@ -16,6 +16,9 @@ from pygments.token import Token
 SEPARATOR = "Stack trace (most recent call first):"
 DEFAULT_EDITOR = os.environ.get("EDITOR", "nvim")  # Default editor if not set.
 
+lexer = CppLexer()
+token_colors = None
+
 # Regex to remove ANSI escape sequences (used in file parsing only)
 ANSI_ESCAPE_REGEX = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 
@@ -100,6 +103,7 @@ def render_stacktrace_line(window, y, x, line, base_attr=0):
         (?P<address>0x[0-9a-f]+)\s+       # Address in hex
         in\s+                           # Literal "in"
         (?P<func>[^(]+(?:\([^)]*\))?)\s+  # Function signature (name and optional args)
+        # (?P<func>.*)
         at\s+                           # Literal "at"
         (?P<file>[^\s:]+)               # Filename (up to a space or colon)
         (?:\:(?P<line>\d+))?            # Optional line number prefixed by :
@@ -112,20 +116,30 @@ def render_stacktrace_line(window, y, x, line, base_attr=0):
     pos = x
     if m:
         # Print the frame number and address (default style).
-        prefix = f"#{m.group('frame')}  {m.group('address')} in "
+        prefix = f"#{m.group('frame')}  {m.group('address')}"
         try:
-            window.addstr(y, pos, prefix, base_attr)
+            window.addstr(y, pos, prefix, curses.color_pair(9) | base_attr)
         except curses.error:
             return
         pos += len(prefix)
 
-        # Print the function signature in blue (color pair 9).
-        func = m.group("func") or ""
+        _in = " in "
         try:
-            window.addstr(y, pos, func, curses.color_pair(9) | base_attr)
+            window.addstr(y, pos, _in, curses.color_pair(6) | base_attr)
         except curses.error:
             return
-        pos += len(func)
+        pos += len(_in)
+
+        # Print the function signature using Pygments tokenization.
+        func = m.group("func") or ""
+        for ttype, token in lex(func, lexer):
+            # Determine the attribute for this token from our token_colors mapping.
+            attr = get_curses_attr_for_token(ttype, token_colors)
+            try:
+                window.addstr(y, pos, token, attr | base_attr)
+            except curses.error:
+                break  # If we run off the screen, stop rendering.
+            pos += len(token)
 
         # Print " at " literal.
         literal = " at "
@@ -218,7 +232,9 @@ def open_file_in_editor(stdscr: curses.window, filename: str, line_number: int) 
 
 
 def main(stdscr: curses.window, traces: list[str]) -> None:
+    global token_colors, lexer
     curses.curs_set(0)
+
     if curses.has_colors():
         curses.start_color()
         try:
@@ -226,20 +242,21 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
         except Exception:
             pass
 
-        # Initialize color pairs for code highlighting (existing and stacktrace components)
+        # Existing color pairs
         curses.init_pair(1, curses.COLOR_GREEN, -1)  # Comments
         curses.init_pair(2, curses.COLOR_BLUE, -1)  # Keywords
         curses.init_pair(3, curses.COLOR_WHITE, -1)  # Names (identifiers)
         curses.init_pair(4, curses.COLOR_MAGENTA, -1)  # Strings
         curses.init_pair(5, curses.COLOR_CYAN, -1)  # Numbers
         curses.init_pair(6, curses.COLOR_RED, -1)  # Operators
-        curses.init_pair(7, curses.COLOR_YELLOW, -1)  # Punctuation
+        curses.init_pair(7, curses.COLOR_WHITE, -1)  # Punctuation
         curses.init_pair(8, curses.COLOR_WHITE, -1)  # Generic
 
-        # New color pairs for stacktrace parts:
-        curses.init_pair(9, curses.COLOR_BLUE, -1)  # Function signature
+        # New color pairs for stacktrace parts and function names:
+        curses.init_pair(9, curses.COLOR_BLUE, -1)  # Function signature (general parts)
         curses.init_pair(10, curses.COLOR_GREEN, -1)  # Filename
         curses.init_pair(11, curses.COLOR_YELLOW, -1)  # Line/Column numbers
+        curses.init_pair(12, curses.COLOR_YELLOW, -1)  # Function name
 
         token_colors = {
             Token.Comment: curses.color_pair(1),
@@ -348,7 +365,7 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
             # Move one frame down.
             if selected_frame < total_frames - 1:
                 selected_frame += 1
-        elif key in (curses.KEY_ENTER, 10, 13):
+        elif key in (ord("e"), curses.KEY_ENTER, 10, 13):
             # Open the file using the header of the selected frame.
             if total_frames > 0:
                 if show_full_trace:
