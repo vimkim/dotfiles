@@ -202,11 +202,11 @@ def main(stdscr, traces):
         key = stdscr.getch()
         if key in (ord("q"), 27):  # Quit on 'q' or ESC.
             break
-        elif key == ord("n") or key == curses.KEY_RIGHT:
+        elif key == ord("l") or key == curses.KEY_RIGHT:
             if current_idx < len(traces) - 1:
                 current_idx += 1
                 scroll_offset = 0
-        elif key == ord("p") or key == curses.KEY_LEFT:
+        elif key == ord("j") or key == curses.KEY_LEFT:
             if current_idx > 0:
                 current_idx -= 1
                 scroll_offset = 0
@@ -216,6 +216,14 @@ def main(stdscr, traces):
         elif key == curses.KEY_UP:
             if scroll_offset > 0:
                 scroll_offset -= 1
+        elif key == ord("d") or key == curses.KEY_NPAGE:
+            if scroll_offset < total_lines - available_lines:
+                scroll_offset = min(
+                    total_lines - available_lines, scroll_offset + height // 2
+                )
+        elif key == ord("u") or key == curses.KEY_PPAGE:
+            if scroll_offset > 0:
+                scroll_offset = max(0, scroll_offset - height // 2)
         elif key == ord("t"):
             # Toggle the snippet view mode.
             show_full_snippets = not show_full_snippets
