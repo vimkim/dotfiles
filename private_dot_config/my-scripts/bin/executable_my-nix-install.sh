@@ -7,10 +7,10 @@
 # Array of packages to install
 packages=(
     gum
-    gnum4
+    # gnum4
     astyle
     atuin
-    bandwhich
+    # bandwhich
     zellij
     zoxide
     bat
@@ -19,7 +19,7 @@ packages=(
     btop
     ccache
     cgdb
-    clang-tools
+    # clang-tools
     cmake
     croc
     delta
@@ -49,8 +49,8 @@ packages=(
     mise
     navi
     neovim
-    nethogs
-    netscanner
+    # nethogs
+    # netscanner
     ninja
     procs
     ripgrep
@@ -58,11 +58,11 @@ packages=(
     starship
     stow
     tealdeer
-    television
-    termshark
+    # television
+    # termshark
     trash-cli
-    trippy
-    tt
+    # trippy
+    # tt
     yazi
 )
 
