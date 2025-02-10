@@ -35,4 +35,4 @@ if [[ -z "$selected" ]]; then
 fi
 
 echo "Running test: $selected"
-cargo test "$selected"
+cargo test "$selected" -- --show-output --nocapture
