@@ -56,7 +56,7 @@ def render_ansi_line(stdscr, y, x, line, max_width):
     """
     Renders a line that may include ANSI escape sequences.
 
-    The function:
+    This function:
       - Searches for ANSI sequences (of the form \033[...m).
       - Splits the line into segments.
       - Updates the current color attributes accordingly.
@@ -138,38 +138,63 @@ def main(stdscr, traces):
             curses.use_default_colors()  # Allow use of default terminal colors.
         except Exception:
             pass
+
     current_idx = 0
+    scroll_offset = 0  # Vertical offset for scrolling the current stack trace
 
     while True:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
+        # Header with navigation and scroll instructions
         header = (
             f"Stack trace {current_idx + 1} of {len(traces)} "
-            f"(n: next, p: previous, q: quit)"
+            f"(n: next, p: previous, ↑: scroll up, ↓: scroll down, q: quit)"
         )
         try:
             stdscr.addstr(0, 0, header[:width], curses.A_BOLD)
         except curses.error:
             pass
 
-        # Split the current trace into lines and print them one by one.
+        # Split the current stack trace into lines.
         lines = traces[current_idx].splitlines()
-        for i, line in enumerate(lines, start=1):
-            if i >= height:
-                break
-            # Use the ANSI-aware rendering function.
-            render_ansi_line(stdscr, i, 0, line, width)
+        total_lines = len(lines)
+        # The available vertical space for the trace (excluding header)
+        available_lines = height - 1
+
+        # Ensure scroll_offset is within valid bounds.
+        if scroll_offset > max(total_lines - available_lines, 0):
+            scroll_offset = max(total_lines - available_lines, 0)
+
+        # Render only the visible portion of the trace.
+        for idx in range(
+            scroll_offset, min(total_lines, scroll_offset + available_lines)
+        ):
+            # Calculate y position (line 0 is header, so start at 1)
+            y = idx - scroll_offset + 1
+            render_ansi_line(stdscr, y, 0, lines[idx], width)
         stdscr.refresh()
 
+        # Get user input.
         key = stdscr.getch()
-        if key in (ord("q"), 27):  # Quit on 'q' or ESC.
+        if key in (ord("q"), 27):  # 'q' or ESC quits
             break
         elif key == ord("n"):
             if current_idx < len(traces) - 1:
                 current_idx += 1
+                scroll_offset = 0  # Reset scrolling for new trace
         elif key == ord("p"):
             if current_idx > 0:
                 current_idx -= 1
+                scroll_offset = 0  # Reset scrolling for new trace
+        elif key == curses.KEY_DOWN:
+            # Scroll down if there are more lines below.
+            if scroll_offset < total_lines - available_lines:
+                scroll_offset += 1
+        elif key == curses.KEY_UP:
+            # Scroll up if possible.
+            if scroll_offset > 0:
+                scroll_offset -= 1
+        # Optionally, add page up/page down keys for faster scrolling.
 
 
 if __name__ == "__main__":
