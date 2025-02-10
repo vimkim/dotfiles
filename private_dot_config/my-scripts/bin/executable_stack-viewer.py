@@ -56,45 +56,40 @@ def render_ansi_line(stdscr, y, x, line, max_width):
     """
     Renders a line that may include ANSI escape sequences.
 
-    This function:
+    The function:
       - Searches for ANSI sequences (of the form \033[...m).
       - Splits the line into segments.
       - Updates the current color attributes accordingly.
       - Uses curses.addstr() to print each segment with the computed attribute.
     """
-    # Regular expression to match ANSI escape sequences (SGR codes)
     ansi_escape = re.compile(r"\033\[((?:\d+;)*\d*)m")
 
-    # Initial state (using -1 to indicate the terminal's default color)
+    # Initial state: use -1 to denote default color.
     current_fg = -1
     current_bg = -1
     current_bold = False
     current_attr = get_color_attr(current_fg, current_bg, current_bold)
     pos = 0  # current position in the line
 
-    # Process each ANSI escape sequence found in the line.
     for match in ansi_escape.finditer(line):
         start, end = match.span()
-        # Print the text before this escape sequence.
+        # Print text before the escape sequence.
         if start > pos:
             text = line[pos:start]
             try:
                 stdscr.addstr(y, x, text[: max_width - x], current_attr)
             except curses.error:
-                pass  # Avoid curses errors if text overflows
+                pass  # Avoid errors if text overflows.
             x += len(text)
             if x >= max_width:
                 return
-        # Parse the escape code numbers.
+        # Process the ANSI codes.
         code_str = match.group(1)
         codes = [int(c) for c in code_str.split(";") if c] if code_str else []
-        # If no code is provided, ANSI treats it as a reset.
         if not codes:
-            codes = [0]
-        # Update the current attribute state for each code.
+            codes = [0]  # Treat empty codes as reset.
         for code in codes:
             if code == 0:
-                # Reset to defaults.
                 current_fg = -1
                 current_bg = -1
                 current_bold = False
@@ -104,9 +99,8 @@ def render_ansi_line(stdscr, y, x, line, max_width):
                 current_fg = ansi_fg_colors.get(code, current_fg)
             elif 40 <= code <= 47:
                 current_bg = ansi_bg_colors.get(code, current_bg)
-            # Extend here for additional ANSI codes if needed.
         current_attr = get_color_attr(current_fg, current_bg, current_bold)
-        pos = end  # Move past the escape sequence.
+        pos = end  # Advance past the escape sequence.
     # Print any remaining text after the last escape sequence.
     if pos < len(line):
         text = line[pos:]
@@ -123,9 +117,8 @@ def load_traces(filename):
     """
     with open(filename, "r") as f:
         content = f.read()
-    # Split by separator and filter out empty parts.
     parts = [part.strip() for part in content.split(SEPARATOR) if part.strip()]
-    # Optionally prepend the separator back to each trace.
+    # Prepend the separator to each trace.
     traces = [f"{SEPARATOR}\n{part}" for part in parts]
     return traces
 
@@ -135,66 +128,61 @@ def main(stdscr, traces):
     if curses.has_colors():
         curses.start_color()
         try:
-            curses.use_default_colors()  # Allow use of default terminal colors.
+            curses.use_default_colors()
         except Exception:
             pass
 
     current_idx = 0
-    scroll_offset = 0  # Vertical offset for scrolling the current stack trace
+    scroll_offset = 0  # Vertical scroll offset for the current stack trace.
 
     while True:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
-        # Header with navigation and scroll instructions
         header = (
             f"Stack trace {current_idx + 1} of {len(traces)} "
-            f"(n: next, p: previous, ↑: scroll up, ↓: scroll down, q: quit)"
+            f"(n/→: next, p/←: previous, ↑: scroll up, ↓: scroll down, q: quit)"
         )
         try:
             stdscr.addstr(0, 0, header[:width], curses.A_BOLD)
         except curses.error:
             pass
 
-        # Split the current stack trace into lines.
+        # Prepare the current trace lines.
         lines = traces[current_idx].splitlines()
         total_lines = len(lines)
-        # The available vertical space for the trace (excluding header)
-        available_lines = height - 1
+        available_lines = height - 1  # Lines available for the trace after the header.
 
-        # Ensure scroll_offset is within valid bounds.
+        # Adjust scroll_offset if necessary.
         if scroll_offset > max(total_lines - available_lines, 0):
             scroll_offset = max(total_lines - available_lines, 0)
 
-        # Render only the visible portion of the trace.
+        # Render visible portion.
         for idx in range(
             scroll_offset, min(total_lines, scroll_offset + available_lines)
         ):
-            # Calculate y position (line 0 is header, so start at 1)
-            y = idx - scroll_offset + 1
+            y = idx - scroll_offset + 1  # offset by header line
             render_ansi_line(stdscr, y, 0, lines[idx], width)
         stdscr.refresh()
 
         # Get user input.
         key = stdscr.getch()
-        if key in (ord("q"), 27):  # 'q' or ESC quits
+        if key in (ord("q"), 27):  # 'q' or ESC quits.
             break
-        elif key == ord("n"):
+        elif key == ord("n") or key == curses.KEY_RIGHT:
             if current_idx < len(traces) - 1:
                 current_idx += 1
-                scroll_offset = 0  # Reset scrolling for new trace
-        elif key == ord("p"):
+                scroll_offset = 0
+        elif key == ord("p") or key == curses.KEY_LEFT:
             if current_idx > 0:
                 current_idx -= 1
-                scroll_offset = 0  # Reset scrolling for new trace
+                scroll_offset = 0
         elif key == curses.KEY_DOWN:
-            # Scroll down if there are more lines below.
             if scroll_offset < total_lines - available_lines:
                 scroll_offset += 1
         elif key == curses.KEY_UP:
-            # Scroll up if possible.
             if scroll_offset > 0:
                 scroll_offset -= 1
-        # Optionally, add page up/page down keys for faster scrolling.
+        # You may extend with additional keys (like page up/down) if desired.
 
 
 if __name__ == "__main__":
