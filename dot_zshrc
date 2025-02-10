@@ -348,7 +348,11 @@ else
   alias B='br -g -d -s --sort-by-date --tree --sort-by-type-dirs-last'
 fi
 
-$MY_SCRIPTS/bin/fastfetch.zsh
+if [ "$PWD" = "$HOME" ]; then
+    $MY_SCRIPTS/bin/fastfetch.zsh
+    gita ll
+fi
+
 # asdf current
 ll
 
