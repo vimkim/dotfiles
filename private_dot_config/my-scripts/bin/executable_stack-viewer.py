@@ -226,7 +226,7 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
         except Exception:
             pass
 
-        # Existing color pairs for Pygments-based code highlighting.
+        # Initialize color pairs for code highlighting (existing and stacktrace components)
         curses.init_pair(1, curses.COLOR_GREEN, -1)  # Comments
         curses.init_pair(2, curses.COLOR_BLUE, -1)  # Keywords
         curses.init_pair(3, curses.COLOR_WHITE, -1)  # Names (identifiers)
@@ -236,7 +236,7 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
         curses.init_pair(7, curses.COLOR_YELLOW, -1)  # Punctuation
         curses.init_pair(8, curses.COLOR_WHITE, -1)  # Generic
 
-        # New color pairs for stacktrace parsing.
+        # New color pairs for stacktrace parts:
         curses.init_pair(9, curses.COLOR_BLUE, -1)  # Function signature
         curses.init_pair(10, curses.COLOR_GREEN, -1)  # Filename
         curses.init_pair(11, curses.COLOR_YELLOW, -1)  # Line/Column numbers
@@ -256,47 +256,72 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
 
     lexer = CppLexer()
     current_trace_idx = 0
-    selected_frame = 0
+    selected_frame = 0  # This will be our “frame index”
     frame_scroll_offset = 0
-    show_full_trace = False  # Toggle state for full/simplified trace
+    show_full_trace = False  # Toggle: False → simplified (one line per frame), True → full code snippet
 
     while True:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
 
+        # Get the raw trace lines for the current trace.
         trace_lines = traces[current_trace_idx].splitlines()
-        frames = trace_lines if show_full_trace else simplify_trace(trace_lines)
-        total_frames = len(frames)
 
-        if total_frames == 0:
-            selected_frame = 0
-        elif selected_frame >= total_frames:
-            selected_frame = total_frames - 1
+        if show_full_trace:
+            # In full mode, we want to show all the lines.
+            lines = trace_lines
+            # Compute the line numbers for frame headers (lines starting with "#")
+            frame_indices = [
+                i for i, line in enumerate(trace_lines) if line.lstrip().startswith("#")
+            ]
+            total_frames = len(frame_indices)
+            if total_frames == 0:
+                # No header lines found; fall back.
+                selected_frame = 0
+                highlighted_line = 0
+                total_frames = len(lines)
+            else:
+                # Make sure our selected frame index is within bounds.
+                if selected_frame >= total_frames:
+                    selected_frame = total_frames - 1
+                highlighted_line = frame_indices[selected_frame]
+        else:
+            # In simplified mode, we already have one line per frame.
+            lines = simplify_trace(trace_lines)
+            total_frames = len(lines)
+            highlighted_line = (
+                selected_frame  # Here the list "lines" is one frame per element.
+            )
 
-        available_lines = height - 1
-        if selected_frame < frame_scroll_offset:
-            frame_scroll_offset = selected_frame
-        elif selected_frame >= frame_scroll_offset + available_lines:
-            frame_scroll_offset = selected_frame - available_lines + 1
+        # Adjust the scroll offset so the highlighted line is visible.
+        if highlighted_line < frame_scroll_offset:
+            frame_scroll_offset = highlighted_line
+        elif highlighted_line >= frame_scroll_offset + (height - 1):
+            frame_scroll_offset = highlighted_line - (height - 1) + 1
 
+        # Prepare the header.
         header = (
             f"Stack trace {current_trace_idx + 1}/{len(traces)} "
             f"(Frame {selected_frame + 1}/{total_frames}) "
-            f"(←/h: prev trace, →/l: next trace, ↑/↓: select frame, Enter: open file, t: toggle full, q/ESC: quit)"
+            f"(←/h: prev trace, →/l: next trace, ↑/k: prev frame, ↓/j: next frame, "
+            f"Enter: open file, t: toggle full, q/ESC: quit)"
         )
         try:
             stdscr.addstr(0, 0, header[:width], curses.A_BOLD)
         except curses.error:
             pass
 
-        # Render each frame line.
+        # Render the visible lines.
         for idx in range(
-            frame_scroll_offset, min(len(frames), frame_scroll_offset + available_lines)
+            frame_scroll_offset, min(len(lines), frame_scroll_offset + (height - 1))
         ):
             y = 1 + idx - frame_scroll_offset
-            base_attr = curses.A_REVERSE if idx == selected_frame else 0
-            # Use our custom renderer that chooses between stacktrace and regular line rendering.
-            render_trace_line(stdscr, y, 0, frames[idx], lexer, token_colors, base_attr)
+            # Highlight only the frame header in full mode.
+            if idx == highlighted_line:
+                base_attr = curses.A_REVERSE
+            else:
+                base_attr = 0
+            render_trace_line(stdscr, y, 0, lines[idx], lexer, token_colors, base_attr)
 
         stdscr.refresh()
         key = stdscr.getch()
@@ -304,26 +329,33 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
         if key in (ord("q"), 27):
             break
         elif key in (curses.KEY_LEFT, ord("h")):
+            # Previous stack trace.
             if current_trace_idx > 0:
                 current_trace_idx -= 1
                 selected_frame = 0
                 frame_scroll_offset = 0
         elif key in (curses.KEY_RIGHT, ord("l")):
+            # Next stack trace.
             if current_trace_idx < len(traces) - 1:
                 current_trace_idx += 1
                 selected_frame = 0
                 frame_scroll_offset = 0
-        elif key == curses.KEY_UP:
+        elif key in (curses.KEY_UP, ord("k")):
+            # Move one frame up.
             if selected_frame > 0:
                 selected_frame -= 1
-        elif key == curses.KEY_DOWN:
+        elif key in (curses.KEY_DOWN, ord("j")):
+            # Move one frame down.
             if selected_frame < total_frames - 1:
                 selected_frame += 1
         elif key in (curses.KEY_ENTER, 10, 13):
-            # Attempt to open the file in the editor based on the selected frame.
+            # Open the file using the header of the selected frame.
             if total_frames > 0:
-                selected_line = frames[selected_frame]
-                file_line_info = parse_file_and_line(selected_line)
+                if show_full_trace:
+                    header_line = lines[frame_indices[selected_frame]]
+                else:
+                    header_line = lines[selected_frame]
+                file_line_info = parse_file_and_line(header_line)
                 if file_line_info:
                     filename, line_number = file_line_info
                     open_file_in_editor(stdscr, filename, line_number)
@@ -339,6 +371,7 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
                         pass
                     stdscr.getch()
         elif key == ord("t"):
+            # Toggle between simplified and full code snippet view.
             show_full_trace = not show_full_trace
             frame_scroll_offset = 0
             selected_frame = 0
