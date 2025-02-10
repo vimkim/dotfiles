@@ -248,7 +248,7 @@ def main(stdscr, traces):
         header = (
             f"Stack trace {current_trace_idx + 1}/{len(traces)} "
             f"(Frame {selected_frame + 1}/{total_frames}) "
-            f"(←/j: prev trace, →/l: next trace, ↑/↓: select frame, Enter: open file, q/ESC: quit)"
+            f"(←/h: prev trace, →/l: next trace, ↑/↓: select frame, Enter: open file, q/ESC: quit)"
         )
         try:
             stdscr.addstr(0, 0, header[:width], curses.A_BOLD)
@@ -282,7 +282,7 @@ def main(stdscr, traces):
 
         if key in (ord("q"), 27):  # Quit on 'q' or ESC.
             break
-        elif key in (curses.KEY_LEFT, ord("j")):
+        elif key in (curses.KEY_LEFT, ord("h")):
             # Go to the previous stack trace.
             if current_trace_idx > 0:
                 current_trace_idx -= 1
