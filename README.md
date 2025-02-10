@@ -23,8 +23,8 @@ sh <(curl -L https://nixos.org/nix/install) --no-daemon
 
 . /home/vimkim/.nix-profile/etc/profile.d/nix.sh
 
-nix --extra-experimental-features nix-command --extra-experimental-features flakes profile install nixpkgs#zsh
 nix --extra-experimental-features nix-command --extra-experimental-features flakes profile install nixpkgs#chezmoi
+# nix --extra-experimental-features nix-command --extra-experimental-features flakes profile install nixpkgs#zsh
 ```
 
 Note: nix-command and flakes are automatically enabled with chezmoi apply.
