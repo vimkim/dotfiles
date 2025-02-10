@@ -71,8 +71,7 @@ def get_curses_attr_for_token(ttype, token_colors):
 def render_line(window, y, x, line, lexer, token_colors, base_attr=0):
     """
     Render a line of text at position (y, x) by tokenizing it using Pygments and applying
-    the corresponding curses color attribute for each token. The base_attr (e.g. curses.A_REVERSE)
-    can be used to add extra styling such as for a selected line.
+    the corresponding curses color attribute for each token.
     """
     pos = x
     for ttype, token in lex(line, lexer):
@@ -81,9 +80,109 @@ def render_line(window, y, x, line, lexer, token_colors, base_attr=0):
         try:
             window.addstr(y, pos, token, combined_attr)
         except curses.error:
-            # Likely ran off the screen.
-            break
+            break  # If we run off the screen.
         pos += len(token)
+
+
+def render_stacktrace_line(window, y, x, line, base_attr=0):
+    """
+    For a stacktrace line (starting with '#'), use a regex to split the line into
+    components and colorize parts:
+      - Frame number and address: default color.
+      - Function signature: blue (color pair 9).
+      - Filename: green (color pair 10).
+      - Line and column numbers: yellow (color pair 11).
+    """
+    pattern = re.compile(
+        r"""
+        ^\s*                             # Leading whitespace
+        \#(?P<frame>\d+)\s+              # Frame number preceded by #
+        (?P<address>0x[0-9a-f]+)\s+       # Address in hex
+        in\s+                           # Literal "in"
+        (?P<func>[^(]+(?:\([^)]*\))?)\s+  # Function signature (name and optional args)
+        at\s+                           # Literal "at"
+        (?P<file>[^\s:]+)               # Filename (up to a space or colon)
+        (?:\:(?P<line>\d+))?            # Optional line number prefixed by :
+        (?:\:(?P<col>\d+))?             # Optional column number prefixed by :
+        (.*)$                          # Remainder of the line (e.g. trailing " ....")
+    """,
+        re.VERBOSE,
+    )
+    m = pattern.match(line)
+    pos = x
+    if m:
+        # Print the frame number and address (default style).
+        prefix = f"#{m.group('frame')}  {m.group('address')} in "
+        try:
+            window.addstr(y, pos, prefix, base_attr)
+        except curses.error:
+            return
+        pos += len(prefix)
+
+        # Print the function signature in blue (color pair 9).
+        func = m.group("func") or ""
+        try:
+            window.addstr(y, pos, func, curses.color_pair(9) | base_attr)
+        except curses.error:
+            return
+        pos += len(func)
+
+        # Print " at " literal.
+        literal = " at "
+        try:
+            window.addstr(y, pos, literal, base_attr)
+        except curses.error:
+            return
+        pos += len(literal)
+
+        # Print the filename in green (color pair 10).
+        file = m.group("file") or ""
+        try:
+            window.addstr(y, pos, file, curses.color_pair(10) | base_attr)
+        except curses.error:
+            return
+        pos += len(file)
+
+        # Print line number (and column if present) in yellow (color pair 11).
+        if m.group("line"):
+            line_part = f":{m.group('line')}"
+            try:
+                window.addstr(y, pos, line_part, curses.color_pair(11) | base_attr)
+            except curses.error:
+                return
+            pos += len(line_part)
+        if m.group("col"):
+            col_part = f":{m.group('col')}"
+            try:
+                window.addstr(y, pos, col_part, curses.color_pair(11) | base_attr)
+            except curses.error:
+                return
+            pos += len(col_part)
+
+        # Print any remaining part of the line.
+        remainder = m.group(7) or ""
+        try:
+            window.addstr(y, pos, remainder, base_attr)
+        except curses.error:
+            return
+    else:
+        # Fallback: if our regex doesn't match, simply print the line.
+        try:
+            window.addstr(y, x, line, base_attr)
+        except curses.error:
+            return
+
+
+def render_trace_line(window, y, x, line, lexer, token_colors, base_attr=0):
+    """
+    Determine if the line is a stacktrace line or a regular code line.
+    If it starts with '#' (after stripping whitespace) we assume it's a stacktrace
+    and use our custom colorizing; otherwise, use the standard Pygments-based rendering.
+    """
+    if line.lstrip().startswith("#"):
+        render_stacktrace_line(window, y, x, line, base_attr)
+    else:
+        render_line(window, y, x, line, lexer, token_colors, base_attr)
 
 
 def parse_file_and_line(text: str) -> tuple[str, int] | None:
@@ -127,7 +226,7 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
         except Exception:
             pass
 
-        # Initialize color pairs for syntax highlighting.
+        # Existing color pairs for Pygments-based code highlighting.
         curses.init_pair(1, curses.COLOR_GREEN, -1)  # Comments
         curses.init_pair(2, curses.COLOR_BLUE, -1)  # Keywords
         curses.init_pair(3, curses.COLOR_WHITE, -1)  # Names (identifiers)
@@ -136,6 +235,11 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
         curses.init_pair(6, curses.COLOR_RED, -1)  # Operators
         curses.init_pair(7, curses.COLOR_YELLOW, -1)  # Punctuation
         curses.init_pair(8, curses.COLOR_WHITE, -1)  # Generic
+
+        # New color pairs for stacktrace parsing.
+        curses.init_pair(9, curses.COLOR_BLUE, -1)  # Function signature
+        curses.init_pair(10, curses.COLOR_GREEN, -1)  # Filename
+        curses.init_pair(11, curses.COLOR_YELLOW, -1)  # Line/Column numbers
 
         token_colors = {
             Token.Comment: curses.color_pair(1),
@@ -185,13 +289,14 @@ def main(stdscr: curses.window, traces: list[str]) -> None:
         except curses.error:
             pass
 
-        # Render each frame line with syntax highlighting.
+        # Render each frame line.
         for idx in range(
             frame_scroll_offset, min(len(frames), frame_scroll_offset + available_lines)
         ):
             y = 1 + idx - frame_scroll_offset
             base_attr = curses.A_REVERSE if idx == selected_frame else 0
-            render_line(stdscr, y, 0, frames[idx], lexer, token_colors, base_attr)
+            # Use our custom renderer that chooses between stacktrace and regular line rendering.
+            render_trace_line(stdscr, y, 0, frames[idx], lexer, token_colors, base_attr)
 
         stdscr.refresh()
         key = stdscr.getch()
