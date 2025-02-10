@@ -64,7 +64,7 @@ def render_ansi_line(stdscr, y, x, line, max_width):
     """
     ansi_escape = re.compile(r"\033\[((?:\d+;)*\d*)m")
 
-    # Initial state: use -1 to denote default color.
+    # Initial state (using -1 to indicate the terminal's default color)
     current_fg = -1
     current_bg = -1
     current_bold = False
@@ -73,23 +73,25 @@ def render_ansi_line(stdscr, y, x, line, max_width):
 
     for match in ansi_escape.finditer(line):
         start, end = match.span()
-        # Print text before the escape sequence.
+        # Print the text before the escape sequence.
         if start > pos:
             text = line[pos:start]
             try:
                 stdscr.addstr(y, x, text[: max_width - x], current_attr)
             except curses.error:
-                pass  # Avoid errors if text overflows.
+                pass  # Avoid curses errors if text overflows
             x += len(text)
             if x >= max_width:
                 return
         # Process the ANSI codes.
         code_str = match.group(1)
         codes = [int(c) for c in code_str.split(";") if c] if code_str else []
+        # If no code is provided, ANSI treats it as a reset.
         if not codes:
-            codes = [0]  # Treat empty codes as reset.
+            codes = [0]
         for code in codes:
             if code == 0:
+                # Reset to defaults.
                 current_fg = -1
                 current_bg = -1
                 current_bold = False
@@ -100,7 +102,7 @@ def render_ansi_line(stdscr, y, x, line, max_width):
             elif 40 <= code <= 47:
                 current_bg = ansi_bg_colors.get(code, current_bg)
         current_attr = get_color_attr(current_fg, current_bg, current_bold)
-        pos = end  # Advance past the escape sequence.
+        pos = end  # Move past the escape sequence.
     # Print any remaining text after the last escape sequence.
     if pos < len(line):
         text = line[pos:]
@@ -117,10 +119,39 @@ def load_traces(filename):
     """
     with open(filename, "r") as f:
         content = f.read()
+    # Split by separator and filter out empty parts.
     parts = [part.strip() for part in content.split(SEPARATOR) if part.strip()]
-    # Prepend the separator to each trace.
+    # Prepend the separator back to each trace.
     traces = [f"{SEPARATOR}\n{part}" for part in parts]
     return traces
+
+
+def simplify_trace(lines):
+    """
+    Given a list of lines for a trace, returns a simplified list where each stack frame
+    is represented by only its header line (i.e. lines that start with '#' after stripping)
+    followed by " ...." if the header was followed by additional snippet lines.
+    """
+    simplified = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.lstrip().startswith("#"):
+            header_line = line
+            # Check for additional snippet lines (non-header lines) following this header.
+            j = i + 1
+            snippet_found = False
+            while j < len(lines) and not lines[j].lstrip().startswith("#"):
+                snippet_found = True
+                j += 1
+            if snippet_found:
+                simplified.append(header_line + " ....")
+            else:
+                simplified.append(header_line)
+            i = j
+        else:
+            i += 1
+    return simplified
 
 
 def main(stdscr, traces):
@@ -128,45 +159,48 @@ def main(stdscr, traces):
     if curses.has_colors():
         curses.start_color()
         try:
-            curses.use_default_colors()
+            curses.use_default_colors()  # Allow use of default terminal colors.
         except Exception:
             pass
 
     current_idx = 0
     scroll_offset = 0  # Vertical scroll offset for the current stack trace.
+    show_full_snippets = False  # Initially show the full code snippet session.
 
     while True:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
+        snippet_mode = "full" if show_full_snippets else "simplified"
         header = (
-            f"Stack trace {current_idx + 1} of {len(traces)} "
-            f"(n/→: next, p/←: previous, ↑: scroll up, ↓: scroll down, q: quit)"
+            f"Stack trace {current_idx + 1} of {len(traces)} (mode: {snippet_mode}) "
+            f"(n/→: next, p/←: previous, ↑: scroll up, ↓: scroll down, t: toggle, q: quit)"
         )
         try:
             stdscr.addstr(0, 0, header[:width], curses.A_BOLD)
         except curses.error:
             pass
 
-        # Prepare the current trace lines.
+        # Get the trace lines. If in simplified mode, filter the lines.
         lines = traces[current_idx].splitlines()
-        total_lines = len(lines)
-        available_lines = height - 1  # Lines available for the trace after the header.
+        if not show_full_snippets:
+            lines = simplify_trace(lines)
 
-        # Adjust scroll_offset if necessary.
+        total_lines = len(lines)
+        available_lines = height - 1  # Exclude header
+
         if scroll_offset > max(total_lines - available_lines, 0):
             scroll_offset = max(total_lines - available_lines, 0)
 
-        # Render visible portion.
+        # Render the visible portion of the trace.
         for idx in range(
             scroll_offset, min(total_lines, scroll_offset + available_lines)
         ):
-            y = idx - scroll_offset + 1  # offset by header line
+            y = idx - scroll_offset + 1  # row 0 is the header
             render_ansi_line(stdscr, y, 0, lines[idx], width)
         stdscr.refresh()
 
-        # Get user input.
         key = stdscr.getch()
-        if key in (ord("q"), 27):  # 'q' or ESC quits.
+        if key in (ord("q"), 27):  # Quit on 'q' or ESC.
             break
         elif key == ord("n") or key == curses.KEY_RIGHT:
             if current_idx < len(traces) - 1:
@@ -182,16 +216,21 @@ def main(stdscr, traces):
         elif key == curses.KEY_UP:
             if scroll_offset > 0:
                 scroll_offset -= 1
-        # You may extend with additional keys (like page up/down) if desired.
+        elif key == ord("t"):
+            # Toggle the snippet view mode.
+            show_full_snippets = not show_full_snippets
+            scroll_offset = 0  # Reset scroll when toggling
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python stack_viewer.py <log_file>")
         sys.exit(1)
+
     filename = sys.argv[1]
     traces = load_traces(filename)
     if not traces:
         print("No stack traces found using the separator.")
         sys.exit(1)
+
     curses.wrapper(main, traces)
