@@ -2,6 +2,8 @@
 import curses
 import sys
 import re
+import os
+import subprocess
 
 from pygments.lexers.c_cpp import CppLexer
 from pygments.formatters.terminal import TerminalFormatter
@@ -9,6 +11,9 @@ from pygments import highlight
 
 # Separator used in the log file to split stack traces.
 SEPARATOR = "Stack trace (most recent call first):"
+
+# Regex for stripping ANSI escape sequences.
+ansi_escape = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 
 # Mapping from ANSI SGR codes to curses colors.
 ansi_fg_colors = {
@@ -60,9 +65,10 @@ def get_color_attr(fg, bg, bold):
     return attr
 
 
-def render_ansi_line(stdscr, y, x, line, max_width):
+def render_ansi_line(stdscr, y, x, line, max_width, extra_attr=0):
     """
     Renders a line that may include ANSI escape sequences.
+    An additional attribute (e.g. A_REVERSE) can be OR’ed via extra_attr.
 
     The function:
       - Searches for ANSI sequences (of the form \033[...m).
@@ -85,7 +91,7 @@ def render_ansi_line(stdscr, y, x, line, max_width):
         if start > pos:
             text = line[pos:start]
             try:
-                stdscr.addstr(y, x, text[: max_width - x], current_attr)
+                stdscr.addstr(y, x, text[: max_width - x], current_attr | extra_attr)
             except curses.error:
                 pass  # Avoid curses errors if text overflows
             x += len(text)
@@ -115,7 +121,7 @@ def render_ansi_line(stdscr, y, x, line, max_width):
     if pos < len(line):
         text = line[pos:]
         try:
-            stdscr.addstr(y, x, text[: max_width - x], current_attr)
+            stdscr.addstr(y, x, text[: max_width - x], current_attr | extra_attr)
         except curses.error:
             pass
 
@@ -162,7 +168,43 @@ def simplify_trace(lines):
     return simplified
 
 
+def strip_ansi(text):
+    """Remove any ANSI escape sequences from the text."""
+    return ansi_escape.sub("", text)
+
+
+def parse_file_and_line(text):
+    """
+    Extracts a file path and line number from a stack frame header.
+    It expects the file info to appear after the keyword "at".
+    Returns a tuple (filename, line_number) or None if no match is found.
+    """
+    clean_text = strip_ansi(text)
+    # Use a non-greedy match for the file name so that only the first colon is used
+    m = re.search(r"\bat\s+(?P<file>\S+?)(?=:\d+\b):(?P<line>\d+)\b", clean_text)
+    if m:
+        return m.group("file"), int(m.group("line"))
+    else:
+        return None
+
+
+def open_file_in_editor(stdscr, filename, line_number):
+    """
+    Exits curses mode, opens the file in the editor at the specified line,
+    and then reinitializes curses.
+    """
+    curses.endwin()
+    editor = os.environ.get("EDITOR", "nvim")  # Default to neovim if desired.
+    try:
+        subprocess.call([editor, f"+{line_number}", filename])
+    except Exception as e:
+        print("Failed to open editor:", e)
+    stdscr.clear()
+    curses.doupdate()
+
+
 def main(stdscr, traces):
+    # Initialize the curses settings.
     curses.curs_set(0)
     if curses.has_colors():
         curses.start_color()
@@ -171,91 +213,115 @@ def main(stdscr, traces):
         except Exception:
             pass
 
-    current_idx = 0
-    scroll_offset = 0  # Vertical scroll offset for the current stack trace.
-    show_full_snippets = False  # Initially show the full code snippet session.
+    # Use the simplified view for selection (each stack frame is one line).
+    current_trace_idx = 0  # Which trace (among multiple traces) is active.
+    selected_frame = 0  # Which frame (line) is selected in the current trace.
+    frame_scroll_offset = (
+        0  # For cases when the number of frames exceeds the screen height.
+    )
+
+    lexer = CppLexer()
+    formatter = TerminalFormatter()
 
     while True:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
-        snippet_mode = "full" if show_full_snippets else "simplified"
+        # Split the current trace into lines and then simplify it to just one header per frame.
+        trace_lines = traces[current_trace_idx].splitlines()
+        simplified_frames = simplify_trace(trace_lines)
+        total_frames = len(simplified_frames)
+
+        # Ensure our selected frame index is within bounds.
+        if total_frames == 0:
+            selected_frame = 0
+        elif selected_frame >= total_frames:
+            selected_frame = total_frames - 1
+
+        # Adjust scrolling so that the selected frame is visible.
+        available_lines = height - 1  # Reserve the top line for the header.
+        if selected_frame < frame_scroll_offset:
+            frame_scroll_offset = selected_frame
+        elif selected_frame >= frame_scroll_offset + available_lines:
+            frame_scroll_offset = selected_frame - available_lines + 1
+
+        # Header with instructions.
         header = (
-            f"Stack trace {current_idx + 1} of {len(traces)} (mode: {snippet_mode}) "
-            f"(n/→: next, p/←: previous, ↑: scroll up, ↓: scroll down, t: toggle, q: quit)"
+            f"Stack trace {current_trace_idx + 1}/{len(traces)} "
+            f"(Frame {selected_frame + 1}/{total_frames}) "
+            f"(←/j: prev trace, →/l: next trace, ↑/↓: select frame, Enter: open file, q/ESC: quit)"
         )
         try:
             stdscr.addstr(0, 0, header[:width], curses.A_BOLD)
         except curses.error:
             pass
 
-        # Get the trace lines. If in simplified mode, filter the lines.
-        lines = traces[current_idx].splitlines()
-        if not show_full_snippets:
-            lines = simplify_trace(lines)
+        # Render the visible portion of the stack frames.
+        for idx in range(
+            frame_scroll_offset,
+            min(total_frames, frame_scroll_offset + available_lines),
+        ):
+            y = 1 + idx - frame_scroll_offset  # row 0 is the header
+            extra_attr = curses.A_REVERSE if idx == selected_frame else 0
 
-        total_lines = len(lines)
-        available_lines = height - 1  # Exclude header
-
-        if scroll_offset > max(total_lines - available_lines, 0):
-            scroll_offset = max(total_lines - available_lines, 0)
-
-        lexer = CppLexer()
-        formatter = TerminalFormatter()
-
-        highlighted_lines = []
-        for line in lines:
-            match = ansi_line_number_regex.match(line)
+            # Use the same highlighting logic as before.
+            match = ansi_line_number_regex.match(simplified_frames[idx])
             if match:
-                # Extract the line number (with ANSI codes intact) and the code portion.
                 line_number = match.group("line_num")
                 code_part = match.group("code")
-                # Highlight only the code part.
                 highlighted_code = highlight(code_part, lexer, formatter).rstrip("\n")
-                # Reassemble the line with the original (already colored) line number.
                 highlighted_line = f"{line_number}{highlighted_code}"
             else:
-                # If no match, highlight the whole line.
-                highlighted_line = highlight(line, lexer, formatter).rstrip("\n")
-            highlighted_lines.append(highlighted_line)
+                highlighted_line = highlight(
+                    simplified_frames[idx], lexer, formatter
+                ).rstrip("\n")
 
-        # Render the visible portion of the trace.
-        for idx in range(
-            scroll_offset, min(total_lines, scroll_offset + available_lines)
-        ):
-            y = idx - scroll_offset + 1  # row 0 is the header
+            render_ansi_line(stdscr, y, 0, highlighted_line, width, extra_attr)
 
-            render_ansi_line(stdscr, y, 0, highlighted_lines[idx], width)
         stdscr.refresh()
-
         key = stdscr.getch()
+
         if key in (ord("q"), 27):  # Quit on 'q' or ESC.
             break
-        elif key == ord("l") or key == curses.KEY_RIGHT:
-            if current_idx < len(traces) - 1:
-                current_idx += 1
-                scroll_offset = 0
-        elif key == ord("j") or key == curses.KEY_LEFT:
-            if current_idx > 0:
-                current_idx -= 1
-                scroll_offset = 0
-        elif key == curses.KEY_DOWN:
-            if scroll_offset < total_lines - available_lines:
-                scroll_offset += 1
+        elif key in (curses.KEY_LEFT, ord("j")):
+            # Go to the previous stack trace.
+            if current_trace_idx > 0:
+                current_trace_idx -= 1
+                selected_frame = 0
+                frame_scroll_offset = 0
+        elif key in (curses.KEY_RIGHT, ord("l")):
+            # Go to the next stack trace.
+            if current_trace_idx < len(traces) - 1:
+                current_trace_idx += 1
+                selected_frame = 0
+                frame_scroll_offset = 0
         elif key == curses.KEY_UP:
-            if scroll_offset > 0:
-                scroll_offset -= 1
-        elif key == ord("d") or key == curses.KEY_NPAGE:
-            if scroll_offset < total_lines - available_lines:
-                scroll_offset = min(
-                    total_lines - available_lines, scroll_offset + height // 2
-                )
-        elif key == ord("u") or key == curses.KEY_PPAGE:
-            if scroll_offset > 0:
-                scroll_offset = max(0, scroll_offset - height // 2)
-        elif key == ord("t"):
-            # Toggle the snippet view mode.
-            show_full_snippets = not show_full_snippets
-            scroll_offset = 0  # Reset scroll when toggling
+            # Move selection up.
+            if selected_frame > 0:
+                selected_frame -= 1
+        elif key == curses.KEY_DOWN:
+            # Move selection down.
+            if selected_frame < total_frames - 1:
+                selected_frame += 1
+        elif key in (curses.KEY_ENTER, 10, 13):
+            # Open the file in the editor based on the selected stack frame.
+            if total_frames > 0:
+                selected_line = simplified_frames[selected_frame]
+                file_line_info = parse_file_and_line(selected_line)
+                if file_line_info:
+                    filename, line_number = file_line_info
+                    open_file_in_editor(stdscr, filename, line_number)
+                else:
+                    # Inform the user if no file information was found.
+                    try:
+                        stdscr.addstr(
+                            height - 1,
+                            0,
+                            "No file information found for the selected frame. Press any key.",
+                            curses.A_BOLD,
+                        )
+                    except curses.error:
+                        pass
+                    stdscr.getch()
 
 
 if __name__ == "__main__":
