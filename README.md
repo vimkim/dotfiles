@@ -24,7 +24,6 @@ sudo apt install zsh
 sudo dnf install zsh
 ```
 
-
 ### Install nix package manager
 
 ```bash
@@ -35,7 +34,7 @@ sudo dnf install zsh
 
 or,
 
-``` bash
+```bash
 sh <(curl -L https://nixos.org/nix/install) --no-daemon
 ```
 
