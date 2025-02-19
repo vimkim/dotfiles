@@ -2,14 +2,18 @@
 
 A reminder of how to set up my dotfiles on a new machine.
 
-## Installation
-
-### Install zsh using distro package manager (Optional)
+## Step 1: Install Zsh
 
 #### Arch
 
 ```bash
 sudo pacman -S zsh
+```
+
+#### RHEL (Fedora, Rocky, CentOS)
+
+```bash
+sudo dnf install zsh
 ```
 
 #### Ubuntu
@@ -18,13 +22,7 @@ sudo pacman -S zsh
 sudo apt install zsh
 ```
 
-#### RHEL (Fedora, Rocky, Centos)
-
-```bash
-sudo dnf install zsh
-```
-
-### Install nix package manager
+## Step 2: Install Nix Package Manager
 
 ```bash
 # ssh <(curl -L https://nixos.org/nix/install) --daemon
@@ -59,20 +57,22 @@ Note: nix-command and flakes are automatically enabled with chezmoi apply.
 chezmoi init --apply vimkim
 ```
 
-### Install oh-my-zsh
+## Step 3: Install oh-my-zsh
 
 ```bash
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 mv .zshrc.pre-oh-my-zsh .zshrc
 ```
 
-### Other nix packages
+## Step 4: Other nix packages
+
+This might take some time and disk spaces.
 
 ```bash
 my-nix-install.sh
 ```
 
-### Install nvim dotfiles
+## Step 5: Install nvim dotfiles
 
 ```bash
 cd $HOME/.config
