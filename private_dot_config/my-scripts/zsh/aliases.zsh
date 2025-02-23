@@ -853,9 +853,10 @@ alias jg='ja'
 alias j='print -z "$(just.sh -j ./justfile -d .)"'
 alias jr='print -z "$(just.sh -j $MY_CUBRID/remote/justfile -d .)"'
 
-alias kubectl='minikube kubectl'
-alias ku='minikube kubectl'
+alias kubectl='minikube kubectl --'
+alias ku='minikube kubectl --'
 alias k='kubectl'
+alias minienv='eval $(minikube -p minikube docker-env)'
 
 
 # cgdb
