@@ -374,5 +374,11 @@ export NIXBIN="$HOME/.nix-profile/bin"
 
 source $HOME/.config/zsh/mdbook.zsh
 
+source <(kubectl completion zsh)
+
+complete -C 'aws_completer' aws
+
 autoload -U +X compinit && compinit
+autoload bashcompinit && bashcompinit
+autoload -Uz compinit && compinit
 # zprof
