@@ -90,4 +90,6 @@ set pagination on
 set detach-on-fork off
 set debuginfod enabled on
 
+alias -a btf = backtrace full
+
 set print frame-arguments all
