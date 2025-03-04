@@ -159,6 +159,8 @@ alias vv='FILE=$(fd . -H -I --type f --type l --max-depth 1 | fzf --height 40% -
 alias vc='vv'
 alias vx='FILE=$(fd . -H -I --type f --type l | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
 
+alias nf="newfile.sh"
+
 alias fdall='fd -H -I'
 alias fda='fd -H -I'
 alias rgall='rg --no-ignore -.'
