@@ -1,0 +1,75 @@
+# Global settings for all hosts
+Host *
+    ServerAliveInterval 60
+    ServerAliveCountMax 180
+    TCPKeepAlive yes
+    ForwardX11 yes
+
+# ssh216 – with RemoteForward example
+Host ssh216
+    HostName 192.168.2.216
+    User cubrid
+    RemoteForward 2222 localhost:22
+
+# ssh217
+Host ssh217
+    HostName 192.168.2.217
+    User cubrid
+
+# ssh218
+Host ssh218
+    HostName 192.168.2.218
+    User cubrid
+
+# dev2-server
+Host dev2-server
+    HostName 192.168.2.252
+    User vimkim
+
+# dev2-container-1
+Host dev2-container-1
+    HostName 192.168.2.120
+    User vimkim
+
+# dev2-container-2
+Host dev2-container-2
+    HostName 192.168.2.121
+    User vimkim
+
+# dev2-container-3
+Host dev2-container-3
+    HostName 192.168.2.122
+    User vimkim
+
+# dev2-container-4
+Host dev2-container-4
+    HostName 192.168.2.123
+    User dhkim
+
+# dev2-fedora-systemd-1
+Host dev2-fedora-systemd-1
+    HostName 192.168.4.100
+    User vimkim-fedora-1
+
+# dev2-rocky-systemd-1
+Host dev2-rocky-systemd-1
+    HostName 192.168.4.108
+    User vimkim-r8
+
+# dev3-server
+Host dev3-server
+    HostName 192.168.2.253
+    User dhkim
+
+# dev3-container-rocky8 (non-standard SSH port 2222)
+Host dev3-container-rocky8
+    HostName 192.168.2.253
+    Port 2222
+    User vimkim
+
+# dev3-container-arch (non-standard SSH port 2223)
+Host dev3-container-arch
+    HostName 192.168.2.253
+    Port 2223
+    User vimkim
+
