@@ -306,6 +306,24 @@ if ! command -v atuin > /dev/null 2>&1; then
 fi
 
 
+# mise
+eval "$(mise activate zsh)"
+
+
+# source <(chezmoi completion zsh)
+
+
+export NIXBIN="$HOME/.nix-profile/bin"
+
+
+# source $HOME/.config/zsh/mdbook.zsh
+
+
+if command -v kubectl &> /dev/null; then
+    source <(kubectl completion zsh)
+fi
+
+
 # gh cli
 if ! command -v gh > /dev/null 2>&1; then
     echo "warning: gh cli not installed."
@@ -373,17 +391,5 @@ else
     ll
 fi
 
-# source <(chezmoi completion zsh)
-
-# mise
-eval "$(mise activate zsh)"
-
-export NIXBIN="$HOME/.nix-profile/bin"
-
-# source $HOME/.config/zsh/mdbook.zsh
-
-if command -v kubectl &> /dev/null; then
-    source <(kubectl completion zsh)
-fi
 
 # zprof
