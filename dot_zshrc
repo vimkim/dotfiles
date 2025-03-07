@@ -350,13 +350,27 @@ else
   alias B='br -g -d -s --sort-by-date --tree --sort-by-type-dirs-last'
 fi
 
-if [ "$PWD" = "$HOME" ]; then
+if [ "$PWD" = "$HOME" ] && [ -z "$ZELLIJ" ]; then
     $MY_SCRIPTS/bin/fastfetch.zsh
     gita ll
-fi
 
-# asdf current
-ll
+    if [ -n "$SSH_CONNECTION" ]; then
+    # Check if sshd service is active
+        if systemctl is-active --quiet sshd; then
+            if [ -f /var/log/btmp ]; then
+                echo "Recent failed login attempts:"
+                # List recent login attempts
+                sudo lastb -a | head -n 10
+            else
+                echo "No failed login attempts found."
+            fi
+        else
+            echo "sshd service is not running."
+        fi
+    fi
+else
+    ll
+fi
 
 # Check if the system is Rocky Linux and GCC version is 8
 if grep -q "Rocky Linux" /etc/os-release; then
