@@ -906,4 +906,42 @@ alias f='forever'
 
 alias na='print -z $(navi --print)'
 
+# alias a='' #
+alias b='btop'
+alias bu='./build.sh'
+# alias c <- cd
+alias ca='cargo'
+alias cm='cmake'
+alias d='docker'
+# alias e <- nvim
+alias f='fd'
+alias g='git'
+# alias h <- --help
+alias i='' # ip?
+alias jo='journalctl'
+alias k='kubectl'
+alias kg='k gets'
+alias kgp='kubectl get pods'
+alias kgd='kubectl get deployments'
+alias kgs='kubectl get services'
+# alias l <- eza
+alias m='man' # bat -l man -p
+alias ma='make'
+alias n='nix'
+alias ol='ollama'
+alias p='podman'
+alias pa='pacman'
+alias q='exit'
+# alias r <- repeat
+alias s='sudo systemctl'
+alias t='tldr'
+alias u='uv'
+# alias v <- nvim
+alias w='which'
+alias wa='which -a'
+alias wg='wget'
+alias x='xargs' # xdg-open?
+# alias y <- yazi
+# alias z <- zoxide, zellij
+
 # alias end
