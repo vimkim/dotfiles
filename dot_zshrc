@@ -390,7 +390,9 @@ export NIXBIN="$HOME/.nix-profile/bin"
 
 source $HOME/.config/zsh/mdbook.zsh
 
-source <(kubectl completion zsh)
+if command -v kubectl &> /dev/null; then
+    source <(kubectl completion zsh)
+fi
 
 complete -C 'aws_completer' aws
 
