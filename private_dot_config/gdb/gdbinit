@@ -16,7 +16,7 @@ python
 import sys
 end
 
-# source ~/.gdbinit
+# Source ~/.gdbinit
 # echo "Load: ~/.gdbinit\n"
 
 # Colorize output
@@ -92,5 +92,7 @@ set debuginfod enabled on
 # catch fork
 
 alias -a btf = backtrace full
+
+source ~/.config/gdb/gdb_dump.py
 
 set print frame-arguments all
