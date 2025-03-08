@@ -861,10 +861,51 @@ alias jg='ja'
 alias j='print -z "$(just.sh -j ./justfile -d .)"'
 alias jr='print -z "$(just.sh -j $MY_CUBRID/remote/justfile -d .)"'
 
+####################
+# Kubernetes Aliases
+####################
+
 alias mk='minikube kubectl --'
 alias miku='minikube kubectl --'
-alias k='kubectl'
 alias minienv='eval $(minikube -p minikube docker-env)'
+
+alias kubectl='miku'
+alias k='kubectl'
+
+# Apply and Get Commands
+alias ka='kubectl apply -Rf'                     # Apply recursively
+alias kgp='kubectl get pods -o wide'              # Get pods with details
+alias kgpa='kubectl get pods -o wide -A'          # Get all pods with details
+alias kgpw='kubectl get pods -o wide -w'          # Watch pods with details
+alias kgpaw='kubectl get pods -o wide -A -w'      # Watch all pods with details
+
+alias kgd='kubectl get deploy -o wide'            # Get deployments with details
+alias kgs='kubectl get svc -o wide'               # Get services with details
+alias kgn='kubectl get nodes -o wide'             # Get nodes with details
+alias kge='kubectl get events -w --field-selector type=Warning'  # Watch warnings
+alias kgv='kubectl get pvc -o wide'               # Get persistent volume claims
+
+# Create and Run Commands
+alias kcrn='kubectl create deployment nginx --image=nginx'          # Create nginx deployment
+alias krrn='kubectl run nginx --image=nginx --restart=Never'        # Run nginx pod
+alias krb='kubectl run busybox --image=busybox --restart=Never -- sleep 1d'  # Run busybox pod
+
+# Describe, Logs, and Exec Commands
+alias kdp='kubectl describe pod'                 # Describe a pod
+alias kdd='kubectl describe deploy'              # Describe a deployment
+alias kds='kubectl describe svc'                 # Describe a service
+alias kl='kubectl logs'                          # Show logs for a pod
+alias klf='kubectl logs -f'                      # Follow logs for a pod
+alias ke='kubectl exec -it'                      # Exec into a pod
+
+# Namespace and Context Commands
+alias kgns='kubectl get ns'                      # Get namespaces
+alias kcn='kubectl config get-contexts'          # Get contexts
+alias kus='kubectl config use-context'           # Switch context
+
+# Common Utility Aliases
+alias kdel='kubectl delete'                      # Delete resource
+alias kdpw='watch kubectl get pods -o wide'      # Watch pods with details
 
 
 # cgdb
