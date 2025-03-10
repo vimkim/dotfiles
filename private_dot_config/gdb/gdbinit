@@ -77,6 +77,13 @@ set width 0
 
 source ~/my-cubrid/dump_node.py
 
+define dump_bt
+  set logging file gdb_bt_dump.log
+  set logging on
+  bt full
+  set logging off
+end
+
 define pp
   printf "%s\n", $arg0
 end
