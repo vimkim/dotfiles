@@ -347,6 +347,8 @@ fi
 
 if command -v grc &> /dev/null; then
     source $MY_SCRIPTS/grc.zsh
+else
+    echo "warning: grc not installed."
 fi
 
 if ! command -v broot > /dev/null 2>&1; then
