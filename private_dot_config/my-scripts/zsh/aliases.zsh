@@ -754,6 +754,7 @@ if [ -x "$(command -v wslpath)" ]; then
 fi
 
 # init setup
+alias com='command' # com kubernetes works as the real kubernetes, not alias
 
 ## chezmoi
 alias chz='chezmoi'
@@ -869,7 +870,7 @@ alias mk='minikube kubectl --'
 alias miku='minikube kubectl --'
 alias minienv='eval $(minikube -p minikube docker-env)'
 
-alias kubectl='miku'
+# alias kubectl='miku'
 alias k='kubectl'
 
 # Apply and Get Commands
