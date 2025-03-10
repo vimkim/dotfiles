@@ -985,4 +985,6 @@ alias x='xargs' # xdg-open?
 # alias y <- yazi
 # alias z <- zoxide, zellij
 
+alias battery="upower -e | fzf --preview='upower -i {}'"
+
 # alias end
