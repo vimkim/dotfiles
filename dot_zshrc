@@ -140,6 +140,8 @@ zellij_new_if_cannot_attach() {
 alias zl='zellij_new_if_cannot_attach'
 alias zell='zellij'
 alias za='$MY_SCRIPTS/zellij/attach-or-new.sh'
+alias zf='za'
+alias zs='zellij -s'
 
 # Auto-run zellij if not on SSH, VS Code, Docker, etc.
 zellij_autorun() {
