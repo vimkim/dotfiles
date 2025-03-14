@@ -14,11 +14,14 @@ shell = "zsh"
 
 [plugins]
 
+[plugins.fzf-tab]
+github = "Aloxaf/fzf-tab"
+
 [plugins.zsh-autosuggestions]
 github = "zsh-users/zsh-autosuggestions"
 
-[plugins.zsh-autocomplete]
-github = "marlonrichert/zsh-autocomplete"
+# [plugins.zsh-autocomplete]
+# github = "marlonrichert/zsh-autocomplete"
 
 [plugins.forgit]
 github = "wfxr/forgit"
