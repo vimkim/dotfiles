@@ -20,7 +20,7 @@ config.background = {
 		-- Use an image as the background
 		source = {
 			-- File = xdg_config_home .. "/Pictures/arch-catppuccin-blurred.png", -- Provide the path to the image file
-			File = xdg_config_home .. "/arch-magenta.png", -- Provide the path to the image file
+			File = xdg_config_home .. "/.config/my-bg-imgs/arch-magenta.png", -- Provide the path to the image file
 		},
 
 		repeat_x = "NoRepeat",
@@ -37,13 +37,31 @@ config.background = {
 	},
 }
 
--- and finally, return the configuration to wezterm
+config.window_decorations = "RESIZE"
+config.enable_tab_bar = true
+config.hide_tab_bar_if_only_one_tab = true
 
-config.window_decorations = "NONE"
+-- Start maximized
+-- Refer to: https://wezterm.org/config/lua/gui-events/gui-startup.html
 local mux = wezterm.mux
 wezterm.on("gui-startup", function(cmd)
 	local _, _, window = mux.spawn_window(cmd or {})
 	window:gui_window():maximize()
 end)
+
+config.window_padding = {
+	left = "0%",
+	right = "0%",
+	top = "0%",
+	bottom = "0%",
+}
+
+-- For Presentation on Screen
+-- config.window_padding = {
+-- 	left = "3%",
+-- 	right = "3%",
+-- 	top = "0%",
+-- 	bottom = "3%",
+-- }
 
 return config
