@@ -872,6 +872,7 @@ alias minienv='eval $(minikube -p minikube docker-env)'
 
 # alias kubectl='miku'
 alias k='kubectl'
+alias ku='k9s'
 
 # Apply and Get Commands
 alias ka='kubectl apply -Rf'                     # Apply recursively

@@ -38,6 +38,9 @@ detect_files = ['CMakeLists.txt']
 description = "Show Clang version"
 style = "green"
 
+[kubernetes]
+disabled = false
+
 [os]
 disabled = false
 
