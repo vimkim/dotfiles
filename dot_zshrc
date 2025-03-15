@@ -373,6 +373,11 @@ else
   alias B='br -g -d -s --sort-by-date --tree --sort-by-type-dirs-last'
 fi
 
+
+# krew
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+
+
 if [ "$PWD" = "$HOME" ] && [ -z "$ZELLIJ" ]; then
     $MY_SCRIPTS/bin/fastfetch.zsh
     gita ll
