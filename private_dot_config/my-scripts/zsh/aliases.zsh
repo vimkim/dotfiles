@@ -866,6 +866,7 @@ alias jr='print -z "$(just.sh -j $MY_CUBRID/remote/justfile -d .)"'
 # Kubernetes Aliases
 ####################
 
+alias mi='minikube'
 alias mk='minikube kubectl --'
 alias miku='minikube kubectl --'
 alias minienv='eval $(minikube -p minikube docker-env)'
