@@ -140,8 +140,6 @@ zellij_new_if_cannot_attach() {
 alias zl='zellij_new_if_cannot_attach'
 alias zell='zellij'
 alias za='$MY_SCRIPTS/zellij/attach-or-new.sh'
-alias zf='za'
-alias zs='zellij -s'
 
 # Auto-run zellij if not on SSH, VS Code, Docker, etc.
 zellij_autorun() {
@@ -349,8 +347,6 @@ fi
 
 if command -v grc &> /dev/null; then
     source $MY_SCRIPTS/grc.zsh
-else
-    echo "warning: grc not installed."
 fi
 
 if ! command -v broot > /dev/null 2>&1; then
