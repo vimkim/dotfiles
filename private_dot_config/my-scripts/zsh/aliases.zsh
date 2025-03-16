@@ -984,6 +984,7 @@ alias q='exit'
 # alias r <- repeat
 alias s='sudo systemctl'
 alias st='systemctl-tui'
+alias sy='systeroid'
 alias t='tldr'
 alias u='uv'
 # alias v <- nvim
