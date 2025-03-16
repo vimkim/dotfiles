@@ -396,5 +396,10 @@ else
     ll
 fi
 
+# if $HOME/.config/fzf-scripts does not exist, clone it
+if [[ ! -d "$HOME/.config/fzf-scripts" ]]; then
+    git clone https://github.com/DanielFGray/fzf-scripts "$HOME/.config/fzf-scripts"
+fi
+add_to_path "$HOME/.config/fzf-scripts"
 
 # zprof
