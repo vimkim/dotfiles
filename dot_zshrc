@@ -232,6 +232,7 @@ fi
 
 
 ## zoxide
+# export _ZO_FZF_OPTS='--exact --no-sort --bind=ctrl-z:ignore,btab:up,tab:down --cycle --keep-right --height=60% --info=inline --layout=reverse --tabstop=1 --exit-0 --no-border'
 eval "$(zoxide init zsh)"
 
 
