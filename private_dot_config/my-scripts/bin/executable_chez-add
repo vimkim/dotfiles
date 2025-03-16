@@ -1,0 +1,17 @@
+#!/bin/bash
+# Immediately exit on Ctrl+C (SIGINT)
+trap 'exit 0' SIGINT
+
+# Get filepaths from "chez status": extract the second field,
+# prepend $HOME, and store in the variable.
+formatted=$(chezmoi status | awk '{print $2}' | sed "s|^|$HOME/|")
+
+# Let the user pick a file with fzf.
+# The preview command converts the absolute path back to a relative path.
+selected=$(echo "$formatted" | fzf --preview 'chezmoi diff --no-pager $(echo {} | sed "s|^'"$HOME"'/||") | delta')
+
+# If a selection is made, convert the absolute path to relative and add it.
+if [ -n "$selected" ]; then
+    relative_path=$(echo "$selected" | sed "s|^$HOME/||")
+    chezmoi add "$relative_path"
+fi
