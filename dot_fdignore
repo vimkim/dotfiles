@@ -28,7 +28,44 @@ site-packages/
 
 .dotnet/
 
-.cargo/
+/.cargo/
 
 /.local/share/
 
+/.conan2/
+
+/.dotnet/
+
+/.fzf/
+
+/.cmake/
+
+/.gnupg/
+
+share/man/
+
+/.debug/
+
+/.vscode-remote-containers/
+
+/.dbus/
+
+/.minikube/
+
+/.pkg-cache/
+
+/.ssh/
+
+/.config/go/telemetry/
+
+/.cub/
+
+/.ansible/
+
+/.cursor-server/
+
+/.tldrc/
+
+/.local/state/
+
+/.pyenv/
