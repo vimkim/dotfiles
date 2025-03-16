@@ -161,6 +161,8 @@ mc() {
 alias nv='nvim'
 alias v='nvim'
 alias vim='nvim'
+alias ovim='command vim'
+alias ov='ovim'
 alias vv='FILE=$(fd . -H -I --type f --type l --max-depth 1 | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
 alias vc='vv'
 alias vx='FILE=$(fd . -H -I --type f --type l | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
@@ -981,6 +983,7 @@ alias pa='pacman'
 alias q='exit'
 # alias r <- repeat
 alias s='sudo systemctl'
+alias st='systemctl-tui'
 alias t='tldr'
 alias u='uv'
 # alias v <- nvim
