@@ -248,7 +248,8 @@ function cdfile() {
 }
 
 alias cd='cl'
-alias cz='DIR=$(zoxide query -l | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
+# alias cz='DIR=$(zoxide query -l | fzf --height 40% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
+alias cz='zi'
 alias cr='DIR=$(dirs -v | sed "1d" | head -n 20 | awk '\''{print $2}'\'' | fzf --height 40% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias ch='DIR=$(cat $HOME/.zdirs | head -n 20 | fzf --height 40% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias co='popd >/dev/null'
@@ -281,7 +282,7 @@ function cd_fzf() {
     local search_path="${1:-.}"
 
     # Build the fd command with optional type filtering
-    local OBJECT=$(fd . -H -I $FD_OPS "$search_path" | fzf --height 40% --reverse)
+    local OBJECT=$(fd . $FD_OPS "$search_path" | fzf --height 40% --reverse)
 
     # Check if a selection was made and navigate accordingly
     if [[ -n $OBJECT ]]; then
@@ -294,15 +295,17 @@ function cd_fzf() {
 }
 
 # Aliases for specific navigation
-alias cx='FD_OPS=(--type d --type l) cd_fzf .'          # Navigate to directories
+alias cx='FD_OPS=(-H --type d --type l) cd_fzf .'          # Navigate to directories
+alias cxx='FD_OPS=(-H -I --type d --type l) cd_fzf .'          # Navigate to directories
 alias cxh='cd_fzf "$HOME" d'   # Navigate to directories under $HOME
 alias cxg='cd_fzf "$(relative_gitdir)" d'  # Navigate to directories under Git root
 
-alias cf='FD_OPS=(--type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
+alias cf='FD_OPS=(-H --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
+alias cff='FD_OPS=(-H -I --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
 alias cfh='cd_fzf "$HOME" f'   # Navigate to file-containing directories under $HOME
 alias cfg='cd_fzf "$(relative_gitdir)" f'  # Navigate to file-containing directories under Git root
 
-alias ca='FD_OPS=(-tf -td -tl) cd_fzf .'              # Navigate to either files or directories
+alias ca='FD_OPS=(-H -I -tf -td -tl) cd_fzf .'              # Navigate to either files or directories
 alias cb='cd "$(cat ~/.directory_bookmarks | fzf --prompt="Select a directory: ") || echo "No directory selected." >&2"'
 
 
