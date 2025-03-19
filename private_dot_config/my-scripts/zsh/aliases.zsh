@@ -252,8 +252,8 @@ function cdfile() {
 alias cd='cl'
 alias cz='DIR=$(zoxide query -l | fzf --exact --height 60% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
 # alias cz='zi'
-alias cr='DIR=$(dirs -v | sed "1d" | head -n 20 | awk '\''{print $2}'\'' | fzf --height 40% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
-alias ch='DIR=$(cat $HOME/.zdirs | head -n 20 | fzf --height 40% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
+alias cr='DIR=$(dirs -v | sed "1d" | head -n 20 | awk '\''{print $2}'\'' | fzf --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
+alias ch='DIR=$(cat $HOME/.zdirs | head -n 20 | fzf --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias co='popd >/dev/null'
 
 # in order to include ".." to the selection list supplied to fzf, use $dirs
@@ -267,7 +267,7 @@ cv() {
     # Combine the parent directory and subdirectories into an array
     local dirs=("../" $(fd --max-depth 1 -H -I --type d --type l -L --strip-cwd-prefix))
     # Pass the array to fzf for selection
-    local dir=$(printf "%s\n" "${dirs[@]}" | fzf --height 40% --reverse)
+    local dir=$(printf "%s\n" "${dirs[@]}" | fzf --height 60% --reverse)
     # If a directory was selected, change to that directory
     [[ -n $dir ]] && cd "$dir"
 }
@@ -284,7 +284,7 @@ function cd_fzf() {
     local search_path="${1:-.}"
 
     # Build the fd command with optional type filtering
-    local OBJECT=$(fd . $FD_OPS "$search_path" | fzf --height 40% --reverse)
+    local OBJECT=$(fd . $FD_OPS "$search_path" | fzf --height 60% --reverse)
 
     # Check if a selection was made and navigate accordingly
     if [[ -n $OBJECT ]]; then
