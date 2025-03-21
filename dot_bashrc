@@ -4,7 +4,7 @@ echo $PATH | tr ':' '\n'
 
 # Source global definitions
 if [ -f /etc/bashrc ]; then
-  . /etc/bashrc
+    . /etc/bashrc
 fi
 
 # Uncomment the following line if you don't like systemctl's auto-paging feature:
@@ -25,8 +25,6 @@ bind "set show-all-if-ambiguous on"
 bind "set menu-complete-display-prefix on"
 
 # User specific aliases and functions
-
-source ~/.custom_profile
 
 export CUBRID=$HOME/CUBRID
 export CUBRID_DATABASES=$CUBRID/databases
@@ -72,24 +70,21 @@ alias vimprofile="$EDITOR ~/.vimrc"
 # System aliases
 
 if [ -x "$(command -v exa)" ]; then
-  alias ls='exa -aF'
-  alias l='exa -aF'
-  alias la='exa -laF'
-  alias ll='exa -laF'
-  alias lsd='exa -laF --only-dirs'
+    alias ls='exa -aF'
+    alias l='exa -aF'
+    alias la='exa -laF'
+    alias ll='exa -laF'
+    alias lsd='exa -laF --only-dirs'
 else
-  alias ls='ls -aF'
-  alias l='ls -AF'
-  alias la=' -lAF'
-  alias ll='ls -lAF'
-  alias lsd='ls -lAF --color=auto --group-directories-first | grep --color=never "^d"'
+    alias ls='ls -aF'
+    alias l='ls -AF'
+    alias la=' -lAF'
+    alias ll='ls -lAF'
+    alias lsd='ls -lAF --color=auto --group-directories-first | grep --color=never "^d"'
 fi
 
 alias which="which -a"
 
-which-alias() {
-  alias | grep "^$1"
-}
 alias du='dust'
 
 ## Safety Features
@@ -98,13 +93,13 @@ alias mv='mv -i' # confirm before overwriting something
 
 ## utility aliases
 mc() {
-  mkdir $@
-  cd $@
+    mkdir $@
+    cd $@
 }
 
 ## Navigation aliases
 function cl() {
-  builtin cd "$@" && ls
+    builtin cd "$@" && ls
 }
 alias cd='cl'
 alias c='cd'
@@ -119,10 +114,10 @@ alias gr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root dir
 alias gcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
 
 function gcx() {
-  local gitRoot=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
-  cd "$gitRoot" || return
+    local gitRoot=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+    cd "$gitRoot" || return
 
-  local DIR=$(fdfind --type d . | fzf) && [[ -n $DIR ]] && cd "$DIR"
+    local DIR=$(fdfind --type d . | fzf) && [[ -n $DIR ]] && cd "$DIR"
 }
 
 ## Networking and System Information
@@ -282,16 +277,6 @@ export SCM_CHECK=true
 # Uncomment this to make Bash-it create alias reload.
 # export BASH_IT_RELOAD_LEGACY=1
 
-# Load Bash It
-source "$BASH_IT"/bash_it.sh
-
-# bash-it end ---
-
-# pyenv
-export PYENV_ROOT="$HOME/.pyenv"
-command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
-
 # user alias
 alias c='cd'
 alias b='~/github/vimkim/cubrid/build.sh -m debug -p $HOME/CUBRID -g ninja -t 64 build'
@@ -304,11 +289,9 @@ eval "$(starship init bash)"
 # curl for centos7
 export PATH=$HOME/curl/bin:$PATH
 
-export HOMEBREW_CURL_PATH=$(which curl)
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-. "$HOME/.cargo/env"
+source ~/.local/share/blesh/ble.sh
 
-. "$HOME/.atuin/bin/env"
-
-[[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
 eval "$(atuin init bash)"
+
+export CTP_HOME=$HOME/CTP
+# source ~/.custom_profile
