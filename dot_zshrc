@@ -40,7 +40,7 @@ export MANWIDTH=999
 # export PATH=$PATH:/usr/local/go/bin
 # export PATH=$PATH:$HOME/go/bin
 
-export MAKEFLAGS="-j$(( $(nproc) * 2 ))"
+export MAKEFLAGS="-j$(( $(nproc) + 1 ))"
 # export LESS='-iRFSX'
 
 # Check if the OS is CentOS 7 and source the devtoolset-8 script
@@ -140,6 +140,9 @@ zellij_new_if_cannot_attach() {
 alias zl='zellij_new_if_cannot_attach'
 alias zell='zellij'
 alias za='$MY_SCRIPTS/zellij/attach-or-new.sh'
+alias zf='$MY_SCRIPTS/zellij/attach-or-new.sh'
+alias zs='zellij -s'
+alias zn='zellij -s'
 
 # Auto-run zellij if not on SSH, VS Code, Docker, etc.
 zellij_autorun() {
@@ -378,6 +381,8 @@ export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
 if [ "$PWD" = "$HOME" ] && [ -z "$ZELLIJ" ]; then
     $MY_SCRIPTS/bin/fastfetch.zsh
     gita ll
+
+    zellij ls
 
     if [ -n "$SSH_CONNECTION" ]; then
     # Check if sshd service is active
