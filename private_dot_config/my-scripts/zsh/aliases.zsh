@@ -915,6 +915,7 @@ alias kus='kubectl config use-context'           # Switch context
 alias kdel='kubectl delete'                      # Delete resource
 alias kdpw='watch kubectl get pods -o wide'      # Watch pods with details
 
+alias kap='print -z "kubectl apply -f $(fzf)"'
 
 # cgdb
 cgdb-recent-core() {
