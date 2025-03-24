@@ -138,7 +138,7 @@ lg()
         rm -f $LAZYGIT_NEW_DIR_FILE > /dev/null
     fi
 }
-alias lz='lg'
+alias lz='lazygit'
 
 alias wa="which -a"
 which-alias() {
