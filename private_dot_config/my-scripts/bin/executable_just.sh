@@ -65,7 +65,7 @@ if [ -z "$CMD" ]; then
 fi
 
 # Run a dry-run with the selected recipes for verification.
-dry_run_output=$(just -f "$JUSTFILE" -d "$JUST_DIR" --dry-run $CMD 2>&1 | sed '$!s/$/ \&\&/')
+dry_run_output=$(just -f "$JUSTFILE" -d "$JUST_DIR" --dry-run "$@" "$CMD" 2>&1 | sed '$!s/$/ \&\&/')
 
 # Output the dry-run commands.
 # You can modify this part to integrate with your shell's command line replacement (e.g., using zsh's print -z).

@@ -868,7 +868,14 @@ alias ja='print -z "$(just.sh -j $HOME/.config/my-scripts/justfile -d .)"'
 alias jc='ja'
 alias jj='ja'
 alias jg='ja'
-alias j='print -z "$(just.sh -j ./justfile -d .)"'
+# $MYBIN/just.sh
+j() {
+  local cmd
+  cmd=$(just.sh -j ./justfile -d . "$@")
+  if [[ $? -eq 0 ]]; then
+    print -z "$cmd"
+  fi
+}
 alias jr='print -z "$(just.sh -j $MY_CUBRID/remote/justfile -d .)"'
 
 ####################
