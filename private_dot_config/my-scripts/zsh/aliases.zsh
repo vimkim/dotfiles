@@ -169,6 +169,7 @@ alias vx='FILE=$(fd . -H -I --type f --type l | fzf --height 40% --reverse) && [
 
 alias nf='$MYBIN/newfile.sh'
 alias vn='$MYBIN/newfile.sh'
+alias vr="nvim -c 'lua require(\"fzf-lua\").oldfiles()'"
 
 alias fdall='fd -H -I'
 alias fda='fd -H -I'
@@ -254,7 +255,7 @@ alias cd='cl'
 alias cz='DIR=$(zoxide query -l | fzf --exact --height 60% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
 # alias cz='zi'
 alias cr='DIR=$(dirs -v | sed "1d" | head -n 20 | awk '\''{print $2}'\'' | fzf --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
-alias ch='DIR=$(cat $HOME/.zdirs | head -n 20 | fzf --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
+alias ch='DIR=$(cat $HOME/.zdirs | head -n 30 | fzf --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias co='popd >/dev/null'
 
 # in order to include ".." to the selection list supplied to fzf, use $dirs

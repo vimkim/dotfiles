@@ -205,6 +205,7 @@ if [ ! -d "$HOME/.cache/omz" ]; then
     mkdir -p "$HOME/.cache/omz"
 fi
 export ZSH="$HOME/.oh-my-zsh"
+export DIRSTACKSIZE=100
 plugins=(dirpersist gitfast gh rust)
 source $ZSH/oh-my-zsh.sh
 
