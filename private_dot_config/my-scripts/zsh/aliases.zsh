@@ -255,7 +255,7 @@ alias cd='cl'
 alias cz='DIR=$(zoxide query -l | fzf --exact --height 60% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
 # alias cz='zi'
 alias cr='DIR=$(dirs -v | sed "1d" | head -n 20 | awk '\''{print $2}'\'' | fzf --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
-alias ch='DIR=$(cat $HOME/.zdirs | head -n 30 | fzf --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
+alias ch='DIR=$(cat $HOME/.zdirs | fzf +s --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias co='popd >/dev/null'
 
 # in order to include ".." to the selection list supplied to fzf, use $dirs
@@ -869,6 +869,8 @@ alias ja='print -z "$(just.sh -j $HOME/.config/my-scripts/justfile -d .)"'
 alias jc='ja'
 alias jj='ja'
 alias jg='ja'
+alias jge='nvim $MY_SCRIPTS/justfile'
+
 # $MYBIN/just.sh
 j() {
   local cmd
