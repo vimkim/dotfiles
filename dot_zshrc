@@ -28,7 +28,7 @@ add_to_path() {
 # PATH
 add_to_path "$HOME/bin"
 add_to_path "/usr/local/bin"
-add_to_path "$HOME/mybin"
+add_to_path "$HOME/.mybin"
 
 # rust
 add_to_path "$HOME/.local/bin"
