@@ -991,7 +991,7 @@ alias kgs='kubectl get services'
 # alias l <- eza
 alias m='man' # bat -l man -p
 alias ma='make'
-alias n='nix'
+alias n='j'
 alias ol='ollama'
 alias p='podman'
 alias pa='pacman'
