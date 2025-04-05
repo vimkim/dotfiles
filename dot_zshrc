@@ -70,8 +70,8 @@ export CCACHE_MAXSIZE=10Gi
 
 # Check if the OS is Arch Linux
 if [[ -f /etc/os-release && $(grep -oP '(?<=^ID=).+' /etc/os-release) == "arch" ]]; then
-    export CC=gcc-13
-    export CXX=g++-13
+    # export CC=gcc-13
+    # export CXX=g++-13
 
     if command -v kime &>/dev/null; then
         export GTK_IM_MODULE=kime
