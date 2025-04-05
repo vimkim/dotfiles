@@ -985,9 +985,9 @@ alias i='' # ip?
 alias jo='journalctl'
 alias k='kubectl'
 alias kg='k gets'
-alias kgp='kubectl get pods'
-alias kgd='kubectl get deployments'
-alias kgs='kubectl get services'
+alias kgp='kubectl get pods -o wide'
+alias kgd='kubectl get deployments -o wide'
+alias kgs='kubectl get services -io wide'
 # alias l <- eza
 alias m='man' # bat -l man -p
 alias ma='make'
