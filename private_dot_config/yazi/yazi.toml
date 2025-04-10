@@ -5,6 +5,7 @@ sort_dir_first = false
 sort_reverse = true
 linemode = "mtime"
 _v4_suppress_deprecation_warnings = true
+ratio = [1, 2, 5]
 
 [[plugin.prepend_fetchers]]
 id = "git"
