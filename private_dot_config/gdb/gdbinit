@@ -103,3 +103,7 @@ alias -a btf = backtrace full
 source ~/.config/gdb/gdb_dump.py
 
 set print frame-arguments all
+
+set backtrace past-main on
+set backtrace past-entry on
+set print entry-values default

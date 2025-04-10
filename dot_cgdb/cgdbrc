@@ -16,6 +16,8 @@ map w :step<CR>
 map f :finish<CR>
 map c :continue<CR>
 map b <Space>
+map u :up<CR>
+map d :down<CR>
 
 # hi Statement ctermfg=5
 # hi Type      ctermfg=14
