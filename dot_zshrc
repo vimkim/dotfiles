@@ -383,7 +383,8 @@ if [ "$PWD" = "$HOME" ] && [ -z "$ZELLIJ" ]; then
     $MY_SCRIPTS/bin/fastfetch.zsh
     gita ll
 
-    echo "ZELLIJ: $(zellij ls)"
+    echo "ZELLIJ:"
+    echo "$(zellij ls)"
 
     if [ -n "$SSH_CONNECTION" ]; then
     # Check if sshd service is active
