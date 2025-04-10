@@ -2,7 +2,7 @@ set autosourcereload
 set ignorecase
 set winsplitorientation=vertical
 # set tabstop=4
-set winminheight=2
+# set winminheight=2
 # set wrapscan
 
 map <F5>  :run<CR>
