@@ -94,7 +94,7 @@ end
 
 set pagination on
 # detach-on-fork off: https://stackoverflow.com/questions/6199270/how-do-i-debug-the-child-process-after-fork-in-gdb
-set detach-on-fork off
+# set detach-on-fork off # this suddenly stops CUBRID
 set debuginfod enabled on
 # catch fork
 
@@ -104,6 +104,6 @@ source ~/.config/gdb/gdb_dump.py
 
 set print frame-arguments all
 
-set backtrace past-main on
-set backtrace past-entry on
-set print entry-values default
+# set backtrace past-main on
+# set backtrace past-entry on
+# set print entry-values default
