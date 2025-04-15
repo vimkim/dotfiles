@@ -1,3 +1,4 @@
 require("starship"):setup()
 require("git"):setup()
-require("dual-pane"):setup()
+-- DuckDB plugin configuration
+require("duckdb"):setup()
