@@ -1,0 +1,17 @@
+[[plugin.deps]]
+use = "Rolv-Apneseth/starship"
+rev = "c070754"
+hash = "ebe49da58741aa3bf06c49ee394e0a5a"
+
+[[plugin.deps]]
+use = "yazi-rs/plugins:git"
+rev = "a1738e8"
+hash = "e0ada736ea676c2bbb3ec705a49526ef"
+
+[[plugin.deps]]
+use = "wylie102/duckdb"
+rev = "eaa748c"
+hash = "4f80b6483ead6be7958f76f71080a817"
+
+[flavor]
+deps = []
