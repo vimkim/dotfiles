@@ -980,7 +980,7 @@ alias d='docker'
 # alias e <- nvim
 alias f='fd'
 alias g='git'
-# alias h <- --help
+alias h='cd ..'
 alias i='' # ip?
 alias jo='journalctl'
 alias k='kubectl'
@@ -1006,7 +1006,6 @@ alias u='uv'
 alias w='which'
 alias wa='which -a'
 alias wg='wget'
-alias x='xargs' # xdg-open?
 # alias y <- yazi
 # alias z <- zoxide, zellij
 
