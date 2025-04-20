@@ -175,6 +175,8 @@ alias fdall='fd -H -I'
 alias fda='fd -H -I'
 alias rgall='rg --no-ignore -.'
 alias rga='rg --no-ignore -.'
+alias rgi='rg -i'
+alias rgai='rgall -i'
 alias tg='tgrep'
 alias gg='git grep -n -p -C 5'
 
@@ -269,7 +271,7 @@ cv() {
     # Combine the parent directory and subdirectories into an array
     local dirs=("../" $(fd --max-depth 1 -H -I --type d --type l -L --strip-cwd-prefix))
     # Pass the array to fzf for selection
-    local dir=$(printf "%s\n" "${dirs[@]}" | fzf --height 60% --reverse)
+    local dir=$(printf "%s\n" "${dirs[@]}" | fzf --height 80% --reverse)
     # If a directory was selected, change to that directory
     [[ -n $dir ]] && cd "$dir"
 }
@@ -981,7 +983,7 @@ alias d='docker'
 alias f='fd'
 alias g='git'
 alias h='cd ..'
-alias i='' # ip?
+alias i='cv'
 alias jo='journalctl'
 alias k='kubectl'
 alias kg='k gets'
