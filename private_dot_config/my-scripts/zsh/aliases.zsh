@@ -874,13 +874,14 @@ alias jg='ja'
 alias jge='nvim $MY_SCRIPTS/justfile'
 
 # $MYBIN/just.sh
-j() {
+just_print() {
   local cmd
   cmd=$(just.sh -j ./justfile -d . "$@")
   if [[ $? -eq 0 ]]; then
     print -z "$cmd"
   fi
 }
+alias j='just_print'
 alias jr='print -z "$(just.sh -j $MY_CUBRID/remote/justfile -d .)"'
 
 ####################
@@ -1002,7 +1003,7 @@ alias q='exit'
 alias s='sudo systemctl'
 alias st='systemctl-tui'
 alias sy='systeroid'
-alias t='tldr'
+alias t='just_print' # tldr -> just since I use just so frequently
 alias u='uv'
 # alias v <- nvim
 alias w='which'

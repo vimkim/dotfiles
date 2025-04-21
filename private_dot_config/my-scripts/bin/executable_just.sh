@@ -50,7 +50,7 @@ if [ ! -d "$JUST_DIR" ]; then
 fi
 
 # Define the chooser command with a preview that uses the specified justfile and directory.
-CHOOSER=(fzf --reverse --multi --height 50% --preview "just -f '$JUSTFILE' -d '$JUST_DIR' --unstable --color always --show {}")
+CHOOSER=(fzf --reverse --multi --height 80% --preview "just -f '$JUSTFILE' -d '$JUST_DIR' --unstable --color always --show {}")
 
 # List available recipes from the justfile.
 # The '--summary' option lists the recipes; adjust the 'tr' conversion if your recipe names contain spaces.
