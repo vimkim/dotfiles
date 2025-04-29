@@ -755,7 +755,10 @@ alias nx='nix-shell'
 nix-profile-install() {
     nix profile install "nixpkgs#$@"
 }
+nix-profile-upgrade() {
+}
 alias nixi='nix-profile-install'
+alias nixu='nix profile upgrade'
 
 ## wsl aliases
 if [ -x "$(command -v wslpath)" ]; then
@@ -872,6 +875,7 @@ alias jc='ja'
 alias jj='ja'
 alias jg='ja'
 alias jge='nvim $MY_SCRIPTS/justfile'
+alias jae='nvim $MY_SCRIPTS/justfile'
 
 # $MYBIN/just.sh
 just_print() {
@@ -882,7 +886,11 @@ just_print() {
   fi
 }
 alias j='just_print'
+alias je='v ./justfile'
 alias jr='print -z "$(just.sh -j $MY_CUBRID/remote/justfile -d .)"'
+alias jre='v $MY_CUBRID/remote/justfile'
+alias nr='jr'
+alias nre='jre'
 
 ####################
 # Kubernetes Aliases
@@ -995,6 +1003,9 @@ alias kgs='kubectl get services -io wide'
 alias m='man' # bat -l man -p
 alias ma='make'
 alias n='j'
+alias ne='je'
+alias ng='jg'
+alias nge='jge'
 alias ol='ollama'
 alias p='podman'
 alias pa='pacman'
