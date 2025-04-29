@@ -1004,6 +1004,7 @@ alias s='sudo systemctl'
 alias st='systemctl-tui'
 alias sy='systeroid'
 alias t='just_print' # tldr -> just since I use just so frequently
+alias tl='tldr'
 alias u='uv'
 # alias v <- nvim
 alias w='which'
