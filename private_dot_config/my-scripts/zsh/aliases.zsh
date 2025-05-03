@@ -1011,7 +1011,9 @@ alias p='podman'
 alias pa='pacman'
 alias q='exit'
 # alias r <- repeat
-alias s='sudo systemctl'
+# alias s='sudo systemctl'
+alias s='send.sh'
+alias send='send.sh'
 alias st='systemctl-tui'
 alias sy='systeroid'
 alias t='just_print' # tldr -> just since I use just so frequently
