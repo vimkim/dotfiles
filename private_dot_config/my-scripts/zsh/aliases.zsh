@@ -306,7 +306,7 @@ alias cxx='FD_OPS=(-H -I --type d --type l) cd_fzf .'          # Navigate to dir
 alias cxh='cd_fzf "$HOME" d'   # Navigate to directories under $HOME
 alias cxg='cd_fzf "$(relative_gitdir)" d'  # Navigate to directories under Git root
 
-alias cf='FD_OPS=(-H --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
+alias cf='FD_OPS=(-H -I --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
 alias cff='FD_OPS=(-H -I --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
 alias cfh='cd_fzf "$HOME" f'   # Navigate to file-containing directories under $HOME
 alias cfg='cd_fzf "$(relative_gitdir)" f'  # Navigate to file-containing directories under Git root
@@ -1000,6 +1000,8 @@ alias kgp='kubectl get pods -o wide'
 alias kgd='kubectl get deployments -o wide'
 alias kgs='kubectl get services -io wide'
 # alias l <- eza
+alias lofree='lofree-fn-arch.sh'
+alias keyboard_fix='lofree-fn-arch.sh'
 alias m='man' # bat -l man -p
 alias ma='make'
 alias n='j'
