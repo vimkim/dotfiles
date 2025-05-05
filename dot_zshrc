@@ -410,11 +410,5 @@ if [[ ! -d "$HOME/.config/fzf-scripts" ]]; then
 fi
 add_to_path "$HOME/.config/fzf-scripts"
 
-# Check if DuckDB directory exists before adding to PATH
-if [ -d "/home/vimkim/.duckdb/cli/latest" ]; then
-    export PATH="/home/vimkim/.duckdb/cli/latest:$PATH"
-else
-    echo "Warning: DuckDB directory '/home/vimkim/.duckdb/cli/latest' does not exist"
-fi
 
 # zprof
