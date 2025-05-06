@@ -63,7 +63,7 @@ if command -v ccache > /dev/null 2>&1 && [ -d "/usr/lib/ccache/bin" ];then
     #add_to_path "/usr/lib/ccache/bin"
 elif command -v ccache >/dev/null 2>&1 && [ -d "/usr/lib/ccache" ]; then
     # ubuntu
-    #add_to_path "/usr/lib/ccache"
+    add_to_path "/usr/lib/ccache"
 fi
 export CCACHE_MAXSIZE=10Gi
 
