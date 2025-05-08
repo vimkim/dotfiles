@@ -52,7 +52,7 @@ if command_exists bat; then
     function help-bat() {
         $@ --help | bat -l help -p
     }
-    alias h='help-bat'
+    alias he='help-bat'
 
 fi
 
@@ -1017,6 +1017,7 @@ alias q='exit'
 alias s='send.sh'
 alias send='send.sh'
 alias st='systemctl-tui'
+alias sudonvim='sudo -E nvim'
 alias sy='systeroid'
 alias t='just_print' # tldr -> just since I use just so frequently
 alias tl='tldr'
