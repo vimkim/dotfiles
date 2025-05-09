@@ -116,6 +116,10 @@ fi
 
 alias penv='env | fzf --exact -i'
 
+###############################################################################
+# Lazydocker
+###############################################################################
+
 alias lzd='lazydocker'
 
 alias lzp='sudo env DOCKER_HOST=unix:///run/podman/podman.sock PATH=$PATH lazydocker'
@@ -124,7 +128,9 @@ alias lazypodman='lzp'
 alias lzpu='DOCKER_HOST=unix:///run/user/1000/podman/podman.sock lazydocker'
 alias lazypodman_user='lzpu'
 
-alias sl='ls'
+###############################################################################
+# Lazygit
+###############################################################################
 
 # https://github.com/jesseduffield/lazygit?tab=readme-ov-file#changing-directory-on-exit
 lg()
@@ -139,6 +145,8 @@ lg()
     fi
 }
 alias lz='lazygit'
+alias lb='GIT_DIR=./bare.git.out GIT_WORK_TREE=$(pwd) lazygit'
+
 
 alias wa="which -a"
 which-alias() {
@@ -446,7 +454,6 @@ git_blame_directory_long() {
 
 }
 alias gbdl='git_blame_directory_long . | less -iRFSX'
-alias lb='gbdl'
 
 # Function to estimate Git repository size and prompt before cloning
 function github-clone {
@@ -1016,6 +1023,7 @@ alias q='exit'
 # alias s='sudo systemctl'
 alias s='send.sh'
 alias send='send.sh'
+alias sl='ls'
 alias st='systemctl-tui'
 alias sudonvim='sudo -E nvim'
 alias sy='systeroid'
