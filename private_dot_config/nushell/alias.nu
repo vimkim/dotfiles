@@ -87,6 +87,7 @@ alias ch = cd-dir-history
 
 alias ali = nvim ~/.local/share/chezmoi/private_dot_config/nushell/alias.nu
 alias c = cl
+alias cx = cl (fd -H -I -t d | fzfm)
 alias cz = zi
 alias chez = chezmoi
 alias chezd = cd ~/.local/share/chezmoi/
