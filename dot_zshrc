@@ -64,11 +64,6 @@ if command -v ccache > /dev/null 2>&1 && [ -d "/usr/lib/ccache/bin" ];then
 elif command -v ccache >/dev/null 2>&1 && [ -d "/usr/lib/ccache" ]; then
     # ubuntu
     add_to_path "/usr/lib/ccache"
-elif command -v ccache >/dev/null 2>&1 && [ -d "/usr/lib64/ccache" ]; then
-    # fedora
-    add_to_path "/usr/lib/ccache"
-else
-    echo "warning: ccache not installed."
 fi
 export CCACHE_MAXSIZE=10Gi
 
@@ -101,6 +96,7 @@ fi
 # nix
 if ! command -v nix > /dev/null 2>&1; then
     if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
 fi
 ## https://nixos.wiki/wiki/Locales
 ## if not set, lazygit on ubuntu will complain about locale
