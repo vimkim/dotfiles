@@ -1,5 +1,5 @@
 
-alias fzfm = fzf --height 60% --reverse
+alias fzfm = fzf --height 60% --reverse +s
 
 def --env cl [
   dir?: string  # Optional argument
@@ -7,7 +7,7 @@ def --env cl [
   let target_dir = if $dir != null {
     $dir
   } else {
-    ls -a | where type == 'dir' | get name | to text | fzfm
+    ls -a | where type == 'dir' | sort-by modified -r | get name | to text | fzfm
   }
 
   if $target_dir != null {
@@ -22,6 +22,7 @@ def vc [query?: string] {
   let file = (
     ls -a
     | where type == 'file'
+    | sort-by modified -r
     | get name
     | str join (char nl)
     | fzfm --query ($query | default "")
@@ -93,6 +94,7 @@ alias confd = cd ~/.config/
 alias h = cl ..
 alias j = just
 alias je = nvim ./justfile
+alias l = ezam
 alias lz = lazygit
 alias v = nvim
 alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
