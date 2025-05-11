@@ -19,8 +19,11 @@
 
 # source ~/.config/nushell/zshrc.nu
 # source ~/.config/nushell/zalias.nu
+
 source ~/.local/share/atuin/init.nu
 source ~/.zoxide.nu
+use ($nu.default-config-dir | path join mise.nu)
+
 source ~/.config/nushell/alias.nu
 
 
