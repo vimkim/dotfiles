@@ -1,4 +1,5 @@
 
+alias fzfm = fzf --height 60% --reverse
 
 def --env cl [
   dir?: string  # Optional argument
@@ -6,7 +7,7 @@ def --env cl [
   let target_dir = if $dir != null {
     $dir
   } else {
-    ls -a | where type == 'dir' | get name | to text | fzf
+    ls -a | where type == 'dir' | get name | to text | fzfm
   }
 
   if $target_dir != null {
@@ -23,11 +24,11 @@ def vc [query?: string] {
     | where type == 'file'
     | get name
     | str join (char nl)
-    | fzf --query ($query | default "")
+    | fzfm --query ($query | default "")
   )
 
   if $file != "" {
-    ^$env.EDITOR $file
+    nvim $file
   }
 }
 
@@ -67,10 +68,11 @@ def view-dir-history [] {
 }
 alias vh = view-dir-history
 
+
 def --env cd-dir-history [] {
   let history_file = ($nu.home-path | path join ".local" "share" "nushell" "dir_history.txt")
   if ($history_file | path exists) {
-    let dir = (open $history_file | to text | fzf)
+    let dir = (open $history_file | to text | fzfm)
     if $dir != "" {
       cl $dir
     } else {
