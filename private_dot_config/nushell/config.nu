@@ -19,9 +19,10 @@
 
 # source ~/.config/nushell/zshrc.nu
 # source ~/.config/nushell/zalias.nu
-source ~/.config/nushell/alias.nu
 source ~/.local/share/atuin/init.nu
 source ~/.zoxide.nu
+source ~/.config/nushell/alias.nu
+
 
 $env.config.completions = {
   case_sensitive: false
