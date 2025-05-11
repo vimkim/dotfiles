@@ -93,7 +93,6 @@ alias confd = cd ~/.config/
 alias h = cl ..
 alias j = just
 alias je = nvim ./justfile
-alias l = ls
 alias lz = lazygit
 alias v = nvim
 alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
