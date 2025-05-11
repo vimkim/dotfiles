@@ -1,17 +1,28 @@
-" ##### mapping #####
-"vim navigation enable
-noremap n gj|noremap N J
-noremap e gk|noremap E K
-noremap i l|noremap I L
-" noremap k n|noremap K N
-" noremap f e|noremap F E
-" noremap u i|noremap U I
-" noremap l u|noremap L U
-" noremap t f|noremap T F
-" noremap j t|noremap J T
+" Create new file with path under cursor
+nnoremap <silent> <leader>fn :e <C-R><C-F><CR>
+
+" Colemak keybindings
+noremap n gj
+noremap N J
+noremap e gk
+noremap E K
+noremap i l
+noremap I L
+
 noremap l i
 noremap L I
 noremap k n
 noremap K N
 noremap j e
 noremap J E
+
+noremap gn n
+noremap ge e
+
+inoremap ,s <ESC>
+noremap ,s <ESC>:w<CR>
+noremap s, <ESC>:w<CR>
+noremap ,q <ESC>:bd<CR>
+noremap <C-q> <ESC>:qa<CR>
+
+nnoremap ; :
