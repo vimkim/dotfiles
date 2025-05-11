@@ -89,8 +89,13 @@ alias chez = chezmoi
 alias chezd = cd ~/.local/share/chezmoi/
 alias confd = cd ~/.config/
 alias h = cl ..
+alias j = just
+alias je = nvim ./justfile
 alias l = ls
 alias lz = lazygit
 alias v = nvim
 alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
+alias w = which
+alias wa = which -a
+alias ze = zellij
 

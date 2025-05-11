@@ -20,14 +20,15 @@
 # source ~/.config/nushell/zshrc.nu
 # source ~/.config/nushell/zalias.nu
 
+use std "path add"
+path add "/home/linuxbrew/.linuxbrew/bin"
+
 source ~/.local/share/atuin/init.nu
 source ~/.zoxide.nu
 use ($nu.default-config-dir | path join mise.nu)
 
 source ~/.config/nushell/alias.nu
 
-use std "path add"
-path add "/home/linuxbrew/.linuxbrew/bin"
 
 
 $env.config.completions = {
