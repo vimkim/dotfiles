@@ -22,6 +22,7 @@
 
 use std "path add"
 path add "/home/linuxbrew/.linuxbrew/bin"
+path add ~/.config/my-scripts/bin/
 
 source ~/.local/share/atuin/init.nu
 source ~/.zoxide.nu
@@ -29,6 +30,8 @@ use ($nu.default-config-dir | path join mise.nu)
 source ($nu.default-config-dir | path join eza.nu)
 
 source ~/.config/nushell/alias.nu
+
+$env.config.show_banner = false
 
 # fzf-tab like completion
 $env.config.completions = {
@@ -44,3 +47,5 @@ $env.config.completions = {
 ###############################################################################
 mkdir ($nu.data-dir | path join "vendor/autoload")
 starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")
+
+fastfetch.zsh
