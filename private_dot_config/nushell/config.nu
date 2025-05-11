@@ -26,6 +26,9 @@ use ($nu.default-config-dir | path join mise.nu)
 
 source ~/.config/nushell/alias.nu
 
+use std "path add"
+path add "/home/linuxbrew/.linuxbrew/bin"
+
 
 $env.config.completions = {
   case_sensitive: false

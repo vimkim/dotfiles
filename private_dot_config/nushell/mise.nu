@@ -1,4 +1,5 @@
 export-env {
+  $env.PATH = ($env.PATH | prepend '/home/dkubnt/.cargo/bin')
   $env.MISE_SHELL = "nu"
   let mise_hook = {
     condition: { "MISE_SHELL" in $env }
@@ -22,15 +23,15 @@ export def --env --wrapped main [command?: string, --help, ...rest: string] {
   let commands = ["deactivate", "shell", "sh"]
 
   if ($command == null) {
-    ^"/home/dkubnt/.nix-profile/bin/mise"
+    ^"/home/dkubnt/.cargo/bin/mise"
   } else if ($command == "activate") {
     $env.MISE_SHELL = "nu"
   } else if ($command in $commands) {
-    ^"/home/dkubnt/.nix-profile/bin/mise" $command ...$rest
+    ^"/home/dkubnt/.cargo/bin/mise" $command ...$rest
     | parse vars
     | update-env
   } else {
-    ^"/home/dkubnt/.nix-profile/bin/mise" $command ...$rest
+    ^"/home/dkubnt/.cargo/bin/mise" $command ...$rest
   }
 }
 
@@ -49,7 +50,7 @@ def --env "update-env" [] {
 }
 
 def --env mise_hook [] {
-  ^"/home/dkubnt/.nix-profile/bin/mise" hook-env -s nu
+  ^"/home/dkubnt/.cargo/bin/mise" hook-env -s nu
     | parse vars
     | update-env
 }

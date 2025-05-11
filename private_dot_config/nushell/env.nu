@@ -16,5 +16,3 @@
 #
 # You can remove these comments if you want or leave
 # them for future reference.
-let mise_path = $nu.default-config-dir | path join mise.nu
-^mise activate nu | save $mise_path --force
