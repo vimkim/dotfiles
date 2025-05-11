@@ -29,8 +29,7 @@ use ($nu.default-config-dir | path join mise.nu)
 
 source ~/.config/nushell/alias.nu
 
-
-
+# fzf-tab like completion
 $env.config.completions = {
   case_sensitive: false
   algorithm: "fuzzy"
@@ -39,3 +38,8 @@ $env.config.completions = {
   }
 }
 
+###############################################################################
+# Starship
+###############################################################################
+mkdir ($nu.data-dir | path join "vendor/autoload")
+starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")
