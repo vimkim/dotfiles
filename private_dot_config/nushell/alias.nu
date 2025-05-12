@@ -88,6 +88,19 @@ def --env cd-dir-history [] {
 alias ch = cd-dir-history
 
 ###############################################################################
+# Yazi
+###############################################################################
+def --env y [...args] {
+	let tmp = (mktemp -t "yazi-cwd.XXXXXX")
+	yazi ...$args --cwd-file $tmp
+	let cwd = (open $tmp)
+	if $cwd != "" and $cwd != $env.PWD {
+		cd $cwd
+	}
+	rm -fp $tmp
+}
+
+###############################################################################
 # Misc Aliases in Alphabetical Order
 ###############################################################################
 
@@ -102,6 +115,8 @@ alias h = cl ..
 alias je = nvim ./justfile
 alias l = ezam
 alias lz = lazygit
+alias nvimh = cl ~/.config/nvim/
+alias mycub = cl ~/my-cubrid/
 alias v = nvim
 alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
 alias w = which
