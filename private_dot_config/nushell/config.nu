@@ -31,6 +31,7 @@ use ($nu.default-config-dir | path join mise.nu)
 source ($nu.default-config-dir | path join eza.nu)
 
 source ~/.config/nushell/alias.nu
+source ~/.config/nushell/completions.nu
 
 $env.config.show_banner = false
 
