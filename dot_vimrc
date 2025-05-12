@@ -23,6 +23,13 @@ inoremap ,s <ESC>
 noremap ,s <ESC>:w<CR>
 noremap s, <ESC>:w<CR>
 noremap ,q <ESC>:bd<CR>
-noremap <C-q> <ESC>:qa<CR>
+noremap <C-q> <ESC>:confirm qa<CR>
 
 nnoremap ; :
+
+set encoding=utf-8
+set termguicolors
+
+set clipboard=unnamedplus
+
+set confirm
