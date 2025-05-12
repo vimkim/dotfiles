@@ -33,34 +33,31 @@ def vc [query?: string] {
   }
 }
 
-$env.config.hooks.env_change.PWD = $env.config.hooks.env_change.PWD | append {
-  |before, after|
-    let history_file = ($nu.home-path | path join ".local" "share" "nushell" "dir_history.txt")
+###############################################################################
+# Directory History
+###############################################################################
 
-    # Ensure the history file exists
-    if not ($history_file | path exists) {
-      mkdir ($history_file | path dirname)
-      touch $history_file
+let history_file = ($nu.home-path | path join ".local" "share" "nu" "dirlog.json")
+
+$env.config.hooks.env_change.PWD = (
+    $env.config.hooks.env_change.PWD | append {|before, after|
+        #
+        # Ensure the file and parent directory exist
+        if not ($history_file | path exists) {
+            mkdir ($history_file | path dirname)
+            [] | save --force $history_file
+        }
+        open $history_file
+        | append [$after]
+        | uniq
+        | reverse
+        | take 30
+        | collect
+        | save --force ~/.local/share/nu/dirlog.json
     }
-
-    # Read existing history
-    let history = (open $history_file | lines)
-
-    # Remove the new directory if it already exists to prevent duplicates
-    let updated_history = ($history | filter { |dir| $dir != $after })
-
-    # Prepend the new directory
-    let updated_history = [$after] ++ $updated_history
-
-    # Keep only the latest 30 entries
-    let trimmed_history = ($updated_history | first 30)
-
-    # Save back to the history file
-    $trimmed_history | save -f --raw $history_file
-}
+)
 
 def view-dir-history [] {
-  let history_file = ($nu.home-path | path join ".local" "share" "nushell" "dir_history.txt")
   if ($history_file | path exists) {
     open $history_file | lines
   } else {
@@ -69,9 +66,7 @@ def view-dir-history [] {
 }
 alias vh = view-dir-history
 
-
 def --env cd-dir-history [] {
-  let history_file = ($nu.home-path | path join ".local" "share" "nushell" "dir_history.txt")
   if ($history_file | path exists) {
     let dir = (open $history_file | to text | fzfm)
     if $dir != "" {
@@ -84,6 +79,10 @@ def --env cd-dir-history [] {
   }
 }
 alias ch = cd-dir-history
+
+###############################################################################
+# Misc Aliases in Alphabetical Order
+###############################################################################
 
 alias ali = nvim ~/.local/share/chezmoi/private_dot_config/nushell/alias.nu
 alias c = cl
