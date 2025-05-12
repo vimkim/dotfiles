@@ -32,6 +32,15 @@ def vc [query?: string] {
     nvim $file
   }
 }
+###############################################################################
+# Just
+###############################################################################
+
+alias j = commandline edit (just.nu -f ./justfile -d .)
+alias n = j
+alias je = nvim ./justfile
+alias ne = je
+alias ni = nvim ./.local/just
 
 ###############################################################################
 # Directory History
@@ -90,7 +99,6 @@ alias chez = chezmoi
 alias chezd = cd ~/.local/share/chezmoi/
 alias confd = cd ~/.config/
 alias h = cl ..
-alias j = just
 alias je = nvim ./justfile
 alias l = ezam
 alias lz = lazygit
