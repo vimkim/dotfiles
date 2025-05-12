@@ -413,3 +413,5 @@ add_to_path "$HOME/.config/fzf-scripts"
 
 
 # zprof
+
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
