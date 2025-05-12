@@ -41,19 +41,17 @@ let history_file = ($nu.home-path | path join ".local" "share" "nu" "dirlog.json
 
 $env.config.hooks.env_change.PWD = (
     $env.config.hooks.env_change.PWD | append {|before, after|
-        #
-        # Ensure the file and parent directory exist
+        # ensure directory & file exist
         if not ($history_file | path exists) {
             mkdir ($history_file | path dirname)
             [] | save --force $history_file
         }
         open $history_file
-        | append [$after]
-        | uniq
-        | reverse
-        | take 30
-        | collect
-        | save --force ~/.local/share/nu/dirlog.json
+        | collect              # gather into a list
+        | prepend $after       # new $after at index 0
+        | uniq                 # de‐duplicate (keeps first occurrence)
+        | take 30              # keep most recent 30
+        | save --force $history_file
     }
 )
 
