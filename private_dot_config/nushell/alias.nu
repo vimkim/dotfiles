@@ -7,7 +7,7 @@ def --env cl [
   let target_dir = if $dir != null {
     $dir
   } else {
-    ls -a | where type == 'dir' | sort-by modified -r | get name | to text | fzfm
+    ls -a | where type in ['dir', 'symlink'] | sort-by modified -r | get name | to text | fzfm
   }
 
   if $target_dir != null {
@@ -21,7 +21,7 @@ def --env cl [
 def vc [query?: string] {
   let file = (
     ls -a
-    | where type == 'file'
+    | where type in ['file', 'symlink']
     | sort-by modified -r
     | get name
     | str join (char nl)
@@ -40,7 +40,8 @@ alias j = commandline edit (just.nu -f ./justfile -d .)
 alias n = j
 alias je = nvim ./justfile
 alias ne = je
-alias ni = nvim ./.local/just
+alias ni = commandline edit (just.nu -f ./.just/justfile -d .)
+alias nie = nvim ./.just/justfile
 
 ###############################################################################
 # Directory History
