@@ -34,10 +34,12 @@ def main [
         exit 1
     }
 
+    let preview_cmd = $"just -f justfile -d {$justdir} --unstable --color always --show {}"
+
     # Fuzzy-select
     let chosen = (
         $recipes
-        | fzf --reverse --height 80% --preview "just -f $justfile -d $justdir --unstable --color always --show {}" --preview-window=right:60%
+        | fzf --reverse --height 80% --preview $preview_cmd --preview-window=right:60%
         | str trim
     )
 
