@@ -63,6 +63,27 @@ $env.EDITOR = 'nvim'
 $env.config.buffer_editor = "vim"
 
 ###############################################################################
+# Zellij
+###############################################################################
+
+# https://www.grailbox.com/2023/07/autostart-zellij-in-nushell/
+def start_zellij [] {
+  if 'ZELLIJ' not-in ($env | columns) {
+    if 'ZELLIJ_AUTO_ATTACH' in ($env | columns) and $env.ZELLIJ_AUTO_ATTACH == 'true' {
+      zellij attach -c
+    } else {
+      zellij
+    }
+
+    if 'ZELLIJ_AUTO_EXIT' in ($env | columns) and $env.ZELLIJ_AUTO_EXIT == 'true' {
+      exit
+    }
+  }
+}
+
+start_zellij
+
+###############################################################################
 # Starship
 ###############################################################################
 mkdir ($nu.data-dir | path join "vendor/autoload")
