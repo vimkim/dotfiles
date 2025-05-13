@@ -43,6 +43,24 @@ alias ne = je
 alias ni = commandline edit (just.nu -f ./.just/justfile -d .)
 alias nie = nvim ./.just/justfile
 
+def clip [] {
+    if ($nu.os-info.name == "linux") {
+        if (which wl-copy | is-empty) and (which xclip | is-empty) {
+            print "Error: neither 'xclip' nor 'wl-copy' is installed"
+        } else {
+            $in | xclip -selection clipboard
+        }
+    } else if (open /proc/version | str contains "microsoft") {
+        $in | clip.exe
+    } else if ($nu.os-info.name == "windows") {
+        $in | clip.exe
+    } else if ($nu.os-info.name == "macos") {
+        $in | pbcopy
+    } else {
+        print "Unsupported OS"
+    }
+}
+
 ###############################################################################
 # Directory History
 ###############################################################################
