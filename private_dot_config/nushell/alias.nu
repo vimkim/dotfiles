@@ -135,6 +135,12 @@ alias je = nvim ./justfile
 alias l = ezam
 alias lz = lazygit
 alias nvimh = cl ~/.config/nvim/
+
+def --env mc [dir: string] {
+    mkdir $dir
+    cl $dir
+}
+
 alias mycub = cl ~/my-cubrid/
 alias v = nvim
 alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
