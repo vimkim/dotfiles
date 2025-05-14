@@ -36,6 +36,7 @@ if $os_name == "Arch Linux" {
 }
 
 source ~/.config/nushell/alias.nu
+source ~/my-cubrid/aliases.nu
 source ~/.config/nushell/completions.nu
 
 $env.config.show_banner = false

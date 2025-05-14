@@ -34,7 +34,7 @@ def main [
         exit 1
     }
 
-    let preview_cmd = $"just -f justfile -d {$justdir} --unstable --color always --show {}"
+    let preview_cmd = $"just -f ($justfile) -d ($justdir) --unstable --color always --show {}"
 
     # Fuzzy-select
     let chosen = (
