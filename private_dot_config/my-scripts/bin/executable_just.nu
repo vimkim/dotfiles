@@ -19,11 +19,11 @@ def main [
 
     # Sanity checks
     if not ($justfile | path exists) {
-        print -e $"Error: justfile not found at '{justfile}'"
+        print -e $"just.nu error: file not found: ($justfile)"
         exit 1
     }
     if not ($justdir | path exists) {
-        print -e $"Error: remote directory not found at '{justdir}'"
+        print -e $"just.nu error: directory not found: ($justdir)"
         exit 1
     }
 

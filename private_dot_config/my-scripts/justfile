@@ -28,3 +28,8 @@ mise-global-java:
 
 kakaotalk:
     with-env { LANG: 'ko_KR.UTF-8' } { kakaotalk }
+
+gita-pull:
+    git -C ($nu.home-path | path join '.local/share/chezmoi') pull
+    git -C ($nu.home-path | path join '.config/nvim') pull
+    git -C ($nu.home-path | path join 'my-cubrid') pull
