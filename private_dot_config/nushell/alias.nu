@@ -151,4 +151,4 @@ alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
 alias w = which
 alias wa = which -a
 alias ze = zellij
-
+alias zshrc = nvim ~/.local/share/chezmoi/dot_zshrc

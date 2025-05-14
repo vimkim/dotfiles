@@ -30,6 +30,11 @@ source ~/.zoxide.nu
 use ($nu.default-config-dir | path join mise.nu)
 source ($nu.default-config-dir | path join eza.nu)
 
+let os_name = (sys host | get name)
+if $os_name == "Arch Linux" {
+    source ~/.config/nushell/archlinux.nu
+}
+
 source ~/.config/nushell/alias.nu
 source ~/.config/nushell/completions.nu
 
