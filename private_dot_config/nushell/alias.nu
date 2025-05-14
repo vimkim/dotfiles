@@ -1,6 +1,11 @@
 
 alias fzfm = fzf --height 60% --reverse +s
 
+###############################################################################
+# cd & ls
+###############################################################################
+
+alias l = ezam
 def --env cl [
   dir?: string  # Optional argument
 ] {
@@ -12,7 +17,7 @@ def --env cl [
 
   if $target_dir != null {
     cd $target_dir
-    ls
+    l
   } else {
     print "No directory selected."
   }
@@ -134,9 +139,9 @@ alias chezd = cd ~/.local/share/chezmoi/
 alias confd = cd ~/.config/
 alias ghc = ~/.config/my-scripts/bin/gh-clone-fuzzy.sh
 alias ghcu = ~/.config/my-scripts/bin/git-clone-user.sh
+alias gfpa = git fetch --all --prune
 alias h = cl ..
 alias je = nvim ./justfile
-alias l = ezam
 alias lz = lazygit
 alias nvimh = cl ~/.config/nvim/
 
