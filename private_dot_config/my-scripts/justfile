@@ -25,3 +25,6 @@ mise-install-java:
 
 mise-global-java:
     mise use --global "java@$(mise ls-remote java | fzf)"
+
+kakaotalk:
+    with-env { LANG: 'ko_KR.UTF-8' } { kakaotalk }

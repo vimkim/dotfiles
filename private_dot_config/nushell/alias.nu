@@ -42,6 +42,8 @@ alias je = nvim ./justfile
 alias ne = je
 alias ni = commandline edit (just.nu -f ./.just/justfile -d .)
 alias nie = nvim ./.just/justfile
+alias na = commandline edit (just.nu -f ~/.config/my-scripts/justfile -d .)
+alias nae = nvim ~/.config/my-scripts/justfile
 
 def clip [] {
     if ($nu.os-info.name == "linux") {
