@@ -37,6 +37,17 @@ def vc [query?: string] {
     nvim $file
   }
 }
+
+def --env cf [query?: string] {
+    let selected = (fd --type f --type l --hidden --follow 
+        | fzfm --query ($query | default "")
+    )
+
+    if $selected != null and ($selected | str trim) != "" {
+        cd ($selected | path dirname)
+    }
+}
+
 ###############################################################################
 # Just
 ###############################################################################
