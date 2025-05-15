@@ -68,6 +68,7 @@ $env.config = {
 
 $env.EDITOR = 'nvim'
 $env.config.buffer_editor = "vim"
+export-env { $env.MAKEFLAGS = $"-j(nproc)"}
 
 ###############################################################################
 # Zellij
