@@ -52,13 +52,13 @@ def --env cf [query?: string] {
 # Just
 ###############################################################################
 
-alias j = commandline edit (just.nu -f ./justfile -d .)
+alias j = commandline edit (just.nu -f ./justfile -d . | str trim)
 alias n = j
 alias je = nvim ./justfile
 alias ne = je
-alias ni = commandline edit (just.nu -f ./.just/justfile -d .)
+alias ni = commandline edit (just.nu -f ./.just/justfile -d . | str trim)
 alias nie = nvim ./.just/justfile
-alias na = commandline edit (just.nu -f ~/.config/my-scripts/justfile -d .)
+alias na = commandline edit (just.nu -f ~/.config/my-scripts/justfile -d . | str trim)
 alias nae = nvim ~/.config/my-scripts/justfile
 
 def clip [] {
@@ -79,7 +79,8 @@ def clip [] {
     }
 }
 
-alias x = commandline edit (~/.config/my-scripts/bin/autorun.sh)
+alias x = commandline edit (~/.config/my-scripts/bin/autorun.sh | str trim)
+alias xe = nvim ~/.config/my-scripts/bin/autorun.sh
 
 ###############################################################################
 # Directory History
