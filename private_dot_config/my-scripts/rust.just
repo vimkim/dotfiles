@@ -12,8 +12,11 @@ prepare:
 cargo-add:
     cargo add $(gum input)
 
-tests:
-    cargo test --all
+test:
+    cargo test
+
+test-ignored:
+    cargo test -- --ignored
 
 build:
     cargo build
