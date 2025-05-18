@@ -67,7 +67,7 @@ $env.config = {
 }
 
 $env.EDITOR = 'nvim'
-$env.config.buffer_editor = "vim"
+$env.config.buffer_editor = 'nvim-nu.sh' # at ~/.config/my-scripts/bin
 export-env { $env.MAKEFLAGS = $"-j(nproc)"}
 
 ###############################################################################

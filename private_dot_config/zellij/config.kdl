@@ -460,7 +460,7 @@ default_layout "mycompact"
 // Path to the default editor to use to edit pane scrollbuffer
 // Default: $EDITOR or $VISUAL
 //
-scrollback_editor "vim"
+scrollback_editor "nvim -u ~/.config/zellij/edit.nvim"
 
 // When attaching to an existing session with other users,
 // should the session be mirrored (true)
