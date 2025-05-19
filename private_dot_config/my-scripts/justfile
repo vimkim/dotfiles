@@ -33,3 +33,7 @@ gita-pull:
     git -C ($nu.home-path | path join '.local/share/chezmoi') pull
     git -C ($nu.home-path | path join '.config/nvim') pull
     git -C ($nu.home-path | path join 'my-cubrid') pull
+
+rr-enable:
+    echo 1 | sudo tee  /proc/sys/kernel/perf_event_paranoid
+    sudo cpupower frequency-set -g performance
