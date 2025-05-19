@@ -1,0 +1,3 @@
+[[keywords]]
+words = ['error', 'ERROR']
+style = { fg = 'red', bold = true, bg = 'white' }
