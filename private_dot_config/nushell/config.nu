@@ -75,10 +75,12 @@ export-env { $env.MAKEFLAGS = $"-j(nproc)"}
 ###############################################################################
 
 # https://www.grailbox.com/2023/07/autostart-zellij-in-nushell/
+$env.ZELLIJ_AUTO_ATTACH = 'true'
+
 def start_zellij [] {
   if 'ZELLIJ' not-in ($env | columns) {
     if 'ZELLIJ_AUTO_ATTACH' in ($env | columns) and $env.ZELLIJ_AUTO_ATTACH == 'true' {
-      zellij attach -c
+      ~/.config/my-scripts/bin/attach-or-new.sh
     } else {
       zellij
     }
