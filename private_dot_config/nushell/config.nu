@@ -74,10 +74,12 @@ $env.EDITOR = 'nvim'
 $env.config.buffer_editor = 'nvim-nu.sh' # at ~/.config/my-scripts/bin
 export-env { $env.MAKEFLAGS = $"-j(nproc)"}
 
-export-env {
-    $env.RUSTC_WRAPPER = 'sccache'
-    # $env.CC = 'sscache cc'
-    # $env.CXX = 'sscache cpp'
+if (which sccache | is-not-empty ) {
+    export-env {
+        $env.RUSTC_WRAPPER = 'sccache'
+        # $env.CC = 'sccache cc'
+        # $env.CXX = 'sccache cpp'
+    }
 }
 
 ###############################################################################
