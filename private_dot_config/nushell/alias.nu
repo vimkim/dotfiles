@@ -1,5 +1,5 @@
 
-alias fzfm = fzf --height 60% --reverse +s
+alias fzfm = fzf --height 60% --reverse
 
 ###############################################################################
 # cd & ls
