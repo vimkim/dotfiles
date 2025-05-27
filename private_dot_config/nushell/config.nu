@@ -96,7 +96,7 @@ if ($"($env.HOME)/vcpkg" | path exists) {
 ###############################################################################
 
 # https://www.grailbox.com/2023/07/autostart-zellij-in-nushell/
-$env.ZELLIJ_AUTO_ATTACH = 'true'
+# $env.ZELLIJ_AUTO_ATTACH = 'false'
 
 def start_zellij [] {
   if 'ZELLIJ' not-in ($env | columns) {
@@ -112,7 +112,7 @@ def start_zellij [] {
   }
 }
 
-start_zellij
+# start_zellij
 
 ###############################################################################
 # Starship
