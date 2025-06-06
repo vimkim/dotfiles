@@ -140,6 +140,19 @@ def --env y [...args] {
 	rm -fp $tmp
 }
 
+$env.config.keybindings = (
+    $env.config.keybindings | append {
+        name: yazi_ctrl_y
+        modifier: control
+        keycode: char_y
+        mode: emacs
+        event: {
+            send: executehostcommand,
+            cmd: "y"
+        }
+    }
+)
+
 ###############################################################################
 # Misc Aliases in Alphabetical Order
 ###############################################################################
