@@ -28,6 +28,7 @@ path add ~/mybin/
 
 if (sys host | get name | str downcase | str contains 'fedora') and ('/usr/lib64/ccache' | path exists) {
     path add /usr/lib64/ccache
+    $env.LANG = 'en_US.utf8'
 }
 
 source ~/.local/share/atuin/init.nu
