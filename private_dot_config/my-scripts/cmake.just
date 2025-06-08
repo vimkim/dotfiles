@@ -11,13 +11,14 @@ cmake-preset-mode-select:
 
 configure-build: configure build
 
-build: cmake-build-install-all
+build:
+    cmake --build --preset $env.PRESET_MODE
 
-cmake-build-install-all:
+build-install:
     cmake --build --preset $env.PRESET_MODE --target install
 
 build-debug:
-    cmake --build --preset mydebug --target install
+    cmake --build --preset mydebug
 
 build-profile:
-    cmake --build --preset myprofile --target install
+    cmake --build --preset myprofile
