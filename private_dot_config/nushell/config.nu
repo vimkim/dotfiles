@@ -45,6 +45,10 @@ source ~/.config/nushell/alias.nu
 source ~/my-cubrid/aliases.nu
 source ~/.config/nushell/completions.nu
 
+# wezterm fix: https://github.com/nushell/nushell/issues/5585
+# no need for wezterm nightly build after 2025
+$env.config.shell_integration.osc133 = false
+
 $env.config.show_banner = false
 
 # fzf-tab like completion
