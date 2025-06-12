@@ -140,8 +140,8 @@ zellij_new_if_cannot_attach() {
 
 alias zl='zellij_new_if_cannot_attach'
 alias zell='zellij'
-alias za='$MY_SCRIPTS/zellij/attach-or-new.sh'
-alias zf='$MY_SCRIPTS/zellij/attach-or-new.sh'
+alias za='$MY_SCRIPTS/bin/attach-or-new.sh'
+alias zf='$MY_SCRIPTS/bin/attach-or-new.sh'
 alias zs='zellij -s'
 alias zn='zellij -s'
 
