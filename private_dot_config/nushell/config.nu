@@ -22,6 +22,7 @@
 
 use std "path add"
 path add "/home/linuxbrew/.linuxbrew/bin"
+path add ~/.nix-profile/bin/
 path add ~/.config/my-scripts/bin/
 path add ~/my-cubrid/bin/
 path add ~/mybin/

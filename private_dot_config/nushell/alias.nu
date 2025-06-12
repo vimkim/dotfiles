@@ -189,6 +189,7 @@ def --env mc [dir: string] {
 
 alias mycub = cl ~/my-cubrid/
 alias sl = l
+alias sctl = systemctl
 alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
 alias v = nvim
 alias w = which
