@@ -48,6 +48,20 @@ def --env cf [query?: string] {
     }
 }
 
+# Jump to the root directory of the current Git repository
+def --env __git_root [] {
+    let root = (git rev-parse --show-toplevel | str trim)
+    if $root == "" {
+        print $"Not inside a Git repository (pwd: ($env.PWD))"
+    } else {
+        cd $root
+    }
+}
+
+# Convenience alias: `gr` => go to git root
+alias gr = __git_root
+alias gcd = __git_root
+
 ###############################################################################
 # Just
 ###############################################################################
@@ -175,6 +189,7 @@ alias gloga = with-env { GL_OPS: "--all" } { git-log.sh }
 alias gst = git status
 alias gsw = git switch
 alias h = cl ..
+alias i = cl
 alias je = nvim ./justfile
 alias lz = lazygit
 alias lzd = lazydocker
