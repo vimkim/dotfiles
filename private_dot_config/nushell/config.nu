@@ -26,6 +26,7 @@ path add ~/.nix-profile/bin/
 path add ~/.config/my-scripts/bin/
 path add ~/my-cubrid/bin/
 path add ~/mybin/
+path add ~/.local/bin/
 
 if (sys host | get name | str downcase | str contains 'fedora') and ('/usr/lib64/ccache' | path exists) {
     path add /usr/lib64/ccache
