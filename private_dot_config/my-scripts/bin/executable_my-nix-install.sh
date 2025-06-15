@@ -6,21 +6,18 @@
 
 # Array of packages to install
 packages=(
-    gum
-    # gnum4
-    astyle
     atuin
     # bandwhich
     zellij
     zoxide
     bat
-    binsider
-    broot
+    # binsider
+    # broot
     btop
-    ccache
+    # ccache
     cgdb
     # clang-tools
-    cmake
+    # cmake
     croc
     delta
     diffnav
@@ -31,28 +28,28 @@ packages=(
     eza
     fastfetch
     fd
-    flex
+    # flex
     fzf
     gdb
     gh
     git
     git-extras
     gita
-    helix
+    # helix
     hexyl
     htop
     jq
     just
     lazydocker
     lazygit
-    mdbook
+    # mdbook
     mise
-    navi
+    # navi
     neovim
     # nethogs
     # netscanner
-    ninja
-    procs
+    # ninja
+    # procs
     ripgrep
     sheldon
     starship
