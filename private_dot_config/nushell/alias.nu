@@ -194,7 +194,7 @@ alias je = nvim ./justfile
 alias lz = lazygit
 alias lzd = lazydocker
 alias lzp = with-env { DOCKER_HOST: "unix:///run/user/1000/podman/podman.sock" } { lazydocker }
-alias lzps = with-env { DOCKER_HOST: "unix:///run/podman/podman.sock" } { sudo /home/linuxbrew/.linuxbrew/bin/lazydocker }
+alias lzps = with-env { DOCKER_HOST: "unix:///run/podman/podman.sock" } { sudo /home/vimkim/.nix-profile/bin/lazydocker }
 alias nvimh = cl ~/.config/nvim/
 
 def --env mc [dir: string] {
