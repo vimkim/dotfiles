@@ -92,6 +92,9 @@ if command -v nvim >/dev/null 2>&1; then
     export ZVM_VI_EDITOR="nvim"
 fi
 
+if command -v nvim >/dev/null 2>&1; then
+    export SYSTEMD_EDITOR="vim"
+fi
 
 # nix
 if ! command -v nix > /dev/null 2>&1; then
@@ -414,4 +417,4 @@ add_to_path "$HOME/.config/fzf-scripts"
 
 # zprof
 
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+# eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
