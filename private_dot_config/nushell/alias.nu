@@ -180,6 +180,7 @@ alias chezd = cl ~/.local/share/chezmoi/
 alias caps = gsettings set org.gnome.desktop.input-sources xkb-options "['ctrl:nocaps']"
 alias caps_reset = gsettings reset org.gnome.desktop.input-sources xkb-options
 alias confd = cl ~/.config/
+alias fda = fd -H -I
 alias ghc = ~/.config/my-scripts/bin/github-clone-confirm.sh
 alias ghcf = ~/.config/my-scripts/bin/gh-clone-fuzzy.sh
 alias ghcu = ~/.config/my-scripts/bin/git-clone-user.sh
@@ -190,6 +191,7 @@ alias gst = git status
 alias gsw = git switch
 alias h = cl ..
 alias i = cl
+alias ii = xdg-open
 alias je = nvim ./justfile
 alias lz = lazygit
 alias lzd = lazydocker
@@ -203,8 +205,10 @@ def --env mc [dir: string] {
 }
 
 alias mycub = cl ~/my-cubrid/
+alias rga = rg -. --no-ignore
 alias sl = l
 alias sctl = systemctl
+alias perf-enable = sudo sysctl kernel.perf_event_paranoid=-1
 alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
 alias v = nvim
 alias w = which
