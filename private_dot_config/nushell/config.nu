@@ -38,6 +38,10 @@ if (sys host | get name | str downcase | str contains 'rocky') and ('/usr/lib64/
     $env.LANG = 'en_US.utf8'
 }
 
+if (sys host | get name | str downcase | str contains 'arch') and ('/usr/lib/ccache/bin' | path exists) {
+    path add /usr/lib/ccache/bin
+}
+
 source ~/.local/share/atuin/init.nu
 source ~/.zoxide.nu
 use ($nu.default-config-dir | path join mise.nu)
@@ -93,6 +97,8 @@ if (which sccache | is-not-empty ) {
         # $env.CXX = 'sccache cpp'
     }
 }
+$env.CC = 'ccache gcc-13'
+$env.CXX = 'ccache g++-13'
 
 ###############################################################################
 # Vcpkg
