@@ -36,6 +36,11 @@ add_to_path "$HOME/.local/bin"
 export MANPATH="/usr/local/man:$MANPATH"
 export MANWIDTH=999
 
+if [[ -d "$HOME/vcpkg" ]]; then
+    export VCPKG_ROOT="$HOME/vcpkg"
+    export PATH="$VCPKG_ROOT:$PATH"
+fi
+
 ##  go
 # export PATH=$PATH:/usr/local/go/bin
 # export PATH=$PATH:$HOME/go/bin
