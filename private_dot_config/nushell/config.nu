@@ -33,6 +33,11 @@ if (sys host | get name | str downcase | str contains 'fedora') and ('/usr/lib64
     $env.LANG = 'en_US.utf8'
 }
 
+if (sys host | get name | str downcase | str contains 'rocky') and ('/usr/lib64/ccache' | path exists) {
+    # path add /usr/lib64/ccache
+    $env.LANG = 'en_US.utf8'
+}
+
 source ~/.local/share/atuin/init.nu
 source ~/.zoxide.nu
 use ($nu.default-config-dir | path join mise.nu)
