@@ -27,6 +27,7 @@ path add ~/.config/my-scripts/bin/
 path add ~/my-cubrid/bin/
 path add ~/mybin/
 path add ~/.local/bin/
+path add /opt/bison-3.0.5/bin/
 
 if (sys host | get name | str downcase | str contains 'fedora') and ('/usr/lib64/ccache' | path exists) {
     path add /usr/lib64/ccache
@@ -39,7 +40,7 @@ if (sys host | get name | str downcase | str contains 'rocky') and ('/usr/lib64/
 }
 
 if (sys host | get name | str downcase | str contains 'arch') and ('/usr/lib/ccache/bin' | path exists) {
-    path add /usr/lib/ccache/bin
+    # path add /usr/lib/ccache/bin
 }
 
 source ~/.local/share/atuin/init.nu
