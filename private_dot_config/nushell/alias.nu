@@ -113,7 +113,7 @@ $env.config.hooks.env_change.PWD = (
         | collect              # gather into a list
         | prepend $after       # new $after at index 0
         | uniq                 # de‐duplicate (keeps first occurrence)
-        | take 30              # keep most recent 30
+        | take 60              # keep most recent 30
         | save --force $history_file
     }
 )
