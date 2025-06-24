@@ -102,8 +102,6 @@ if (which sccache | is-not-empty ) {
         # $env.CXX = 'sccache cpp'
     }
 }
-$env.CC = 'ccache gcc-13'
-$env.CXX = 'ccache g++-13'
 
 ###############################################################################
 # Vcpkg
