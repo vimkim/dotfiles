@@ -43,6 +43,10 @@ if (sys host | get name | str downcase | str contains 'arch') and ('/usr/lib/cca
     # path add /usr/lib/ccache/bin
 }
 
+if (sys host | get name | str downcase | str contains 'rocky') and (sys host | get os_version | str contains '8' ) {
+    $env.NIX_SSL_CERT_FILE = '/etc/ssl/certs/ca-bundle.crt'
+}
+
 source ~/.local/share/atuin/init.nu
 source ~/.zoxide.nu
 use ($nu.default-config-dir | path join mise.nu)
