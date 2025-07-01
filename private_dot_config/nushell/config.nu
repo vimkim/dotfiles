@@ -61,6 +61,7 @@ if $os_name == "Arch Linux" {
 source ~/.config/nushell/alias.nu
 source ~/my-cubrid/aliases.nu
 source ~/.config/nushell/completions.nu
+source ~/.config/nushell/zellij.nu
 
 # wezterm fix: https://github.com/nushell/nushell/issues/5585
 # no need for wezterm nightly build after 2025
@@ -88,7 +89,14 @@ $env.config = {
       if 'ENV_CONVERSIONS' in $env and 'PATH' in $env.ENV_CONVERSIONS {
         $env.PATH = do $env.ENV_CONVERSIONS.PATH.from_string $env.PATH
       }
-    }]
+    }],
+    env_change: {
+      PWD: [
+        {
+          |before, after| zellij-update-tabname-git
+        }
+      ]
+    }
   }
 }
 
