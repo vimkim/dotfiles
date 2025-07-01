@@ -125,6 +125,8 @@ alias lzd='lazydocker'
 alias lzp='sudo env DOCKER_HOST=unix:///run/podman/podman.sock PATH=$PATH lazydocker'
 alias lazypodman='lzp'
 
+alias lzps=lzp
+
 alias lzpu='DOCKER_HOST=unix:///run/user/1000/podman/podman.sock lazydocker'
 alias lazypodman_user='lzpu'
 
