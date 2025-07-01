@@ -113,7 +113,7 @@ $env.config.hooks.env_change.PWD = (
         | collect              # gather into a list
         | prepend $after       # new $after at index 0
         | uniq                 # de‐duplicate (keeps first occurrence)
-        | take 60              # keep most recent 30
+        | take 60              # keep most recent 60
         | save --force $history_file
     }
 )
@@ -195,8 +195,9 @@ alias ii = xdg-open
 alias je = nvim ./justfile
 alias lz = lazygit
 alias lzd = lazydocker
-alias lzp = with-env { DOCKER_HOST: "unix:///run/user/1000/podman/podman.sock" } { lazydocker }
+alias lzpu = with-env { DOCKER_HOST: "unix:///run/user/1000/podman/podman.sock" } { lazydocker }
 alias lzps = with-env { DOCKER_HOST: "unix:///run/podman/podman.sock" } { sudo /home/vimkim/.nix-profile/bin/lazydocker }
+alias lzp = lzps
 alias nvimh = cl ~/.config/nvim/
 
 def --env mc [dir: string] {
