@@ -21,9 +21,9 @@
 # source ~/.config/nushell/zalias.nu
 
 use std "path add"
-path add "/home/linuxbrew/.linuxbrew/bin"
 path add /nix/var/nix/profiles/default/bin/
 path add ~/.nix-profile/bin/
+path add /home/linuxbrew/.linuxbrew/bin
 path add ~/.config/my-scripts/bin/
 path add ~/my-cubrid/bin/
 path add ~/mybin/
@@ -126,7 +126,7 @@ if ($"($env.HOME)/vcpkg" | path exists) {
 ###############################################################################
 
 # https://www.grailbox.com/2023/07/autostart-zellij-in-nushell/
-# $env.ZELLIJ_AUTO_ATTACH = 'false'
+# $env.ZELLIJ_AUTO_ATTACH = 'true'
 
 def start_zellij [] {
   if 'ZELLIJ' not-in ($env | columns) {
