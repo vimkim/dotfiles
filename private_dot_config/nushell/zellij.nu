@@ -5,7 +5,7 @@ def zellij-update-tabname-git [] {
             "~"
         } else {
             let current_dir_len = ($current_dir | str length);
-            ($current_dir | path parse | get stem | str substring 0..6)
+            ($current_dir | path parse | get stem | str substring 0..8)
         };
 
         let in_git = (try { git rev-parse --is-inside-work-tree err> /dev/null } catch { "false" });
@@ -21,9 +21,9 @@ def zellij-update-tabname-git [] {
             let repo_name = ($git_root | path parse | get stem);
             let repo_name_len = ($repo_name | str length);
 
-            let short_repo_name = if $repo_name_len > 7 {
-                let repo_name_first = ($repo_name | str substring 0..2);
-                let repo_name_last = ($repo_name | str substring ($repo_name_len - 3)..($repo_name_len - 1));
+            let short_repo_name = if $repo_name_len > 9 {
+                let repo_name_first = ($repo_name | str substring 0..4);
+                let repo_name_last = ($repo_name | str substring ($repo_name_len - 4)..($repo_name_len - 1));
                 $"($repo_name_first)*($repo_name_last)"
             } else {
                 $repo_name
