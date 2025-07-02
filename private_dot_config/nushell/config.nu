@@ -90,15 +90,14 @@ $env.config = {
         $env.PATH = do $env.ENV_CONVERSIONS.PATH.from_string $env.PATH
       }
     }],
-    env_change: {
-      PWD: [
-        {
-          |before, after| zellij-update-tabname-git
-        }
-      ]
-    }
   }
 }
+
+$env.config.hooks.env_change.PWD = (
+    $env.config.hooks.env_change.PWD | append {|before, after|
+        zellij-update-tabname-git 
+    }
+)
 
 $env.EDITOR = 'nvim'
 $env.config.buffer_editor = 'nvim-nu.sh' # at ~/.config/my-scripts/bin
