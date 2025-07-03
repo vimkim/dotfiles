@@ -6,5 +6,5 @@ if [ "${NO_SESSIONS}" -ge 2 ]; then
     zellij attach \
         "$(echo "${ZJ_SESSIONS}" | fzf)"
 else
-    zellij attach -c
+    zellij -s "$(hostname)"
 fi
