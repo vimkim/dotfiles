@@ -618,7 +618,7 @@ partial alphanumeric_keys
 xkb_symbols "dvorak-mac" {
     name[Group1]= "English (Dvorak, Macintosh)";
 
-    key <TLDE> { [ grave, asciitilde, dead_grave, grave ] };
+    key <TLDE> { [ section, plusminus ] };
 
     key <AE01> { [            1,      exclam,          exclamdown,                U2044 ] };
     key <AE02> { [            2,          at,           trademark,             EuroSign ] };
@@ -658,7 +658,7 @@ xkb_symbols "dvorak-mac" {
     key <AC10> { [     s,          S,            ssharp,      Iacute ] };
     key <AC11> { [ minus, underscore,            endash,      emdash ] };
 
-    key <LSGT> { [ section, plusminus ] };
+    key <LSGT> { [ grave, asciitilde, dead_grave, grave ] };
     key <AB01> { [ semicolon, colon,       ellipsis,             Uacute ] };
     key <AB02> { [         q,     Q,             oe,                 OE ] };
     key <AB03> { [         j,     J,          U2206,        Ocircumflex ] };
@@ -734,8 +734,8 @@ xkb_symbols "mac" {
     key.type[group1]="FOUR_LEVEL";
 
     // Slightly improvised from http://homepage.mac.com/thgewecke/kblayout.jpg
-    key <LSGT> { [   section,  plusminus,       section,        plusminus ] };
-    key <TLDE> { [     grave, asciitilde,    dead_grave,        dead_horn ] };
+    key <TLDE> { [   section,  plusminus,       section,        plusminus ] };
+    key <LSGT> { [     grave, asciitilde,    dead_grave,        dead_horn ] };
     key <AE01> { [	   1,     exclam,    exclamdown,            U2044 ] };
     key <AE02> { [	   2,         at,     trademark,         EuroSign ] };
     key <AE03> { [	   3, numbersign,      sterling,            U2039 ] };
@@ -794,10 +794,7 @@ xkb_symbols "mac" {
 // 2006-01-01 Shai Coleman, http://colemak.com/
 
 partial alphanumeric_keys
-xkb_symbols "colemak" {
-
-    name[Group1]= "English (Colemak)";
-
+xkb_symbols "colemak_base" {
     key <TLDE> { [   asciitilde,        grave,      dead_tilde,       asciitilde ] };
     key <AE01> { [       exclam,            1,      exclamdown,      onesuperior ] };
     key <AE02> { [           at,            2,       masculine,      twosuperior ] };
@@ -849,11 +846,20 @@ xkb_symbols "colemak" {
     key <AB09> { [       period,      greater,   dead_abovedot,       asciitilde ] };
     key <AB10> { [        slash,     question,    questiondown,       asciitilde ] };
 
-    key <CAPS> { [    Control_R,    Control_R,       BackSpace,        BackSpace ] };
     key <LSGT> { [        minus,   underscore,          endash,           emdash ] };
     key <SPCE> { [        space,        space,           space,     nobreakspace ] };
 
     include "level3(ralt_switch)"
+};
+
+partial alphanumeric_keys
+xkb_symbols "colemak" {
+
+    include "us(colemak_base)"
+
+    name[Group1]= "English (Colemak)";
+
+    key <CAPS> { [ BackSpace ] };
 };
 
 // Colemak-DH (ANSI) symbols for xkb on X.Org Server 7.x
@@ -861,7 +867,7 @@ xkb_symbols "colemak" {
 
 xkb_symbols "colemak_dh" {
 
-    include "us(colemak)"
+    include "us(colemak_base)"
 
     name[Group1]= "English (Colemak-DH)";
 
@@ -876,8 +882,6 @@ xkb_symbols "colemak_dh" {
     key <AB03> { [            d,            D,  dead_diaeresis,       asciitilde ] };
     key <AB05> { [            z,            Z,              ae,               AE ] }; //Z appears here too because <LSGT> key is not present on ANSI keyboards
     key <AB07> { [            h,            H,      dead_caron,       asciitilde ] };
-
-    key <CAPS> { [    Caps_Lock,    Caps_Lock,       Caps_Lock,        Caps_Lock ] };
 };
 
 // Colemak-DH (Wide) symbols for xkb on X.Org Server 7.x
@@ -1271,10 +1275,10 @@ xkb_symbols "chr" {
     key <AB10> { [      U13C2,      U13C9 ] };
 };
 
-// Add Hawaiian `okina and kahako to US layout
+// Add Hawaiian ʻokina and kahako to US layout
 // Author: Greg Meyer <gregory.meyer@gmail.com>, 2020
 // this mapping follows the one for Windows here: http://www.olelo.hawaii.edu/enehana/winkbd.php
-// `okina replaces apostrophe (apostrophe moves to level 3)
+// ʻokina replaces apostrophe (apostrophe moves to level 3)
 // vowels with kahako (macron) are level 3 symbols
 partial alphanumeric_keys
 xkb_symbols "haw"  {
@@ -1282,7 +1286,7 @@ xkb_symbols "haw"  {
     include "us(basic)"
     name[Group1] = "Hawaiian";
 
-    // `okina replaces single apostrophe
+    // ʻokina replaces single apostrophe
     // alt gives the literal apostrophe
     key <AC11> {[ U02BB, quotedbl, apostrophe ] };
 
@@ -2124,7 +2128,7 @@ xkb_symbols "3l-emacs" {
 // This layout is in the Public Domain.
 //
 // ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┲━━━━━━━━━┓
-// │ ~ ~ │ " ´ │ ' ` │ ^ ^ │ ` ¨ │ ´ ° │ 6 ¯ │ 7 ¸ │ 8 ˛ │ 9 ˇ │ | ˝ │ _ ± │ = ≠ ┃Backspace┃
+// │ ~ ◌̃ │ " ◌̀ │ ' ◌́ │ ^ ◌̂ │ ` ◌̈ │ ° ◌̊ │ 6 ◌̄ │ 7 ◌̧ │ 8 ◌̨ │ 9 ◌̌ │ | ◌̋ │ _ ± │ = ≠ ┃Backspace┃
 // │ @ £ │ 1 ¹ │ 2 ² │ 3 ³ │ 4 ⁴ │ 5 ⁵ │ 6 ⁶ │ 7 ⁷ │ 8 ⁸ │ 9 ⁹ │ 0 ⁰ │ - " │ + ' ┃ ⌫       ┃
 // ┢━━━━━┷━┱───┴─┬───┴─┬───┴─┬───┴─┬───┴─┬───┴─┬───┴─┬───┴─┬───┴─┬───┴─┬───┴─┬───┺━┳━━━━━━━┫
 // ┃Tab    ┃ Q Ø │ W ↑ │ E € │ R ₽ │ T τ │ Y ¥ │ U U │ I ’ │ O Ω │ P ₱ │ [ « │ ] » ┃ ⏎     ┃
@@ -2146,17 +2150,17 @@ xkb_symbols "drix" {
 	name[Group1] = "English (Drix)";
 
 	// First row
-	key <TLDE> {[ at,          asciitilde,     sterling,             dead_tilde            ]}; // @ ~ £ ~
-	key <AE01> {[ 1,           quotedbl,       onesuperior,          dead_grave            ]}; // 1 " ¹ `
-	key <AE02> {[ 2,           apostrophe,     twosuperior,          dead_acute            ]}; // 2 ' ² ´
-	key <AE03> {[ 3,           asciicircum,    threesuperior,        dead_circumflex       ]}; // 3 ^ ³ ^
-	key <AE04> {[ 4,           grave,          foursuperior,         dead_diaeresis        ]}; // 4 4 ⁴ ¨
-	key <AE05> {[ 5,           degree,         fivesuperior,         dead_abovering        ]}; // 5 ° ⁵ °
-	key <AE06> {[ 6,           6,              sixsuperior,          dead_macron           ]}; // 6 6 ⁶ ¯
-	key <AE07> {[ 7,           7,              sevensuperior,        dead_cedilla          ]}; // 7 7 ⁷ ¸
-	key <AE08> {[ 8,           8,              eightsuperior,        dead_ogonek           ]}; // 8 8 ⁸ ˛
-	key <AE09> {[ 9,           9,              ninesuperior,         dead_caron            ]}; // 9 9 ⁹ ˇ
-	key <AE10> {[ 0,           bar,            zerosuperior,         dead_doubleacute      ]}; // 0 | ⁰ ˝
+	key <TLDE> {[ at,          asciitilde,     sterling,             dead_tilde            ]}; // @ ~ £ ◌̃
+	key <AE01> {[ 1,           quotedbl,       onesuperior,          dead_grave            ]}; // 1 " ¹ ◌̀
+	key <AE02> {[ 2,           apostrophe,     twosuperior,          dead_acute            ]}; // 2 ' ² ◌́
+	key <AE03> {[ 3,           asciicircum,    threesuperior,        dead_circumflex       ]}; // 3 ^ ³ ◌̂
+	key <AE04> {[ 4,           grave,          foursuperior,         dead_diaeresis        ]}; // 4 ` ⁴ ◌̈
+	key <AE05> {[ 5,           degree,         fivesuperior,         dead_abovering        ]}; // 5 ° ⁵ ◌̊
+	key <AE06> {[ 6,           6,              sixsuperior,          dead_macron           ]}; // 6 6 ⁶ ◌̄
+	key <AE07> {[ 7,           7,              sevensuperior,        dead_cedilla          ]}; // 7 7 ⁷ ◌̧
+	key <AE08> {[ 8,           8,              eightsuperior,        dead_ogonek           ]}; // 8 8 ⁸ ◌̨
+	key <AE09> {[ 9,           9,              ninesuperior,         dead_caron            ]}; // 9 9 ⁹ ◌̌
+	key <AE10> {[ 0,           bar,            zerosuperior,         dead_doubleacute      ]}; // 0 | ⁰ ◌̋
 	key <AE11> {[ minus,       underscore,     quotedbl,             plusminus             ]}; // - _ " ±
 	key <AE12> {[ plus,        equal,          apostrophe,           notequal              ]}; // + = ' ≠
 
