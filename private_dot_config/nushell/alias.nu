@@ -179,6 +179,7 @@ alias chez = chezmoi
 alias chezd = cl ~/.local/share/chezmoi/
 alias caps = gsettings set org.gnome.desktop.input-sources xkb-options "['ctrl:nocaps']"
 alias caps_reset = gsettings reset org.gnome.desktop.input-sources xkb-options
+alias conf = cl ~/.config/
 alias confd = cl ~/.config/
 alias fda = fd -H -I
 alias ghc = ~/.config/my-scripts/bin/github-clone-confirm.sh
