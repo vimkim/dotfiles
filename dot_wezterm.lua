@@ -8,7 +8,8 @@ config.color_scheme = "Catppuccin Frappe"
 --  config.color_scheme = "Catppuccin Latte"
 
 -- config.font = wezterm.font("JetBrainsMonoNL Nerd Font Propo", { weight = "Bold" })
-config.font = wezterm.font("NotoSansM Nerd Font Propo", { weight = "Bold" })
+-- config.font = wezterm.font("NotoSansM Nerd Font Propo", { weight = "Bold" })
+config.font = wezterm.font("Maple Mono", { weight = "Bold" })
 config.font_size = 15.0
 
 config.enable_tab_bar = false
