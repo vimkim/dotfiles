@@ -67,6 +67,8 @@ source ~/.config/nushell/zellij.nu
 # no need for wezterm nightly build after 2025
 $env.config.shell_integration.osc133 = false
 
+$env.config.rm.always_trash = true
+
 $env.config.show_banner = false
 
 # fzf-tab like completion
