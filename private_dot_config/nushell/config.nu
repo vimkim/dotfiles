@@ -35,9 +35,13 @@ if (sys host | get name | str downcase | str contains 'fedora') and ('/usr/lib64
     $env.LANG = 'en_US.utf8'
 }
 
+if (sys host | get name | str downcase | str contains 'rocky') {
+    $env.LANG = 'en_US.UTF-8'
+    echo $env.LANG
+}
+
 if (sys host | get name | str downcase | str contains 'rocky') and ('/usr/lib64/ccache' | path exists) {
     # path add /usr/lib64/ccache
-    $env.LANG = 'en_US.utf8'
 }
 
 if (sys host | get name | str downcase | str contains 'arch') and ('/usr/lib/ccache/bin' | path exists) {
