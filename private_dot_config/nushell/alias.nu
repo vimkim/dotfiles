@@ -214,7 +214,7 @@ alias sl = l
 alias sctl = systemctl
 alias perf-enable = sudo sysctl kernel.perf_event_paranoid=-1
 alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
-alias todo = nvim ~/.todo.yml
+alias todo = nvim ~/.todo.md
 alias v = nvim
 alias w = which
 alias wa = which -a
