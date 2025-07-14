@@ -189,6 +189,7 @@ alias ghcf = ~/.config/my-scripts/bin/gh-clone-fuzzy.sh
 alias ghcu = ~/.config/my-scripts/bin/git-clone-user.sh
 alias gfpa = git fetch --all --prune
 alias gl = ~/.config/my-scripts/bin/git-log.sh
+alias glf = ~/.config/my-scripts/bin/git-log-find.sh
 alias gloga = with-env { GL_OPS: "--all" } { git-log.sh }
 alias gst = git status
 alias gsw = git switch
