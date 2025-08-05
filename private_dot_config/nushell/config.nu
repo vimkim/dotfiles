@@ -108,6 +108,7 @@ $env.config.hooks.env_change.PWD = (
 $env.EDITOR = 'nvim'
 $env.config.buffer_editor = 'nvim-nu.sh' # at ~/.config/my-scripts/bin
 export-env { $env.MAKEFLAGS = $"-j(nproc)"}
+$env.CMAKE_EXPORT_COMPILE_COMMANDS = 'ON'
 
 if (which sccache | is-not-empty ) {
     export-env {
