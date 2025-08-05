@@ -78,3 +78,18 @@ my-nix-install.sh
 cd $HOME/.config
 git clone https://github.com/vimkim/nvim
 ```
+
+## Step 6: X11 Forwarding
+
+```bash
+sudo dnf install xauth
+sudo apt install xauth
+sudo pacman -S xorg-xauth
+```
+
+```bash
+# /etc/ssh/sshd_config
+X11Forwarding yes
+X11DisplayOffset 10
+X11UseLocalhost yes
+```
