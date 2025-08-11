@@ -4,6 +4,8 @@ Host *
     ServerAliveCountMax 180
     TCPKeepAlive yes
     ForwardX11 yes
+    SendEnv LANG TERM
+    SetEnv LANG=en_US.UTF-8 TERM=xterm-256color
 
 # ssh216 – with RemoteForward example
 Host ssh216
@@ -23,8 +25,21 @@ Host ssh218
 
 # dev2-server
 Host dev2-server
-    HostName 192.168.2.252
+    HostName 192.168.4.2
     User vimkim
+
+    # Disable compression (no benefit for tiny keystroke packets)
+    Compression no
+
+    # Prefer low-latency, CPU-friendly ciphers
+    Ciphers aes128-gcm@openssh.com,chacha20-poly1305@openssh.com
+    MACs umac-64-etm@openssh.com,umac-128-etm@openssh.com
+
+    # Reduce chance of mid-session lag from rekeying
+    RekeyLimit 1G 1h
+
+    # Mark packets as low-latency for QoS
+    IPQoS lowdelay
 
 # dev2-container-1
 Host dev2-container-1
