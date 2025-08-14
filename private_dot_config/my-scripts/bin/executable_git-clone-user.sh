@@ -9,7 +9,7 @@ fi
 
 username="$1"
 # GitHub API URL: sort repositories by recent update, limit to 30.
-api_url="https://api.github.com/users/${username}/repos?sort=updated&direction=desc&per_page=30"
+api_url="https://api.github.com/users/${username}/repos?sort=updated&direction=desc&per_page=100"
 
 echo "Fetching repositories for user '$username'..."
 # Fetch JSON data from GitHub.
