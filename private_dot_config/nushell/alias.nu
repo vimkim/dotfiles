@@ -217,6 +217,7 @@ alias perf-enable = sudo sysctl kernel.perf_event_paranoid=-1
 alias ports = somo
 alias ports-tcp = somo -t
 alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
+alias t = tspin
 alias todo = nvim ~/.todo.md
 alias v = nvim
 alias w = which
