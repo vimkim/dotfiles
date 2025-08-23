@@ -167,5 +167,3 @@ starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.n
 
 zellij ls
 
-
-use ($nu.default-config-dir | path join mise.nu)
