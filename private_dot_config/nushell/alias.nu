@@ -120,7 +120,7 @@ $env.config.hooks.env_change.PWD = (
 
 def view-dir-history [] {
   if ($history_file | path exists) {
-    open $history_file | lines
+    open $history_file
   } else {
     print "No directory history found."
   }
@@ -128,16 +128,29 @@ def view-dir-history [] {
 alias vh = view-dir-history
 
 def --env cd-dir-history [] {
-  if ($history_file | path exists) {
-    let dir = (open $history_file | to text | fzfm)
-    if $dir != "" {
-      cl $dir
-    } else {
-      print "No directory selected."
+    if not ($history_file | path exists) {
+        print "No directory history found."
+        return
     }
-  } else {
-    print "No directory history found."
-  }
+
+    let dir = (open $history_file | to text | fzfm)
+    if $dir == "" {
+        print "No directory selected."
+        return
+    }
+
+    if ($dir | path exists) {
+        cl $dir
+    } else {
+        # Remove the missing path from the history file
+        open $history_file
+        | collect
+        | where { $in != $dir }
+        | save --force $history_file
+
+        print $"Removed missing path from history: ($dir)"
+    }
+
 }
 alias ch = cd-dir-history
 
