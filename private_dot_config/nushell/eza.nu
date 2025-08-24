@@ -1,4 +1,3 @@
-
 # Set the EZA_COLORS environment variable
 $env.EZA_COLORS = $"da=35;"
 
@@ -11,11 +10,13 @@ let eza_common_options = [
 ]
 
 # Define long options by appending to the common options
-$env.EZA_LONG_OPTIONS = ($eza_common_options ++ [
-  --long
-  --git
-  --color=always
-])
+$env.EZA_LONG_OPTIONS = (
+  $eza_common_options ++ [
+    --long
+    --git
+    --color=always
+  ]
+)
 
 # Define sort options
 $env.EZA_SORT_MODIFIED = [
@@ -27,5 +28,3 @@ $env.EZA_SORT_MODIFIED = [
 def ezam [...args] {
   eza --no-user --no-permissions ...$env.EZA_LONG_OPTIONS --icons ...$env.EZA_SORT_MODIFIED --grid ...$args
 }
-
-
