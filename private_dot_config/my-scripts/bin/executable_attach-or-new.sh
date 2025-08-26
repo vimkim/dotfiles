@@ -18,5 +18,5 @@ if [ "${NO_SESSIONS}" -ge 1 ]; then
     fi
     zellij attach "$chosen"
 else
-    zellij -s "$(hostname)"
+    zellij -s "$(hostname | cut -c1-4)"
 fi

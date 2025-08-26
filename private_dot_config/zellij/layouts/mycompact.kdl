@@ -236,6 +236,7 @@ layout {
         }
     }
     default_tab_template {
+        children
         pane size=1 borderless=true {
             plugin location="https://github.com/dj95/zjstatus/releases/latest/download/zjstatus.wasm" {
                 // hide_frame_for_single_pane "true"
@@ -310,9 +311,9 @@ layout {
                 color_mantle "#292c3c"
                 color_crust "#232634"
 
-                mode_normal        "#[bg=$green,fg=$crust,bold] NORMAL#[bg=$surface0,fg=$green]"
-                mode_tmux          "#[bg=$mauve,fg=$crust,bold] TMUX#[bg=$surface0,fg=$mauve]"
-                mode_locked        "#[bg=$red,fg=$crust,bold] LOCKED#[bg=$surface0,fg=$red]"
+                mode_normal        "#[bg=$green,fg=$crust,bold] N#[bg=$surface0,fg=$green]"
+                mode_tmux          "#[bg=$mauve,fg=$crust,bold] T#[bg=$surface0,fg=$mauve]"
+                mode_locked        "#[bg=$red,fg=$crust,bold] L#[bg=$surface0,fg=$red]"
                 mode_pane          "#[bg=$teal,fg=$crust,bold] PANE#[bg=$surface0,fg=teal]"
                 mode_tab           "#[bg=$teal,fg=$crust,bold] TAB#[bg=$surface0,fg=$teal]"
                 mode_scroll        "#[bg=$flamingo,fg=$crust,bold] SCROLL#[bg=$surface0,fg=$flamingo]"
@@ -368,7 +369,6 @@ layout {
 
             }
         }
-        children
     }
 }
 
