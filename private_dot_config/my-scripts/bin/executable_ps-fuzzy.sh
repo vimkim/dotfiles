@@ -4,10 +4,10 @@ fps() {
     local pid
     if [ "$UID" != "0" ]; then
         # pid=$(ps -f -u $UID | sed 1d | fzf -m | awk '{print $2}')
-        pid=$(procs --color=always | sed '1,2d' | fzf -m --ansi --no-sort --reverse --height 60% | awk '{print $1}')
+        pid=$(procs --color=always | sed '1,2d' | fzf --exact -m --ansi --no-sort --reverse --height 60% | awk '{print $1}')
     else
         # pid=$(ps -ef | sed 1d | fzf -m | awk '{print $2}')
-        pid=$(procs --color=always | sed '1,2d' | fzf -m --ansi | awk '{print $1}')
+        pid=$(procs --color=always | sed '1,2d' | fzf --exact -m --ansi --no-sort --reverse --height 60% | awk '{print $1}')
     fi
 
     if [ "x$pid" != "x" ]
