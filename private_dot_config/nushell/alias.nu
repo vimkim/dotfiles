@@ -39,7 +39,7 @@ def vc [query?: string] {
 
 def --env cf [query?: string] {
   let selected = (
-    fd --type f --type l --hidden --follow
+    fd --type f --type l --no-ignore --hidden --follow
     | fzfm --query ($query | default "")
   )
 
