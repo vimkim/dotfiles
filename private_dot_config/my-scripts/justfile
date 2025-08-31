@@ -34,6 +34,16 @@ gita-pull:
     git -C ($nu.home-path | path join '.config/nvim') pull
     git -C ($nu.home-path | path join 'my-cubrid') pull
 
+vpn:
+    sudo openfortivpn cubrid1.fortiddns.com:10443 --username=dhkim@cubrid.com  --trusted-cert fd9fc94cec0b9d3fc5bfdb7c081c4d47083f62a4ff0b3bc7db73b6b13c29fce2
+
 rr-enable:
     echo 1 | sudo tee  /proc/sys/kernel/perf_event_paranoid
     sudo cpupower frequency-set -g performance
+
+cgdb-rust:
+    cgdb -d rust-gdb -p (ps -l | where command =~ 'target/debug/.*' | get pid | first)
+
+cgdb-rust-fzf:
+    cgdb -d rust-gdb -p (pf)
+
