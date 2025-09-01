@@ -6,6 +6,8 @@
 # for a list of all available themes
 # --theme="Monokai Extended"
 --theme="Catppuccin Frappe"
+# bat cache --build to build the cache after changing themes
+# $ bat cache --build
 
 # Enable this to use italic text on the terminal. This is not supported on all
 # terminal emulators (like tmux, by default):
