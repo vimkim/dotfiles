@@ -207,6 +207,7 @@ alias gloga = with-env {GL_OPS: "--all"} { git-log.sh }
 alias gst = git status
 alias gsw = git switch
 alias he = bat -p -l help
+alias hg = hgrep
 alias i = cl
 alias ii = xdg-open
 alias je = nvim ./justfile
