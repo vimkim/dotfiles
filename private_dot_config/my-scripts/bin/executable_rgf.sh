@@ -41,10 +41,11 @@ else
     RG_FINAL+=("$DEFAULT_QUERY")
 fi
 
-# rg "${RG_FINAL[@]}" \
-git grep -p "${RG_FINAL[@]}" \
-| fzf --ansi --no-sort --exact --delimiter=: \
-  --preview 'bat --style=full --color=always --highlight-line {2} {1}' \
-  --preview-window=right:60%:+{2}-15:wrap \
+# git grep -W "${RG_FINAL[@]}" \
+# git grep -p "${RG_FINAL[@]}" \
+rg "${RG_FINAL[@]}" \
+| fzf --ansi --no-sort --exact --delimiter=: --reverse \
+  --preview 'bat --style=numbers --color=always --highlight-line {2} {1}' \
+  --preview-window=right:55%:+{2}-15:wrap \
   --bind 'ctrl-u:preview-up,ctrl-d:preview-down,shift-up:preview-up,shift-down:preview-down,ctrl-f:preview-page-down,ctrl-b:preview-page-up,ctrl-a:preview-top,ctrl-e:preview-bottom' \
   --bind 'enter:execute(nvim +{2} -- {1})+abort'
