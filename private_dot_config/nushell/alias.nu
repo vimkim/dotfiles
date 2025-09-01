@@ -206,6 +206,7 @@ alias glf = ~/.config/my-scripts/bin/git-log-find.sh
 alias gloga = with-env {GL_OPS: "--all"} { git-log.sh }
 alias gst = git status
 alias gsw = git switch
+alias h = cl ..
 alias he = bat -p -l help
 alias hg = hgrep
 alias i = cl
