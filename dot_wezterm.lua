@@ -9,7 +9,12 @@ config.color_scheme = "Catppuccin Frappe"
 
 -- config.font = wezterm.font("JetBrainsMonoNL Nerd Font Propo", { weight = "Bold" })
 -- config.font = wezterm.font("NotoSansM Nerd Font Propo", { weight = "Bold" })
-config.font = wezterm.font("Maple Mono", { weight = "Bold" })
+-- config.font = wezterm.font("Maple Mono", { weight = "Bold" })
+config.font = wezterm.font_with_fallback({
+	{ family = "Maple Mono", weight = "DemiBold" },
+	-- { family = "Noto Serif CJK KR", weight = "DemiBold" },
+	{ family = "NanumBarunpen", weight = "Bold" },
+})
 config.font_size = 15.0
 
 config.enable_tab_bar = false
