@@ -23,8 +23,11 @@ build:
 
 binary-name := `cargo metadata --format-version 1 | jq -r '.packages[].targets[] | select( .kind | map(. == "bin") | any ) | select ( .src_path | contains(".cargo/registry") | . != true ) | .name'`
 
-run:
+run-debug:
     cargo run
+
+run-release:
+    cargo run --release
 
 @bench:
     cargo bench
