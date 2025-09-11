@@ -100,10 +100,8 @@ $env.TOPIARY_LANGUAGE_DIR = ($env.XDG_CONFIG_HOME | path join topiary languages)
 # https://github.com/nushell/nushell.github.io/pull/1878
 
 use std/config *
-# Initialize the PWD hook as an empty list if it doesn't exist
-$env.config.hooks.env_change.PWD = $env.config.hooks.env_change.PWD? | default []
 
-$env.config.hooks.env_change.PWD ++= [
+$env.config.hooks.pre_prompt ++= [
   {||
     if (which direnv | is-empty) {
       # If direnv isn't installed, do nothing
