@@ -20,6 +20,8 @@ map u :up<CR>
 map d :down<CR>
 map n :next<CR>
 map s :step<CR>
+map l iinfo<space>locals<CR><Esc>
+map a iinfo<space>args<CR><Esc>
 
 # hi Statement ctermfg=5
 # hi Type      ctermfg=14
