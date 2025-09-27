@@ -225,7 +225,7 @@ def --env mc [dir: string] {
 }
 
 alias mycub = cl ~/my-cubrid/
-alias rga = rg --hidden --no-ignore
+alias rgall = rg --hidden --no-ignore
 alias rgf = rgf.sh
 alias sl = l
 alias sctl = systemctl

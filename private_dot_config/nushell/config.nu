@@ -29,6 +29,7 @@ path add ~/my-cubrid/bin/
 path add ~/mybin/
 path add ~/.local/bin/
 path add /opt/bison-3.0.5/bin/
+path add ~/.cargo/bin/
 
 if (sys host | get name | str downcase | str contains 'fedora') and ('/usr/lib64/ccache' | path exists) {
   path add /usr/lib64/ccache
