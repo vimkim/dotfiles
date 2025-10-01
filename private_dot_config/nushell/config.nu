@@ -176,14 +176,19 @@ def start_zellij [] {
 mkdir ($nu.data-dir | path join "vendor/autoload")
 starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")
 
+
+###############################################################################
+# Shell Startup Decoration
+###############################################################################
+
+fastfetch
+
 let host = (sys host | get hostname)
 let shell = $env.SHELL
 let ip_a = (hostname -I)
 let disp = $env.DISPLAY? | default "unset"
 
 print $"╔══════════════════════════════╗
-║   HOST → ($host)
-║   IP → ($ip_a)
 ║   DISPLAY → ($disp)
 ║   SHLVL → ($env.SHLVL)
 ╚══════════════════════════════╝"

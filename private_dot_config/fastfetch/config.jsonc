@@ -9,16 +9,6 @@
     "uptime",
     "packages",
     "shell",
-    "display",
-    "de",
-    "wm",
-    "wmtheme",
-    "theme",
-    "icons",
-    "font",
-    "cursor",
-    "terminal",
-    "terminalfont",
     "cpu",
     "gpu",
     "memory",
@@ -28,6 +18,12 @@
     "battery",
     "poweradapter",
     "locale",
+
+    // --- env vars via custom->format ---
+    { "type": "custom", "key": "Editor",     "format": "{$EDITOR}" },
+    // { "type": "custom", "key": "X11 Display",     "format": "{$DISPLAY}" },
+    // { "type": "custom", "key": "SHLVL",     "format": "{$SHLVL}" },
+
     "break",
     "colors"
   ]
