@@ -185,6 +185,7 @@ $env.config.keybindings = (
 
 alias ali = nvim ~/.local/share/chezmoi/private_dot_config/nushell/alias.nu
 alias c = cl
+alias crc = crc.sh
 alias cx = cl (fd -H -I -t d | fzfm)
 alias cz = zi
 alias activate = overlay use .venv/bin/activate.nu

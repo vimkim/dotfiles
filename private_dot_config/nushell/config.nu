@@ -195,3 +195,4 @@ print $"╔═══════════════════════
 
 zellij ls
 
+ulimit -c unlimited
