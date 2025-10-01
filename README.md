@@ -25,7 +25,7 @@ sudo apt install zsh
 ## Step 2: Install Nix Package Manager
 
 ```bash
-# ssh <(curl -L https://nixos.org/nix/install) --daemon
+sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install)
 ```
 
 > nix recommended
@@ -33,7 +33,7 @@ sudo apt install zsh
 or,
 
 ```bash
-sh <(curl -L https://nixos.org/nix/install) --no-daemon
+sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --no-daemon
 ```
 
 > personal choice, especially inside a container
