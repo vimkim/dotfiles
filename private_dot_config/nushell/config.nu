@@ -176,4 +176,17 @@ def start_zellij [] {
 mkdir ($nu.data-dir | path join "vendor/autoload")
 starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")
 
+let host = (sys host | get hostname)
+let shell = $env.SHELL
+let ip_a = (ip -4 -o addr show | awk '$2 != "lo" {print $4}')
+let disp = $env.DISPLAY? | default "unset"
+
+print $"╔══════════════════════════════╗
+║   HOST → ($host)
+║   IP → ($ip_a)
+║   DISPLAY → ($disp)
+║   SHLVL → ($env.SHLVL)
+╚══════════════════════════════╝"
+
 zellij ls
+
