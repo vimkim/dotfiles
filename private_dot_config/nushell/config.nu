@@ -178,7 +178,7 @@ starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.n
 
 let host = (sys host | get hostname)
 let shell = $env.SHELL
-let ip_a = (ip -4 -o addr show | awk '$2 != "lo" {print $4}')
+let ip_a = (hostname -I)
 let disp = $env.DISPLAY? | default "unset"
 
 print $"╔══════════════════════════════╗
