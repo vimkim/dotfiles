@@ -94,7 +94,11 @@ def clip [] {
 }
 
 alias x = commandline edit (~/.config/my-scripts/bin/autorun.sh | str trim)
-alias xe = nvim ~/.config/my-scripts/bin/autorun.sh
+# alias xe = nvim ~/.config/my-scripts/bin/autorun.sh
+def xe [] {
+    let projtype = (detect-project.sh)
+    nvim $"($env.HOME)/.local/share/chezmoi/private_dot_config/my-scripts/($projtype).just"
+}
 
 ###############################################################################
 # Directory History

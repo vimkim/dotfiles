@@ -6,8 +6,14 @@ detect_project_type() {
         echo "rust"
     elif [ -f "go.mod" ] || [ -f "main.go" ] || find . -name "*.go" | grep -q .; then
         echo "go"
-    elif [ -f "CMakeLists.txt" ] || find . -name "*.c" -o -name "*.cpp" | grep -q .; then
+    elif [ -f "CMakeLists.txt" ] ; then
         echo "cmake"
+    elif [ -f "Makefile" ] ; then
+        echo "make"
+    elif find . -name "*.cpp" | grep -q .; then
+        echo "cpp"
+    elif find . -name "*.c" | grep -q .; then
+        echo "c"
     elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || find . -name "*.py" | grep -q .; then
         echo "python"
     else

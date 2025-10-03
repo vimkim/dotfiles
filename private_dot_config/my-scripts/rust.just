@@ -61,3 +61,13 @@ build-for-uftrace:
 
 check-for-uftrace:
     nm ./target/debug/{{ binary-name }} | grep mcount
+
+debug-cgdb:
+    cgdb -d rust-gdb ./target/debug/
+
+
+rr-record:
+    rr record ./target/debug/
+
+rr-replay:
+    rr -d cgdb replay
