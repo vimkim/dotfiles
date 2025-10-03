@@ -15,6 +15,12 @@ cargo-add:
 test:
     cargo test
 
+test-list:
+    ^cargo test -- --list
+
+test-fzf:
+    cargo test $"(^cargo test -- --list | complete | get stdout | rg 'test$' | fzf | awk -F': test' '{print $1}')"
+
 test-ignored:
     cargo test -- --ignored
 
