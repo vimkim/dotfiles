@@ -5,7 +5,6 @@ $env.EZA_COLORS = $"da=35;"
 let eza_common_options = [
   --group-directories-last
   -aF
-  -r
   --time-style=relative
 ]
 
@@ -28,3 +27,9 @@ $env.EZA_SORT_MODIFIED = [
 def ezam [...args] {
   eza --no-user --no-permissions ...$env.EZA_LONG_OPTIONS --icons ...$env.EZA_SORT_MODIFIED --grid ...$args
 }
+
+# Define the 'l' alias/function
+def ezaml [...args] {
+  eza --group-directories-first -alF --time-style=relative --icons --sort=modified ...$args
+}
+alias ll = ezaml
