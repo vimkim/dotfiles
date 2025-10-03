@@ -27,7 +27,7 @@ test-ignored:
 build:
     cargo build
 
-binary-name := `cargo metadata --format-version 1 | jq -r '.packages[].targets[] | select( .kind | map(. == "bin") | any ) | select ( .src_path | contains(".cargo/registry") | . != true ) | .name'`
+binary-name := '(open Cargo.toml | get package.name)'
 
 run-debug:
     cargo run
@@ -67,7 +67,12 @@ debug-cgdb:
 
 
 rr-record:
-    rr record ./target/debug/
+    rr record ./target/debug/{{ binary-name }}
 
 rr-replay:
-    rr -d cgdb replay
+    rr replay -s 50505 -k
+
+rr-attach:
+    cgdb -d rust-gdb -l 10000 -ex 'set sysroot /' -ex 'target extended-remote 127.0.0.1:50505' /home/dkubnt/.local/share/rr/slotted_page_rs-1/mmap_hardlink_4_slotted_page_rs
+
+
