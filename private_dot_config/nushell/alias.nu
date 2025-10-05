@@ -217,6 +217,7 @@ alias hg = hgrep
 alias i = cl
 alias ii = xdg-open
 alias je = nvim ./justfile
+alias lj = lazyjj
 alias lz = lazygit
 alias lzd = lazydocker
 alias lzpu = with-env {DOCKER_HOST: "unix:///run/user/1000/podman/podman.sock"} { lazydocker }
