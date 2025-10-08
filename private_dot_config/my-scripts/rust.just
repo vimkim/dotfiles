@@ -63,7 +63,7 @@ check-for-uftrace:
     nm ./target/debug/{{ binary-name }} | grep mcount
 
 debug-cgdb:
-    cgdb -d rust-gdb ./target/debug/
+    cgdb -d rust-gdb ./target/debug/{{ binary-name }}
 
 
 rr-record:
