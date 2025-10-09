@@ -185,7 +185,7 @@ fastfetch
 
 let host = (sys host | get hostname)
 let shell = $env.SHELL
-let ip_a = (hostname -I)
+# let ip_a = (hostname --ip-addresses)
 let disp = $env.DISPLAY? | default "unset"
 
 print $"╔══════════════════════════════╗
