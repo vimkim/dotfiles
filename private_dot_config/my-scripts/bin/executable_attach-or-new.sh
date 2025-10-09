@@ -16,7 +16,7 @@ if [ "${NO_SESSIONS}" -ge 1 ]; then
         echo "No session selected."
         exit 0
     fi
-    zellij attach "$chosen"
+    exec zellij attach "$chosen"
 else
-    zellij -s "$(hostname | cut -c1-4)"
+    exec zellij -s "$(hostname | cut -c1-4)"
 fi
