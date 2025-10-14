@@ -92,6 +92,11 @@ define ptree
   printf "%s\n", debug_parse_tree($arg0, $arg1).c_str()
 end
 
+define nw
+    next
+    when-ticks
+end
+
 set pagination on
 # detach-on-fork off: https://stackoverflow.com/questions/6199270/how-do-i-debug-the-child-process-after-fork-in-gdb
 # set detach-on-fork off # this suddenly stops CUBRID
