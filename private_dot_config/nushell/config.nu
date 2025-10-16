@@ -176,6 +176,20 @@ def start_zellij [] {
 mkdir ($nu.data-dir | path join "vendor/autoload")
 starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")
 
+###############################################################################
+# Wayland WSLg wl-copy & wl-paste fix for Neovim
+###############################################################################
+
+export-env {
+    # Detect if we're running inside WSL
+    if ($env.WSL_DISTRO_NAME? | is-not-empty) or (sys host | get name | str contains 'Microsoft') {
+        # Wayland/WSLg environment variables
+        $env.WAYLAND_DISPLAY = "wayland-0"
+        $env.DISPLAY = ":0"
+        $env.XDG_RUNTIME_DIR = "/mnt/wslg/runtime-dir"
+        $env.PULSE_SERVER = "/mnt/wslg/PulseServer"
+    }
+}
 
 ###############################################################################
 # Shell Startup Decoration
@@ -196,3 +210,4 @@ print $"╔═══════════════════════
 zellij ls
 
 ulimit -c unlimited
+
