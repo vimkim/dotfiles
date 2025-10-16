@@ -6,6 +6,14 @@ git:
     pager: delta --dark --paging=never
 
 customCommands:
+  - key: "B"
+    description: "Create a new branch without checking it out"
+    command: "git branch {{index .PromptResponses 0}} {{.SelectedLocalCommit.Sha}}"
+    context: "commits"
+    prompts:
+      - type: "input"
+        title: "Branch Name"
+        initialValue: ""
   - key: "C"
     command: 'git commit -m "{{ .Form.Type }}{{if .Form.Scopes}}({{ .Form.Scopes }}){{end}}: {{ .Form.Description }}"'
     description: "commit with commitizen"
