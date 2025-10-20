@@ -14,12 +14,19 @@ def --env cl [
     ls -a | where type in ['dir' 'symlink'] | sort-by modified -r | get name | to text | fzfm
   }
 
-  if $target_dir != null {
-    cd $target_dir
-    l
-  } else {
+  if $target_dir == null {
     print "No directory selected."
+    return
   }
+
+  cd $target_dir
+
+  let big_threshold = 400
+  let entry_count   = (fd -d1 --hidden --no-ignore | wc -l | into int)
+  let rows          = (term size | get rows)
+  let max_lines     = ($rows * 0.8 | math floor)
+
+  ezam
 }
 
 def vc [query?: string] {

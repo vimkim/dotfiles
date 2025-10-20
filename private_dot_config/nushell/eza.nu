@@ -25,7 +25,27 @@ $env.EZA_SORT_MODIFIED = [
 
 # Define the 'l' alias/function
 def ezam [...args] {
-  eza --no-user --no-permissions ...$env.EZA_LONG_OPTIONS --icons ...$env.EZA_SORT_MODIFIED --grid ...$args
+
+  let big_threshold = 400
+  let entry_count   = (fd -d1 --hidden --no-ignore | wc -l | into int)
+  let rows          = (term size | get rows)
+  let max_lines     = ($rows * 0.8 | math floor)
+
+  if $entry_count > $big_threshold {
+    # Fast path: structured Nu ls sorted by modified, then page
+    ls -a --threads
+    | first ($max_lines * 2)
+    | sort-by modified -r
+    | table
+    | head -n $max_lines
+    | less -XFRS
+
+    echo "...skipped & approx sorted"
+  } else {
+    # Small dir: your richer, slower listing
+    eza --no-user --no-permissions ...$env.EZA_LONG_OPTIONS --icons ...$env.EZA_SORT_MODIFIED --grid ...$args
+  }
+
 }
 
 # Define the 'l' alias/function
