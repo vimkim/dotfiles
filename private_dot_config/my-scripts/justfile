@@ -52,3 +52,9 @@ cgdb-rust:
 cgdb-rust-fzf:
     cgdb -d rust-gdb -p (pf)
 
+mdserve:
+    mdserve --hostname '0.0.0.0' --port 3000 (fd 'md$' | fzf)
+
+firewall-rocky:
+    sudo firewall-cmd --add-port=3000/tcp --permanent
+    sudo firewall-cmd --reload
