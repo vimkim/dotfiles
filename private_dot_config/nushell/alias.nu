@@ -221,7 +221,22 @@ alias gloga = with-env {GL_OPS: "--all"} { git-log.sh }
 alias gst = git status
 alias gsw = git switch
 alias h = cl ..
-alias he = bat -p -l help
+
+# alias he = bat -p -l help
+def he [cmd?: string] {
+    if ($cmd | is-empty) {
+        # no argument: act as a pipe filter
+        bat -p -l help
+    } else {
+        let help_output = (do { ^$cmd --help } | complete | get stdout | str trim)
+        if ($help_output | is-empty) {
+            print $"No help available for: ($cmd)"
+        } else {
+            $help_output | bat -p -l help
+        }
+    }
+}
+
 alias hg = hgrep
 alias i = cl
 alias ii = xdg-open
