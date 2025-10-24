@@ -42,7 +42,8 @@ def ezam [...args] {
     echo "...skipped & approx sorted"
   } else {
     # Small dir: your richer, slower listing
-    eza --no-user --no-permissions ...$env.EZA_LONG_OPTIONS --icons ...$env.EZA_SORT_MODIFIED --grid ...$args --width=(tput cols) | less -XFRS
+    # NOTE: eza needs --width=(tput cols) when being piped to less
+    eza --no-user --no-permissions ...$env.EZA_LONG_OPTIONS --icons ...$env.EZA_SORT_MODIFIED --grid ...$args
   }
 
 }
