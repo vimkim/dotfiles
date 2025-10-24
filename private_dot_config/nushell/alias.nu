@@ -29,14 +29,26 @@ def --env cl [
   ezam
 }
 
+# def vc [query?: string] {
+#   let file = (
+#     ls -a
+#     | where type in ['file' 'symlink']
+#     | sort-by modified -r
+#     | get name
+#     | str join (char nl)
+#     | fzfm --query ($query | default "")
+#   )
+#
+#   if $file != "" {
+#     nvim $file
+#   }
+# }
 def vc [query?: string] {
   let file = (
-    ls -a
-    | where type in ['file' 'symlink']
-    | sort-by modified -r
-    | get name
-    | str join (char nl)
-    | fzfm --query ($query | default "")
+    eza -a -l --git --icons --sort modified --reverse --color=always --only-files --show-symlinks
+    | fzfm --ansi --query ($query | default "")
+    | split row -r '\s+'
+    | get 7
   )
 
   if $file != "" {
