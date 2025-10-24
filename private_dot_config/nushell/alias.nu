@@ -160,7 +160,9 @@ def --env cd-dir-history [] {
     return
   }
 
-  let dir = (open $history_file | to text | fzfm)
+  # let dir = (open $history_file | to text | fzfm)
+  let dir = ( open $history_file | to text | each {|l| $"(ansi blue)($l)(ansi reset)" } | fzfm --ansi )
+
   if $dir == "" {
     print "No directory selected."
     return
