@@ -12,10 +12,10 @@ def --env cl [
     $dir
   } else {
     # ls -a | where type in ['dir' 'symlink'] | sort-by modified -r | get name | to text | fzfm
-    eza -a -l --git --icons --sort modified --reverse --color=always --only-dirs --show-symlinks
+    eza -a -l --icons --sort modified --reverse --color=always --only-dirs --show-symlinks
     | fzfm --ansi --query ""
     | split row -r '\s+'
-    | get 7
+    | get 6
   }
 
   if $target_dir == null {
@@ -49,10 +49,10 @@ def --env cl [
 # }
 def vc [query?: string] {
   let file = (
-    eza -a -l --git --icons --sort modified --reverse --color=always --only-files --show-symlinks
+    eza -a -l --icons --sort modified --reverse --color=always --only-files --show-symlinks
     | fzfm --ansi --query ($query | default "")
     | split row -r '\s+'
-    | get 7
+    | get 6
   )
 
   if $file != "" {
