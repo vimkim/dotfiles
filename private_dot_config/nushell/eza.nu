@@ -3,7 +3,7 @@ $env.EZA_COLORS = $"da=35;"
 
 # Define common options as a list (local variable)
 let eza_common_options = [
-  --group-directories-last
+  --group-directories-first
   -aF
   --time-style=relative
 ]
@@ -20,7 +20,6 @@ $env.EZA_LONG_OPTIONS = (
 # Define sort options
 $env.EZA_SORT_MODIFIED = [
   --sort=modified
-  -r
 ]
 
 # Define the 'l' alias/function
