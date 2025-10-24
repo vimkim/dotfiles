@@ -11,7 +11,11 @@ def --env cl [
   let target_dir = if $dir != null {
     $dir
   } else {
-    ls -a | where type in ['dir' 'symlink'] | sort-by modified -r | get name | to text | fzfm
+    # ls -a | where type in ['dir' 'symlink'] | sort-by modified -r | get name | to text | fzfm
+    eza -a -l --git --icons --sort modified --reverse --color=always --only-dirs --show-symlinks
+    | fzfm --ansi --query ""
+    | split row -r '\s+'
+    | get 7
   }
 
   if $target_dir == null {
