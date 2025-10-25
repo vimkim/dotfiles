@@ -9,6 +9,9 @@ prepare:
     echo 'export RUST_BACKTRACE="full"' >> .envrc
     direnv allow
 
+example-fzf:
+    ~/.config/my-scripts/bin/cargo-run-example.sh
+
 cargo-add:
     cargo add $(gum input)
 
@@ -65,7 +68,6 @@ check-for-uftrace:
 debug-cgdb:
     cgdb -d rust-gdb ./target/debug/{{ binary-name }}
 
-
 rr-record:
     rr record ./target/debug/{{ binary-name }}
 
@@ -74,5 +76,3 @@ rr-replay:
 
 rr-attach:
     cgdb -d rust-gdb -l 10000 -ex 'set sysroot /' -ex 'target extended-remote 127.0.0.1:50505' /home/dkubnt/.local/share/rr/slotted_page_rs-1/mmap_hardlink_4_slotted_page_rs
-
-
