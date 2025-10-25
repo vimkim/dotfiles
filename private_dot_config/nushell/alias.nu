@@ -12,10 +12,12 @@ def --env cl [
     $dir
   } else {
     # ls -a | where type in ['dir' 'symlink'] | sort-by modified -r | get name | to text | fzfm
-    eza -a -l --icons --sort modified --reverse --color=always --only-dirs --show-symlinks
+    eza -l --no-permissions --no-user -a --icons=always --sort modified --reverse --color=always --only-dirs --show-symlinks
     | fzfm --ansi --query ""
+    | str trim -l
     | split row -r '\s+'
-    | get 6
+    | get 5 -o
+    | default null
   }
 
   if $target_dir == null {
@@ -49,15 +51,20 @@ def --env cl [
 # }
 def vc [query?: string] {
   let file = (
-    eza -a -l --icons --sort modified --reverse --color=always --only-files --show-symlinks
+    eza -a -l --no-permissions --no-user --icons=always --sort modified --reverse --color=always --only-files --show-symlinks
     | fzfm --ansi --query ($query | default "")
+    | str trim -l
     | split row -r '\s+'
-    | get 6
+    | get 5 -o
+    | default null
   )
 
-  if $file != "" {
-    nvim $file
+  if $file == null {
+    print "No file selected."
+    return
   }
+
+  nvim $file
 }
 
 def --env cf [query?: string] {
