@@ -267,6 +267,12 @@ alias hg = hgrep
 alias i = cl
 alias ii = xdg-open
 alias je = nvim ./justfile
+
+def lf [...file: string] {
+    let cols = (tput cols)
+    eza ...($file | default []) -a -l --icons=always --color=always --sort=modified --only-files --show-symlinks --width=($cols) | less -rXFS
+}
+
 alias lj = lazyjj
 alias lz = lazygit
 alias lzd = lazydocker
