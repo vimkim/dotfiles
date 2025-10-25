@@ -12,6 +12,9 @@ prepare:
 example-fzf:
     ~/.config/my-scripts/bin/cargo-run-example.sh
 
+test-fzf:
+    ~/.config/my-scripts/bin/cargo-test-fzf.sh
+
 cargo-add:
     cargo add $(gum input)
 
@@ -20,9 +23,6 @@ test:
 
 test-list:
     ^cargo test -- --list
-
-test-fzf:
-    cargo test $"(^cargo test -- --list | complete | get stdout | rg 'test$' | fzf | awk -F': test' '{print $1}')"
 
 test-ignored:
     cargo test -- --ignored
