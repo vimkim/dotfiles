@@ -225,6 +225,7 @@ alias caps = gsettings set org.gnome.desktop.input-sources xkb-options "['ctrl:n
 alias caps_reset = gsettings reset org.gnome.desktop.input-sources xkb-options
 alias conf = cl ~/.config/
 alias confd = cl ~/.config/
+alias e = ~/.config/my-scripts/bin/cargo-run-example.sh
 alias fda = fd -H -I
 alias ff = fastfetch
 alias fmake = fzf-make
