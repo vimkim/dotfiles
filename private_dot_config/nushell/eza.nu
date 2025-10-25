@@ -37,7 +37,6 @@ def ezam [...args] {
     | sort-by modified -r
     | table
     | head -n $max_lines
-    | less -XFRS
 
     echo "...skipped & approx sorted"
   } else {
