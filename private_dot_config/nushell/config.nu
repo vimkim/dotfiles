@@ -172,14 +172,14 @@ starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.n
 ###############################################################################
 
 export-env {
-    # Detect if we're running inside WSL
-    if ($env.WSL_DISTRO_NAME? | is-not-empty) or (sys host | get name | str contains 'Microsoft') {
-        # Wayland/WSLg environment variables
-        $env.WAYLAND_DISPLAY = "wayland-0"
-        $env.DISPLAY = ":0"
-        $env.XDG_RUNTIME_DIR = "/mnt/wslg/runtime-dir"
-        $env.PULSE_SERVER = "/mnt/wslg/PulseServer"
-    }
+  # Detect if we're running inside WSL
+  if ($env.WSL_DISTRO_NAME? | is-not-empty) or (sys host | get name | str contains 'Microsoft') {
+    # Wayland/WSLg environment variables
+    $env.WAYLAND_DISPLAY = "wayland-0"
+    $env.DISPLAY = ":0"
+    $env.XDG_RUNTIME_DIR = "/mnt/wslg/runtime-dir"
+    $env.PULSE_SERVER = "/mnt/wslg/PulseServer"
+  }
 }
 
 ###############################################################################
@@ -188,15 +188,15 @@ export-env {
 
 fastfetch
 
-let host = (sys host | get hostname)
-let shell = $env.SHELL
+# let host = (sys host | get hostname)
+# let shell = $env.SHELL
 # let ip_a = (hostname --ip-addresses)
-let disp = $env.DISPLAY? | default "unset"
+# let disp = $env.DISPLAY? | default "unset"
 
-print $"╔══════════════════════════════╗
-║   DISPLAY → ($disp)
-║   SHLVL → ($env.SHLVL)
-╚══════════════════════════════╝"
+# print $"╔══════════════════════════════╗
+# ║   DISPLAY → ($disp)
+# ║   SHLVL → ($env.SHLVL)
+# ╚══════════════════════════════╝"
 
 zellij ls
 
@@ -211,4 +211,3 @@ if ($v | path exists) {
   $env.VCPKG_ROOT = $v
   path add $v
 }
-
