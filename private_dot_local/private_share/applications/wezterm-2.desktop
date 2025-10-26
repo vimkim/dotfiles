@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=WezTerm 2
+Exec=wezterm start --class WezTerm2
+Icon=org.wezfurlong.wezterm
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupWMClass=WezTerm2
+
