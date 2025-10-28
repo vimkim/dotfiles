@@ -93,17 +93,8 @@ alias gr = __git_root
 alias gcd = __git_root
 
 ###############################################################################
-# Just
+# clip
 ###############################################################################
-
-alias j = commandline edit (just.nu -f ./justfile -d . | str trim)
-alias n = j
-alias je = nvim ./justfile
-alias ne = je
-alias ni = commandline edit (just.nu -f ./.just/justfile -d . | str trim)
-alias nie = nvim ./.just/justfile
-alias na = commandline edit (just.nu -f ~/.config/my-scripts/justfile -d . | str trim)
-alias nae = nvim ~/.config/my-scripts/justfile
 
 def clip [] {
   if ($nu.os-info.name == "linux") {
@@ -122,6 +113,19 @@ def clip [] {
     print "Unsupported OS"
   }
 }
+
+###############################################################################
+# Just
+###############################################################################
+
+alias j = commandline edit (just.nu -f ./justfile -d . | str trim)
+alias n = j
+alias je = nvim ./justfile
+alias ne = je
+alias ni = commandline edit (just.nu -f ./.just/justfile -d . | str trim)
+alias nie = nvim ./.just/justfile
+alias na = commandline edit (just.nu -f ~/.config/my-scripts/justfile -d . | str trim)
+alias nae = nvim ~/.config/my-scripts/justfile
 
 alias x = commandline edit (~/.config/my-scripts/bin/autorun.sh | str trim)
 # alias xe = nvim ~/.config/my-scripts/bin/autorun.sh
@@ -279,7 +283,6 @@ alias lzd = lazydocker
 alias lzpu = with-env {DOCKER_HOST: "unix:///run/user/1000/podman/podman.sock"} { lazydocker }
 alias lzps = with-env {DOCKER_HOST: "unix:///run/podman/podman.sock"} { sudo /home/vimkim/.nix-profile/bin/lazydocker }
 alias lzp = lzps
-alias nvimh = cl ~/.config/nvim/
 
 def --env mc [dir: string] {
   mkdir $dir
@@ -287,6 +290,7 @@ def --env mc [dir: string] {
 }
 
 alias mycub = cl ~/my-cubrid/
+alias nvimh = cl ~/.config/nvim/
 alias rgall = rg --hidden --no-ignore
 alias rgf = rgf.sh
 alias sl = l
