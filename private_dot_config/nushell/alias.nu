@@ -118,8 +118,8 @@ def clip [] {
 # Just
 ###############################################################################
 
-alias j = commandline edit (just.nu -f ./justfile -d . | str trim)
-alias n = j
+alias n = commandline edit (just.nu -f ./justfile -d . | str trim)
+alias j = just
 alias je = nvim ./justfile
 alias ne = je
 alias ni = commandline edit (just.nu -f ./.just/justfile -d . | str trim)
@@ -143,6 +143,12 @@ alias n6 = commandline edit $"(just --dry-run -f ./justfile -d . n6 o+e>| str tr
 alias n7 = commandline edit $"(just --dry-run -f ./justfile -d . n7 o+e>| str trim)"
 alias n8 = commandline edit $"(just --dry-run -f ./justfile -d . n8 o+e>| str trim)"
 alias n9 = commandline edit $"(just --dry-run -f ./justfile -d . n9 o+e>| str trim)"
+
+alias nb = just nb
+alias nc = just nc
+alias nd = just nd
+alias ns = just ns
+alias np = just np
 
 ###############################################################################
 # Directory History
