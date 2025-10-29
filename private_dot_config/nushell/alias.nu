@@ -134,6 +134,16 @@ def xe [] {
     nvim $"($env.HOME)/.local/share/chezmoi/private_dot_config/my-scripts/($projtype).just"
 }
 
+alias n1 = commandline edit $"(just --dry-run -f ./justfile -d . n1 o+e>| str trim)"
+alias n2 = commandline edit $"(just --dry-run -f ./justfile -d . n2 o+e>| str trim)"
+alias n3 = commandline edit $"(just --dry-run -f ./justfile -d . n3 o+e>| str trim)"
+alias n4 = commandline edit $"(just --dry-run -f ./justfile -d . n4 o+e>| str trim)"
+alias n5 = commandline edit $"(just --dry-run -f ./justfile -d . n5 o+e>| str trim)"
+alias n6 = commandline edit $"(just --dry-run -f ./justfile -d . n6 o+e>| str trim)"
+alias n7 = commandline edit $"(just --dry-run -f ./justfile -d . n7 o+e>| str trim)"
+alias n8 = commandline edit $"(just --dry-run -f ./justfile -d . n8 o+e>| str trim)"
+alias n9 = commandline edit $"(just --dry-run -f ./justfile -d . n9 o+e>| str trim)"
+
 ###############################################################################
 # Directory History
 ###############################################################################
