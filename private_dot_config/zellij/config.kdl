@@ -185,6 +185,11 @@ keybinds clear-defaults=true {
         bind "Alt s" { NewPane "Down"; SwitchToMode "Normal"; }
         bind "Alt v" { NewPane "Right"; SwitchToMode "Normal"; }
         bind "Alt t" { ToggleFloatingPanes; SwitchFocus; }
+        bind "Alt b" {
+          Run "just" "default" {
+            direction "Right"
+          }
+        }
         bind "Alt d" { TogglePaneEmbedOrFloating; }
         bind "Alt e" { EditScrollback; SwitchToMode "Normal"; }
         bind "Alt f" { ToggleFocusFullscreen; }
