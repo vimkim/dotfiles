@@ -240,6 +240,7 @@ $env.config.keybindings = (
 ###############################################################################
 
 alias ali = nvim ~/.local/share/chezmoi/private_dot_config/nushell/alias.nu
+alias battery = do { upower -e | fzf --preview='upower -i {}' }
 alias c = cl
 alias crc = crc.sh
 alias cx = cl (fd -H -I -t d | fzfm)

@@ -15,7 +15,7 @@
     "swap",
     "disk",
     "localip",
-    "battery",
+    // "battery",
     "poweradapter",
     "locale",
 
