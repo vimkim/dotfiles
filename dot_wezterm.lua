@@ -18,6 +18,7 @@ config.font = wezterm.font_with_fallback({
 	{ family = "NanumBarunpen", weight = "Bold" },
 })
 config.font_size = 15.0
+config.line_height = 1.2
 
 config.enable_tab_bar = false
 
