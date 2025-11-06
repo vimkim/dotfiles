@@ -149,6 +149,7 @@ alias nc = just nc
 alias nd = just nd
 alias ns = just ns
 alias np = just np
+alias nt = just nt
 
 ###############################################################################
 # Directory History
