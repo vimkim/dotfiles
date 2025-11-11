@@ -312,6 +312,7 @@ alias nvimh = cl ~/.config/nvim/
 alias rgall = rg --hidden --no-ignore
 alias rgf = rgf.sh
 alias sl = l
+alias starbucks_archlinux = curl -v http://gstatic.com/generate_204
 alias sctl = systemctl
 alias perf-enable = sudo sysctl kernel.perf_event_paranoid=-1
 alias pf = ~/.config/my-scripts/bin/ps-fuzzy.sh
