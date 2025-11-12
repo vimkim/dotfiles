@@ -69,8 +69,8 @@ def vc [query?: string] {
 
 def --env cf [query?: string] {
   let selected = (
-    fd --type f --type l --no-ignore --hidden --follow
-    | fzfm --query ($query | default "")
+    ^fd --type f --type l --no-ignore --hidden --follow
+    | ^fzf --height 60% --reverse --query ($query | default "")
   )
 
   if $selected != null and ($selected | str trim) != "" {
@@ -134,15 +134,25 @@ def xe [] {
     nvim $"($env.HOME)/.local/share/chezmoi/private_dot_config/my-scripts/($projtype).just"
 }
 
-alias n1 = commandline edit $"(just --dry-run -f ./justfile -d . n1 o+e>| str trim)"
-alias n2 = commandline edit $"(just --dry-run -f ./justfile -d . n2 o+e>| str trim)"
-alias n3 = commandline edit $"(just --dry-run -f ./justfile -d . n3 o+e>| str trim)"
-alias n4 = commandline edit $"(just --dry-run -f ./justfile -d . n4 o+e>| str trim)"
-alias n5 = commandline edit $"(just --dry-run -f ./justfile -d . n5 o+e>| str trim)"
-alias n6 = commandline edit $"(just --dry-run -f ./justfile -d . n6 o+e>| str trim)"
-alias n7 = commandline edit $"(just --dry-run -f ./justfile -d . n7 o+e>| str trim)"
-alias n8 = commandline edit $"(just --dry-run -f ./justfile -d . n8 o+e>| str trim)"
-alias n9 = commandline edit $"(just --dry-run -f ./justfile -d . n9 o+e>| str trim)"
+# alias n1 = commandline edit $"(just --dry-run -f ./justfile -d . n1 o+e>| str trim)"
+# alias n2 = commandline edit $"(just --dry-run -f ./justfile -d . n2 o+e>| str trim)"
+# alias n3 = commandline edit $"(just --dry-run -f ./justfile -d . n3 o+e>| str trim)"
+# alias n4 = commandline edit $"(just --dry-run -f ./justfile -d . n4 o+e>| str trim)"
+# alias n5 = commandline edit $"(just --dry-run -f ./justfile -d . n5 o+e>| str trim)"
+# alias n6 = commandline edit $"(just --dry-run -f ./justfile -d . n6 o+e>| str trim)"
+# alias n7 = commandline edit $"(just --dry-run -f ./justfile -d . n7 o+e>| str trim)"
+# alias n8 = commandline edit $"(just --dry-run -f ./justfile -d . n8 o+e>| str trim)"
+# alias n9 = commandline edit $"(just --dry-run -f ./justfile -d . n9 o+e>| str trim)"
+
+alias n1 = just n1
+alias n2 = just n2
+alias n3 = just n3
+alias n4 = just n4
+alias n5 = just n5
+alias n6 = just n6
+alias n7 = just n7
+alias n8 = just n8
+alias n9 = just n9
 
 alias nb = just nb
 alias nc = just nc
