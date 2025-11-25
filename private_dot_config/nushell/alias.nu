@@ -126,6 +126,7 @@ alias ni = commandline edit (just.nu -f ./.just/justfile -d . | str trim)
 alias nie = nvim ./.just/justfile
 alias na = commandline edit (just.nu -f ~/.config/my-scripts/justfile -d . | str trim)
 alias nae = nvim ~/.config/my-scripts/justfile
+alias nae = do { nvim $"($env.HOME)/.local/share/chezmoi/private_dot_config/my-scripts/justfile" }
 
 alias x = commandline edit (~/.config/my-scripts/bin/autorun.sh | str trim)
 # alias xe = nvim ~/.config/my-scripts/bin/autorun.sh

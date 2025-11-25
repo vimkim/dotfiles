@@ -58,3 +58,10 @@ mdserve:
 firewall-rocky:
     sudo firewall-cmd --add-port=3000/tcp --permanent
     sudo firewall-cmd --reload
+
+netscanner:
+    sudo $"(which netscanner | get path | first)"
+
+htop:
+    sudo $"(which htop | get path | first)"
+
