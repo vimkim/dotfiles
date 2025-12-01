@@ -275,6 +275,7 @@ alias ghcf = ~/.config/my-scripts/bin/gh-clone-fuzzy.sh
 alias ghcu = ~/.config/my-scripts/bin/git-clone-user.sh
 alias gfpa = git fetch --all --prune
 alias gl = ~/.config/my-scripts/bin/git-log.sh
+alias gld = do { ~/.config/my-scripts/bin/git-log.sh develop }
 alias glh = do { ~/.config/my-scripts/bin/git-log.sh HEAD }
 alias glf = ~/.config/my-scripts/bin/git-log-find.sh
 alias gloga = with-env {GL_OPS: "--all"} { git-log.sh }
