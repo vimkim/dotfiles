@@ -321,6 +321,7 @@ def --env mc [dir: string] {
 }
 
 alias mycub = cl ~/my-cubrid/
+alias my-cargo-install = ~/.config/my-scripts/bin/my-cargo-install.nu
 alias nvimh = cl ~/.config/nvim/
 alias rgall = rg --hidden --no-ignore
 alias rgf = rgf.sh
