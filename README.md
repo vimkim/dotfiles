@@ -40,24 +40,24 @@ sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --no-daem
 
 ```bash
 . $HOME/.nix-profile/etc/profile.d/nix.sh
-
-nix --extra-experimental-features nix-command --extra-experimental-features flakes profile install nixpkgs#chezmoi
-```
-
-Optionally (I do not recommend because sometimes locale breaks),
-
-```bash
-# nix --extra-experimental-features nix-command --extra-experimental-features flakes profile install nixpkgs#zsh
 ```
 
 Note: nix-command and flakes are automatically enabled with chezmoi apply.
 
+## Step 3: Install chezmoi and apply dotfiles
+
 ```bash
- # github handle after --apply
+nix --extra-experimental-features nix-command --extra-experimental-features flakes profile install nixpkgs#chezmoi
+```
+
+```bash
+# github handle after --apply
 chezmoi init --apply vimkim
 ```
 
-## Step 3: Install oh-my-zsh
+## Optional Step: Install oh-my-zsh
+
+I now use nushell instead, by the way.
 
 ```bash
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
