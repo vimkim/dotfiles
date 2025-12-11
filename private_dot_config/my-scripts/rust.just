@@ -68,6 +68,9 @@ check-for-uftrace:
 debug-cgdb:
     cgdb -d rust-gdb ./target/debug/{{ binary-name }}
 
+debug-cgdb-attach:
+    cgdb -d rust-gdb -p $"(pgrep {{ binary-name }})"
+
 rr-record:
     rr record ./target/debug/{{ binary-name }}
 
