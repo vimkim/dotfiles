@@ -17,8 +17,8 @@ config.font = wezterm.font_with_fallback({
 	-- { family = "Noto Serif CJK KR", weight = "DemiBold" },
 	{ family = "NanumBarunpen", weight = "Bold" },
 })
-config.font_size = 15.0
-config.line_height = 1.0
+config.font_size = 12.0
+config.line_height = 0.85
 
 config.enable_tab_bar = false
 
