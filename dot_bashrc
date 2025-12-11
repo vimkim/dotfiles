@@ -1,13 +1,14 @@
 # .bashrc
-echo "This is cubrid@dhkim216 bash shell"
-echo $PATH | tr ':' '\n'
 
 # Source global definitions
 if [ -f /etc/bashrc ]; then
     . /etc/bashrc
 fi
 
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 if [ -e /home/vimkim/.nix-profile/etc/profile.d/nix.sh ]; then . /home/vimkim/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
+alias chez='chezmoi'
+alias chezd='cd ~/.local/share/chezmoi/'
 
 # Uncomment the following line if you don't like systemctl's auto-paging feature:
 # export SYSTEMD_PAGER=
@@ -285,11 +286,16 @@ alias b='~/github/vimkim/cubrid/build.sh -m debug -p $HOME/CUBRID -g ninja -t 64
 
 alias oc='code -r ~/github/vimkim/cubrid'
 
+alias lz='lazygit'
+alias v='nvim'
+
 # starship
 eval "$(starship init bash)"
 
 # curl for centos7
 export PATH=$HOME/curl/bin:$PATH
+
+export USER=$(whoami)
 
 source ~/.local/share/blesh/ble.sh
 
@@ -297,3 +303,5 @@ eval "$(atuin init bash)"
 
 export CTP_HOME=$HOME/CTP
 # source ~/.custom_profile
+
+source -- ~/.local/share/blesh/ble.sh
