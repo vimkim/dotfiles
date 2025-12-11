@@ -72,12 +72,12 @@ alias vimprofile="$EDITOR ~/.vimrc"
 
 # System aliases
 
-if [ -x "$(command -v exa)" ]; then
-    alias ls='exa -aF'
-    alias l='exa -aF'
-    alias la='exa -laF'
-    alias ll='exa -laF'
-    alias lsd='exa -laF --only-dirs'
+if [ -x "$(command -v eza)" ]; then
+    alias ls='eza -aF'
+    alias l='eza -aF'
+    alias la='eza -laF'
+    alias ll='eza -laF'
+    alias lsd='eza -laF --only-dirs'
 else
     alias ls='ls -aF'
     alias l='ls -AF'
@@ -282,26 +282,12 @@ export SCM_CHECK=true
 
 # user alias
 alias c='cd'
-alias b='~/github/vimkim/cubrid/build.sh -m debug -p $HOME/CUBRID -g ninja -t 64 build'
-
-alias oc='code -r ~/github/vimkim/cubrid'
-
 alias lz='lazygit'
 alias v='nvim'
 
-# starship
 eval "$(starship init bash)"
-
-# curl for centos7
-export PATH=$HOME/curl/bin:$PATH
+eval "$(atuin init bash)"
 
 export USER=$(whoami)
 
 source ~/.local/share/blesh/ble.sh
-
-eval "$(atuin init bash)"
-
-export CTP_HOME=$HOME/CTP
-# source ~/.custom_profile
-
-source -- ~/.local/share/blesh/ble.sh
