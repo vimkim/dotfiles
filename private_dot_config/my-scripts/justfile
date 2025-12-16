@@ -65,3 +65,6 @@ netscanner:
 htop:
     sudo $"(which htop | get path | first)"
 
+btop:
+    sudo $"(which btop | get path | first)"
+
