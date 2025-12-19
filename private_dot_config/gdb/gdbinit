@@ -105,6 +105,13 @@ set debuginfod enabled on
 
 alias -a btf = backtrace full
 
+alias -a sb = so br.gdb
+
+define cb
+  continue
+  backtrace full 5
+end
+
 source ~/.config/gdb/gdb_dump.py
 
 # if enable this, backtrace full will be very verbose. Use btf alias instead.
