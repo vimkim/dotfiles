@@ -343,7 +343,7 @@ alias ts = tspin
 alias v = nvim
 alias w = which
 alias wa = which -a
-alias za = attach-or-new.sh
+alias za = do { SHELL=nu attach-or-new.sh }
 alias ze = zellij
 alias zs = zellij -s
 alias zshrc = nvim ~/.local/share/chezmoi/dot_zshrc
