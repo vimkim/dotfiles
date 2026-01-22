@@ -53,6 +53,10 @@ if (sys host | get name | str downcase | str contains 'rocky') and (sys host | g
   $env.NIX_SSL_CERT_FILE = '/etc/ssl/certs/ca-bundle.crt'
 }
 
+if ($env.WT_SESSION? | is-not-empty) {
+    $env.TERM = "xterm-256color"
+}
+
 $env.SYSTEMD_EDITOR = 'vim'
 
 source ~/.local/share/atuin/init.nu
