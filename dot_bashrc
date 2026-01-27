@@ -43,8 +43,6 @@ export NVM_DIR="$HOME/.nvm"
 
 export EDITOR='nvim'
 
-export TERM=xterm
-
 export PATH="$PATH:/opt/nvim-linux64/bin"
 
 export PATH="$HOME/.local/bin:$PATH"
