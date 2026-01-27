@@ -290,4 +290,5 @@ eval "$(atuin init bash)"
 
 export USER=$(whoami)
 
-source ~/.local/share/blesh/ble.sh
+. "$HOME/.cargo/env"
+source -- ~/.local/share/blesh/ble.sh
