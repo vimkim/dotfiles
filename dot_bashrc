@@ -282,6 +282,7 @@ export SCM_CHECK=true
 alias c='cd'
 alias lz='lazygit'
 alias v='nvim'
+alias za='SHELL=nu zellij'
 
 eval "$(starship init bash)"
 eval "$(atuin init bash)"
