@@ -168,7 +168,7 @@ alias nl = just nl
 # Directory History
 ###############################################################################
 
-let history_file = ($nu.home-path | path join ".local" "share" "nu" "dirlog.json")
+let history_file = ($env.HOME | path join ".local" "share" "nu" "dirlog.json")
 
 $env.config.hooks.env_change.PWD = (
   $env.config.hooks.env_change.PWD | append {|before after|
