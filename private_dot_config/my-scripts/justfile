@@ -68,3 +68,5 @@ htop:
 btop:
     sudo $"(which btop | get path | first)"
 
+fd-opened:
+    ~/.config/my-scripts/bin/fd-opened-per-process.sh

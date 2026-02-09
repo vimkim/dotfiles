@@ -121,7 +121,8 @@ source ~/.config/gdb/gdb_dump.py
 # set backtrace past-entry on
 # set print entry-values default
 
-set follow-fork-mode child
-set detach-on-fork off
-catch exec
+# set follow-fork-mode child
+# set follow-fork-mode parent
+# set detach-on-fork off
+# catch exec
 
