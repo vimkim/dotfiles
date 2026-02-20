@@ -35,20 +35,6 @@ def --env cl [
   ezam
 }
 
-# def vc [query?: string] {
-#   let file = (
-#     ls -a
-#     | where type in ['file' 'symlink']
-#     | sort-by modified -r
-#     | get name
-#     | str join (char nl)
-#     | fzfm --query ($query | default "")
-#   )
-#
-#   if $file != "" {
-#     nvim $file
-#   }
-# }
 def vc [query?: string] {
   let file = (
     eza -a -l --no-permissions --no-user --icons=always --sort modified --reverse --color=always --only-files --show-symlinks
@@ -64,7 +50,7 @@ def vc [query?: string] {
     return
   }
 
-  nvim $file
+  ^$env.EDITOR $file
 }
 
 def --env cf [query?: string] {

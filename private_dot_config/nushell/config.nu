@@ -215,3 +215,16 @@ if ($v | path exists) {
   $env.VCPKG_ROOT = $v
   path add $v
 }
+
+###############################################################################
+# Cursor
+###############################################################################
+
+if $env.TERM_PROGRAM? == "cursor" {
+    $env.EDITOR = "cursor"
+    $env.VISUAL = "cursor"
+} else if $env.TERM_PROGRAM? == "vscode" {
+    $env.EDITOR = "code"
+    $env.VISUAL = "code"
+}
+
