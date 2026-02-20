@@ -26,6 +26,10 @@ style = "bold dimmed yellow"
 format = "CUB: [$env_value]($style) "
 style = "bold dimmed yellow"
 
+[env_var.CUBRID_DATABASES]
+format = "CUBDB: [$env_value]($style) "
+style = "bold dimmed yellow"
+
 [custom.gcc]
 description = "Show GCC version"
 command = "echo gcc$(gcc --version | head -n 1 | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n 1)"
