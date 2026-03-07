@@ -6,7 +6,7 @@ git:
     pager: delta --dark --paging=never
 
 customCommands:
-  - key: "B"
+  - key: "N"
     description: "Create a new branch without checking it out"
     command: "git branch {{index .PromptResponses 0}} {{.SelectedLocalCommit.Sha}}"
     context: "commits"
