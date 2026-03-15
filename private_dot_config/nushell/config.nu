@@ -57,7 +57,7 @@ if ($env.WT_SESSION? | is-not-empty) {
     $env.TERM = "xterm-256color"
 }
 
-$env.SYSTEMD_EDITOR = 'vim'
+$env.SYSTEMD_EDITOR = 'nvim'
 
 source ~/.local/share/atuin/init.nu
 source ~/.zoxide.nu
