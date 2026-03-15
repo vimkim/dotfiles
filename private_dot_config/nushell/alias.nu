@@ -106,6 +106,9 @@ def clip [] {
 
 alias n = commandline edit (just.nu -f ./justfile -d . | str trim)
 alias j = just
+alias jj = just --choose
+alias nn = just --choose
+alias jc = just --choose
 alias je = nvim ./justfile
 alias ne = je
 alias ni = commandline edit (just.nu -f ./.just/justfile -d . | str trim)
