@@ -70,3 +70,6 @@ btop:
 
 fd-opened:
     ~/.config/my-scripts/bin/fd-opened-per-process.sh
+
+markdown-preview:
+    grip
