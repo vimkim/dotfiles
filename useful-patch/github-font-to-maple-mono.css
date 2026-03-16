@@ -1,0 +1,27 @@
+/* Code blocks in markdown (README, comments, issues) */
+  .markdown-body pre,
+  .markdown-body code,
+  .markdown-body tt {
+    font-family: "Maple Mono NF", monospace !important;
+  }
+
+  /* Repository file viewer */
+  .blob-code,
+  .blob-code-inner,
+  .react-code-text,
+  .react-code-line-contents {
+    font-family: "Maple Mono NF", monospace !important;
+  }
+
+  /* Diffs / PR review */
+  .diff-table,
+  .diff-table pre,
+  .blob-code-addition,
+  .blob-code-deletion {
+    font-family: "Maple Mono NF", monospace !important;
+  }
+
+  /* Inline code */
+  code:not(.blob-code-inner) {
+    font-family: "Maple Mono NF", monospace !important;
+  }
