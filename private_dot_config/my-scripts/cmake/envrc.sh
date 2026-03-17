@@ -24,4 +24,4 @@ echo "Build Dir: $MY_BUILD_DIR"
 export ASAN_OPTIONS=halt_on_error=0:log_path=./asan.log
 export LSAN_OPTIONS=halt_on_error=0:log_path=./lsan.log
 
-export CLICOLOR_FORCE=1
+# export CLICOLOR_FORCE=1
