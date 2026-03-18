@@ -19,3 +19,10 @@ Notes:
 - Use `--method POST` (not `-method`)
 - Use heredoc for multi-line body
 - The `/replies` endpoint creates a threaded reply under the original comment
+
+## CUBRID JIRA
+
+- CUBRID JIRA: http://jira.cubrid.org/browse/CBRD-XXXXX (public, no auth)
+- REST API: `http://jira.cubrid.org/rest/api/2/issue/CBRD-XXXXX`
+- Use `/jira CBRD-XXXXX` to fetch full issue context (description, comments, linked issues) with pandoc jira→markdown conversion
+- When a user mentions a CBRD-XXXXX ticket, use `/jira` to look it up rather than asking the user to explain
