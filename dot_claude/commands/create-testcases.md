@@ -10,6 +10,12 @@ $ARGUMENTS
 
 ---
 
+## OOS Test Case Guidelines
+
+When creating test cases for **OOS (Out of Space)** scenarios:
+- **Use BIT VARYING (VARBIT)** data type instead of string types (VARCHAR, CHAR, etc.) for data that needs predictable on-disk size.
+- **Reason**: CUBRID compresses strings, making actual disk usage unpredictable unless the server is stopped and compression is disabled. VARBIT data is not compressed, so its size is predictable — critical for OOS tests that need to fill storage to specific thresholds.
+
 ## Step 1: Understand what to test
 
 - If a CBRD ticket is mentioned, use `/jira` to fetch context first.
