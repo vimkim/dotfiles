@@ -73,9 +73,3 @@ fd-opened:
 
 markdown-preview:
     grip
-
-terminal-record-asciinema-demo:
-    asciinema rec demo.cast
-
-terminal-record-generate-gif-agg-demo:
-    agg demo.cast demo.gif --font-family "Maple Mono NF, Noto Sans Mono CJK KR"
