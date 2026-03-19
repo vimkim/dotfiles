@@ -26,3 +26,8 @@ Notes:
 - REST API: `http://jira.cubrid.org/rest/api/2/issue/CBRD-XXXXX`
 - Use `/jira CBRD-XXXXX` to fetch full issue context (description, comments, linked issues) with pandoc jira→markdown conversion
 - When a user mentions a CBRD-XXXXX ticket, use `/jira` to look it up rather than asking the user to explain
+
+## CUBRID Build & Test
+
+- Use `just build-test` (or alias `just nt`) to build and run unit tests. Do not use `cmake --build` directly — the justfile handles preset modes, env vars (`$CUBRID_BUILD_DIR`, `$PRESET_MODE`), and the full pipeline.
+- `just build` for build-only, `just ctest` for test-only.
