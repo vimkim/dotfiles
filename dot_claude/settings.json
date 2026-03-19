@@ -10,5 +10,9 @@
         "url": "https://github.com/Yeachan-Heo/oh-my-claudecode.git"
       }
     }
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "permissions": {
+    "allow": ["Read"]
   }
 }
