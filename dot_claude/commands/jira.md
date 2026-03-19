@@ -5,7 +5,11 @@ Given a JIRA ticket ID (e.g., CBRD-25123), fetch the issue details from the CUBR
 If no ticket ID is provided, ask for one.
 
 Steps:
-1. Use the Bash tool to run the following curl command, replacing TICKET_ID with the provided ticket ID:
+1. First, check if a local issue file exists in `~/gh/my-cubrid-jira/issues/` by looking for files matching the ticket ID prefix (e.g., `CBRD-26609*.md`). Use the Glob tool with pattern `CBRD-XXXXX*.md` in path `/home/vimkim/gh/my-cubrid-jira/issues/`.
+
+2. **If a local file is found**: Read it with the Read tool and present its contents to the user. Skip the curl step entirely.
+
+3. **If no local file is found**: Use the Bash tool to run the following curl command, replacing TICKET_ID with the provided ticket ID:
 
 ```
 curl -sL "http://jira.cubrid.org/rest/api/2/issue/TICKET_ID?fields=summary,status,priority,assignee,reporter,description,comment,issuelinks,fixVersions,versions,issuetype,parent,labels,created,updated,resolution,components" | python3 -c "
