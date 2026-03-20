@@ -4,13 +4,6 @@
 [color]
 	ui = true
 
-{{- if eq .chezmoi.os "linux" }}
-{{-   if (.chezmoi.kernel.osrelease | lower | contains "microsoft") }}
-[credential]
-	helper = /mnt/c/Program\\ Files/Git/mingw64/bin/git-credential-manager.exe
-{{-   end }}
-{{- end }}
-
 [user]
 	email = kimdhyungg@gmail.com
 	name = Daehyun Kim
@@ -42,3 +35,9 @@
 
 [commit]
 	verbose = 1
+[credential "https://github.com"]
+	helper = 
+	helper = !/home/linuxbrew/.linuxbrew/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/home/linuxbrew/.linuxbrew/bin/gh auth git-credential
