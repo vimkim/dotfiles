@@ -419,7 +419,7 @@ if [[ ! -d "$HOME/.config/fzf-scripts" ]]; then
 fi
 add_to_path "$HOME/.config/fzf-scripts"
 
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 # zprof
 
-# eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
