@@ -54,7 +54,7 @@ if (sys host | get name | str downcase | str contains 'rocky') and (sys host | g
 }
 
 if ($env.WT_SESSION? | is-not-empty) {
-    $env.TERM = "xterm-256color"
+  $env.TERM = "xterm-256color"
 }
 
 $env.SYSTEMD_EDITOR = 'nvim'
@@ -221,10 +221,10 @@ if ($v | path exists) {
 ###############################################################################
 
 if $env.TERM_PROGRAM? == "cursor" {
-    $env.EDITOR = "cursor"
-    $env.VISUAL = "cursor"
+  $env.EDITOR = "cursor"
+  $env.VISUAL = "cursor"
 } else if $env.TERM_PROGRAM? == "vscode" {
-    $env.EDITOR = "code"
-    $env.VISUAL = "code"
+  $env.EDITOR = "code"
+  $env.VISUAL = "code"
 }
 
