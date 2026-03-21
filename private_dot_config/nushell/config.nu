@@ -187,6 +187,17 @@ export-env {
 }
 
 ###############################################################################
+# USERPROFILE for Claude Code on WSL
+###############################################################################
+# Workaround for https://github.com/anthropics/claude-code/issues/29672
+# Claude Code fails to open on WSL when USERPROFILE is not set to the Windows
+# home path. wslpath -w ~ converts the Linux home to a Windows-style path.
+
+if (which wslpath | is-not-empty) {
+  $env.USERPROFILE = (wslpath -w ~ | str trim)
+}
+
+###############################################################################
 # Shell Startup Decoration
 ###############################################################################
 
@@ -227,4 +238,3 @@ if $env.TERM_PROGRAM? == "cursor" {
   $env.EDITOR = "code"
   $env.VISUAL = "code"
 }
-
