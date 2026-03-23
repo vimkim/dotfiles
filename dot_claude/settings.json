@@ -18,7 +18,11 @@
       "mcp__plugin_oh-my-claudecode_t__lsp_workspace_symbols",
       "Grep",
       "Glob",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(grep:*)"
+    ],
+    "additionalDirectories": [
+      "/home/vimkim/gh"
     ]
   },
   "hooks": {
