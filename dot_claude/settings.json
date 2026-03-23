@@ -1,19 +1,10 @@
 {
-  "enabledPlugins": {
-    "clangd-lsp@claude-plugins-official": true,
-    "oh-my-claudecode@omc": true
-  },
-  "extraKnownMarketplaces": {
-    "omc": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/Yeachan-Heo/oh-my-claudecode.git"
-      }
-    }
-  },
-  "skipDangerousModePermissionPrompt": true,
   "permissions": {
-    "allow": ["Read", "WebSearch", "WebFetch"]
+    "allow": [
+      "Read",
+      "WebSearch",
+      "WebFetch"
+    ]
   },
   "hooks": {
     "PermissionRequest": [
@@ -27,6 +18,23 @@
         ]
       }
     ]
-  }
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node $HOME/.claude/hud/omc-hud.mjs"
+  },
+  "enabledPlugins": {
+    "clangd-lsp@claude-plugins-official": true,
+    "oh-my-claudecode@omc": true,
+    "rust-analyzer-lsp@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "omc": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/Yeachan-Heo/oh-my-claudecode.git"
+      }
+    }
+  },
+  "skipDangerousModePermissionPrompt": true
 }
-
