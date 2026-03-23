@@ -3,7 +3,19 @@
     "allow": [
       "Read",
       "WebSearch",
-      "WebFetch"
+      "WebFetch",
+      "mcp__plugin_oh-my-claudecode_t__lsp_code_action_resolve",
+      "mcp__plugin_oh-my-claudecode_t__lsp_code_actions",
+      "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
+      "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics_directory",
+      "mcp__plugin_oh-my-claudecode_t__lsp_document_symbols",
+      "mcp__plugin_oh-my-claudecode_t__lsp_find_references",
+      "mcp__plugin_oh-my-claudecode_t__lsp_goto_definition",
+      "mcp__plugin_oh-my-claudecode_t__lsp_hover",
+      "mcp__plugin_oh-my-claudecode_t__lsp_prepare_rename",
+      "mcp__plugin_oh-my-claudecode_t__lsp_rename",
+      "mcp__plugin_oh-my-claudecode_t__lsp_servers",
+      "mcp__plugin_oh-my-claudecode_t__lsp_workspace_symbols"
     ]
   },
   "hooks": {
