@@ -190,6 +190,15 @@ Structure your review as:
 [Any clarifying questions about design decisions or intent]
 ```
 
+### Tools
+
+- **clangd LSP tools**: You can freely use clangd-related LSP tools during review. These are especially useful for:
+  - `lsp_document_symbols` — get an overview of all functions/types in a file
+  - `lsp_goto_definition` — jump to the definition of a function or type to understand its contract
+  - `lsp_find_references` — find all callers/usages to assess impact of a change
+  - `lsp_hover` — get type information and documentation for symbols
+  - `lsp_diagnostics` — check for compiler warnings/errors detected by clangd
+
 ### Tips
 - Read the JIRA ticket for full requirements context before reviewing
 - Check git history of modified functions for recent related changes
