@@ -1,3 +1,7 @@
+load_plugins {
+    "file:~/.config/zellij/plugins/zellij-new-tab-next-to-current.wasm"
+}
+
 // If you'd like to override the default keybindings completely, be sure to change "keybinds" to "keybinds clear-defaults=true"
 keybinds clear-defaults=true {
     normal {
@@ -183,7 +187,12 @@ keybinds clear-defaults=true {
     shared_except "locked" {
         bind "Alt g" { SwitchToMode "Locked"; }
         // bind "Ctrl q" { Quit; }
-        bind "Alt n" { NewTab; }
+        bind "Alt n" {
+            MessagePlugin "file:~/.config/zellij/plugins/zellij-new-tab-next-to-current.wasm" {
+                name "new-tab-right"
+                launch_new false
+            }
+        }
         bind "Alt s" { NewPane "Down"; SwitchToMode "Normal"; }
         bind "Alt v" { NewPane "Right"; SwitchToMode "Normal"; }
         bind "Alt t" { ToggleFloatingPanes; SwitchFocus; }
