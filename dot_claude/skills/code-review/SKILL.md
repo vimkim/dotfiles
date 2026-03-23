@@ -1,5 +1,5 @@
 ---
-name: cubrid-code-review
+name: code-review
 description: CUBRID database engine C/C++ PR code review skill. Performs comprehensive review covering CUBRID-specific patterns (error handling, page buffer management, locking, transactions), C/C++ correctness, concurrency safety, and database engine semantics.
 ---
 
@@ -17,10 +17,11 @@ Perform a comprehensive code review of CUBRID engine C/C++ changes. Use this whe
 
 ### Step 1: Gather Context
 
-1. If a PR number is given, fetch the diff with `gh pr diff <number>`
-2. Identify which CUBRID subsystems are touched (storage, transaction, query, parser, optimizer, broker, etc.)
-3. Read surrounding code for functions being modified to understand full context
-4. Check the linked JIRA ticket (CBRD-XXXXX) from the PR title/description using `/jira` for requirements context
+1. **Determine the base branch**: Do NOT assume `main`. Use `gh pr view <number> --json baseRefName` (or `gh pr list --head <branch> --json baseRefName`) to find the actual PR target branch. Then use `git diff <remote>/<base_branch>..HEAD` for the diff. Run this separately from other parallel tool calls to avoid failure propagation.
+2. If a PR number is given, also fetch the diff with `gh pr diff <number>`
+3. Identify which CUBRID subsystems are touched (storage, transaction, query, parser, optimizer, broker, etc.)
+4. Read surrounding code for functions being modified to understand full context
+5. Check the linked JIRA ticket (CBRD-XXXXX) from the PR title/description using `/jira` for requirements context
 
 ### Step 2: Review Checklist
 
