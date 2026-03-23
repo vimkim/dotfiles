@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "curl -s -H 'Title: Permission: '\"$CLAUDE_TOOL_NAME\" -H 'Tags: warning' -H 'Priority: high' -d \"$(echo $CLAUDE_TOOL_INPUT | head -c 500)\" ntfy.sh/vimkim-claude"
+            "command": "bash -c 'INPUT=$(cat); TOOL=$(echo \"$INPUT\" | jq -r .tool_name); BODY=$(echo \"$INPUT\" | jq -r .tool_input | head -c 500); curl -s -H \"Title: Permission: $TOOL\" -H \"Tags: warning\" -H \"Priority: high\" -d \"$BODY\" ntfy.sh/vimkim-claude'"
           }
         ]
       }
