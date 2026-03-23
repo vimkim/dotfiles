@@ -7,13 +7,24 @@
     ]
   },
   "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.last_assistant_message // \"Task completed\"' | head -c 500 | curl -s -H 'Title: Claude Code Done' -H 'Tags: white_check_mark' -H 'Priority: default' -d @- ntfy.sh/vimkim-claude"
+          }
+        ]
+      }
+    ],
     "PermissionRequest": [
       {
         "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "curl -s -d 'Claude Code needs your permission' ntfy.sh/vimkim-claude"
+            "command": "curl -s -H 'Title: Permission: '\"$CLAUDE_TOOL_NAME\" -H 'Tags: warning' -H 'Priority: high' -d \"$(echo $CLAUDE_TOOL_INPUT | head -c 500)\" ntfy.sh/vimkim-claude"
           }
         ]
       }
