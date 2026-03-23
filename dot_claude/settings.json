@@ -17,7 +17,8 @@
       "mcp__plugin_oh-my-claudecode_t__lsp_servers",
       "mcp__plugin_oh-my-claudecode_t__lsp_workspace_symbols",
       "Grep",
-      "Glob"
+      "Glob",
+      "Bash(ls:*)"
     ]
   },
   "hooks": {
