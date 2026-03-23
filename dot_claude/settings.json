@@ -1,0 +1,32 @@
+{
+  "enabledPlugins": {
+    "clangd-lsp@claude-plugins-official": true,
+    "oh-my-claudecode@omc": true
+  },
+  "extraKnownMarketplaces": {
+    "omc": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/Yeachan-Heo/oh-my-claudecode.git"
+      }
+    }
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "permissions": {
+    "allow": ["Read", "WebSearch", "WebFetch"]
+  },
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "curl -s -d 'Claude Code needs your permission' ntfy.sh/vimkim-claude"
+          }
+        ]
+      }
+    ]
+  }
+}
+
