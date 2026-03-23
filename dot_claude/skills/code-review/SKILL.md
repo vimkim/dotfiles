@@ -1,175 +1,66 @@
 ---
 name: code-review
-description: CUBRID database engine C/C++ PR code review skill. Performs comprehensive review covering CUBRID-specific patterns (error handling, page buffer management, locking, transactions), C/C++ correctness, concurrency safety, and database engine semantics.
+description: CUBRID database engine C/C++ PR code review skill. Performs comprehensive review covering CUBRID-specific patterns (error handling, page buffer management, locking, transactions), C/C++ correctness, concurrency safety, and database engine semantics. Use when reviewing PRs, diffs, or code changes in the CUBRID repository.
 ---
 
 # CUBRID C/C++ Code Review
 
-Perform a comprehensive code review of CUBRID engine C/C++ changes. Use this when reviewing PRs or diffs in the CUBRID repository.
+Perform a comprehensive code review of CUBRID engine C/C++ changes.
 
-## When to Use
-
-- When the user asks to review a PR (e.g., `review PR #1234`, `review this diff`)
-- When the user asks for code review on CUBRID C/C++ source changes
-- When the user pastes or references a diff for review
-
-## How to Perform the Review
+## Workflow
 
 ### Step 1: Gather Context
 
-1. **Determine the base branch**: Do NOT assume `main`. Use `gh pr view <number> --json baseRefName` (or `gh pr list --head <branch> --json baseRefName`) to find the actual PR target branch. Then use `git diff <remote>/<base_branch>..HEAD` for the diff. Run this separately from other parallel tool calls to avoid failure propagation.
-2. If a PR number is given, also fetch the diff with `gh pr diff <number>`
-3. Identify which CUBRID subsystems are touched (storage, transaction, query, parser, optimizer, broker, etc.)
-4. Read surrounding code for functions being modified to understand full context
-5. Check the linked JIRA ticket (CBRD-XXXXX) from the PR title/description using `/jira` for requirements context
+1. **Determine the base branch** — never assume `main`. Run `gh pr view <number> --json baseRefName` to find the target branch. Then diff with `git diff <remote>/<base_branch>..HEAD`. Run this separately from other parallel calls.
+2. Fetch the diff with `gh pr diff <number>` if a PR number is given.
+3. Identify touched CUBRID subsystems (storage, transaction, query, parser, optimizer, broker, etc.).
+4. Read surrounding code for modified functions to understand full context.
+5. Check the linked JIRA ticket (CBRD-XXXXX) via `/jira` for requirements context.
 
-### Step 2: Review Checklist
+### Step 2: LSP Deep Analysis
 
-Evaluate the diff against ALL of the following categories. Report findings with severity:
-- **[CRITICAL]** — Must fix before merge (correctness, data corruption risk, crash, security)
-- **[MAJOR]** — Strongly recommended fix (resource leak, concurrency bug, logic error)
-- **[MINOR]** — Improvement suggestion (style, readability, minor optimization)
-- **[NIT]** — Trivial (naming, formatting, comment typo)
+Run thorough LSP analysis on every modified file. LSP tools are free and provide compiler-grade insights. Do NOT skip this step.
 
----
+1. **Diagnostics scan** — Run `lsp_diagnostics` on EVERY modified file. Catches compiler warnings, type errors, implicit conversions, undefined behavior. Every warning/error is a high-confidence finding.
+2. **Directory scan** — Use `lsp_diagnostics_directory` when many files in the same directory are modified.
+3. **Symbol understanding** — For each non-trivial modified/added function:
+   - `lsp_hover` on key symbols to verify type correctness and contracts
+   - `lsp_goto_definition` on called functions to verify return values, side effects, ownership semantics
+   - `lsp_document_symbols` to understand file structure
+4. **Impact analysis** — For any function whose signature or semantics changed:
+   - `lsp_find_references` to find ALL callers across the codebase
+   - Flag callers that might break but aren't in the PR
+5. **Cross-reference verification** — For new function calls or changed call patterns:
+   - `lsp_goto_definition` to verify the function exists and arguments match
+   - `lsp_hover` to confirm type compatibility at call sites
+   - `lsp_code_actions` to check for clangd-suggested quick-fixes (often reveal real issues)
 
-## Review Categories
+**Principle**: LSP gives the compiler's view. Use aggressively — every diagnostics warning is a potential CRITICAL/MAJOR finding. Every `lsp_find_references` result on a changed signature is a potential missed update.
 
-### 1. CUBRID Error Handling Patterns
+### Step 3: Review Against Checklist
 
-CUBRID uses a specific error handling idiom. Check for:
+Read `references/cubrid-review-checklist.md` for the full review checklist covering:
 
-- **Return value checking**: Functions return `int error` (`NO_ERROR` = 0, negative = error). Every call that returns an error code MUST be checked.
-  ```c
-  // BAD - unchecked return
-  some_function (thread_p, arg);
+1. Error handling patterns (return value checking, ASSERT_ERROR, cleanup)
+2. Page buffer management (fix/unfix pairing, latch modes/ordering, dirty marking)
+3. Lock and concurrency safety (critical sections, mutexes, TOCTOU races)
+4. Transaction and logging safety (WAL, sysop boundaries, undo/redo)
+5. Memory management (alloc/free pairing, buffer overflows, use-after-free)
+6. C/C++ correctness (overflow, null deref, uninitialized vars, type casting)
+7. Coding style (GNU-style braces, naming, include ordering)
+8. Build mode awareness (SERVER_MODE / SA_MODE / CS_MODE)
+9. Performance (hot paths, lock scope, I/O in critical sections)
+10. Test adequacy (unit tests, error paths, concurrency tests)
 
-  // GOOD
-  error = some_function (thread_p, arg);
-  if (error != NO_ERROR)
-    {
-      ASSERT_ERROR ();
-      goto exit;  // or return error;
-    }
-  ```
-
-- **`er_set()` usage**: Errors must be set with proper severity (`ER_ERROR_SEVERITY`, `ER_WARNING_SEVERITY`, `ER_FATAL_ERROR_SEVERITY`) and `ARG_FILE_LINE` macro before returning.
-
-- **`ASSERT_ERROR()`**: After detecting an error from a callee, use `ASSERT_ERROR()` to verify the error was actually set. This catches cases where callees forget to set errors.
-
-- **Error propagation**: Errors must propagate up the call stack. Watch for code that silently swallows errors or resets error state.
-
-- **Cleanup on error**: Functions using resources (pages, locks, memory) must clean up on error paths. Verify `goto exit` / `goto error` labels properly release all acquired resources.
-
-### 2. Page Buffer Management
-
-CUBRID's page buffer is critical infrastructure. Every `pgbuf_fix` must have a matching `pgbuf_unfix`:
-
-- **Fix/Unfix pairing**: Every `pgbuf_fix()` call must have a corresponding `pgbuf_unfix()` on ALL code paths (success, error, early return).
-- **`pgbuf_unfix_and_init()`**: Preferred over bare `pgbuf_unfix()` as it also NULLs the pointer, preventing dangling page references.
-- **Latch modes**: Check that the correct latch mode is used (`PGBUF_LATCH_READ` vs `PGBUF_LATCH_WRITE`). Write latch is needed only when modifying the page.
-- **Latch ordering**: Acquiring latches in inconsistent order can cause deadlocks. Verify page fix ordering follows established conventions (parent before child, left before right in B-tree).
-- **Conditional vs unconditional latch**: `PGBUF_CONDITIONAL_LATCH` should be used when there's deadlock risk. Check that conditional latch failure is handled (retry or abort).
-- **Page dirty marking**: After modifying a page, `pgbuf_set_dirty()` must be called before unfixing.
-
-### 3. Lock and Concurrency Safety
-
-- **Critical section usage**: `csect_enter` / `csect_exit` must be properly paired. Check for early returns that skip `csect_exit`.
-- **Mutex pairing**: `pthread_mutex_lock` / `pthread_mutex_unlock` must be paired on all paths.
-- **Lock ordering**: Acquiring multiple locks in different orders across code paths creates deadlock risk. Verify consistent ordering.
-- **Shared data access**: Data accessed from multiple threads must be protected. Watch for:
-  - Read-modify-write without proper synchronization
-  - TOCTOU (time-of-check-time-of-use) races
-  - Missing volatile or atomic operations on shared flags
-- **Thread parameter**: Most server-side functions take `THREAD_ENTRY *thread_p` as first parameter. Verify it's passed correctly and not NULL where required.
-
-### 4. Transaction and Logging Safety
-
-- **Log before data**: WAL (Write-Ahead Logging) protocol requires log records to be written before data pages are flushed. Verify log calls precede page modifications.
-- **System operation boundaries**: `log_sysop_start` / `log_sysop_end_logical_*` must be properly paired. System operations must complete or be rolled back.
-- **Undo/redo correctness**: For logged operations, verify the undo and redo information is sufficient to reconstruct or reverse the operation.
-- **Transaction isolation**: Check that operations respect the isolation level and don't expose uncommitted data.
-
-### 5. Memory Management
-
-- **Allocation/free pairing**: Every `malloc`/`calloc`/`db_private_alloc` must have a corresponding `free`/`db_private_free` on all paths.
-- **NULL check after allocation**: Memory allocation can fail. Check return value before use.
-- **Buffer overflows**: Check array bounds, string copy lengths (`strncpy` vs `strcpy`), format string safety.
-- **Use-after-free**: Watch for pointers used after their memory is freed, especially in error cleanup paths.
-- **Memory wrapper**: CUBRID uses `memory_wrapper.hpp` (must be last include). New `.c`/`.cpp` files should include it.
-- **Stack buffer sizes**: Large stack allocations risk stack overflow in recursive or deeply nested call paths.
-
-### 6. C/C++ Correctness
-
-- **Integer overflow/underflow**: Especially in size calculations, offset arithmetic, and loop bounds.
-- **Signed/unsigned comparison**: Can cause subtle bugs with negative values.
-- **Null pointer dereference**: Check all pointer dereferences have prior NULL checks, especially after casts or lookups.
-- **Uninitialized variables**: Variables must be initialized before use on all code paths.
-- **Switch fallthrough**: Intentional fallthroughs should be commented. Unintentional ones are bugs.
-- **Type casting safety**: Especially `void*` casts, narrowing conversions, and C-style casts in C++ code.
-- **`assert()` with side effects**: Code inside `assert()` is removed in release builds. Never put functional code inside asserts.
-
-### 7. CUBRID Coding Style
-
-CUBRID follows GNU-style formatting with project-specific conventions:
-
-- **Brace style**: Opening brace on next line, indented to the same level as the enclosing block (GNU style):
-  ```c
-  if (condition)
-    {
-      statement;
-    }
-  ```
-- **Function spacing**: Space before parentheses in function calls: `func_name (arg1, arg2)`
-- **Naming**: `snake_case` for functions and variables. Prefix with subsystem (e.g., `btree_`, `heap_`, `pgbuf_`, `lock_`, `log_`).
-- **Header guards**: `#ifndef _FILENAME_H_` / `#define _FILENAME_H_` style.
-- **`#ident`**: Source files include `#ident "$Id$"` after license header.
-- **Include ordering**: Project headers first, then system headers. `memory_wrapper.hpp` must be the LAST include.
-- **Comment style**: `/* C-style */` for `.c` files. `//` allowed in `.cpp`/`.hpp` files.
-- **Mode guards**: Server-only headers use:
-  ```c
-  #if !defined (SERVER_MODE) && !defined (SA_MODE)
-  #error Belongs to server module
-  #endif
-  ```
-
-### 8. Build Mode Awareness (SERVER_MODE / SA_MODE / CS_MODE)
-
-CUBRID compiles the same source in different modes:
-- `SERVER_MODE` — multi-threaded server process
-- `SA_MODE` — standalone (single-user) mode
-- `CS_MODE` — client-side
-
-- Check that `#ifdef SERVER_MODE` blocks are used correctly and don't break SA_MODE or CS_MODE compilation.
-- Thread-related code should be guarded with `SERVER_MODE`.
-- Functions compiled in multiple modes should handle the absence of thread_p gracefully.
-
-### 9. Performance Considerations
-
-- **Hot path awareness**: Changes to page buffer, lock manager, B-tree traversal, or log manager affect every query. Even small regressions matter.
-- **Unnecessary copies**: Large struct copies where pointers/references suffice.
-- **Lock scope minimization**: Hold locks/latches for the minimum required duration.
-- **Repeated lookups**: Caching results of expensive lookups instead of re-fetching.
-- **I/O in critical sections**: Never do I/O while holding critical sections or mutexes.
-
-### 10. Test Adequacy
-
-- **Unit tests**: Are there tests for the changed logic? Do they cover edge cases?
-- **Regression risk**: Does the change affect existing test scenarios?
-- **Error path testing**: Are error/failure paths tested, not just the happy path?
-- **Concurrency testing**: For concurrency changes, is there a multi-threaded test?
-
----
+Incorporate LSP findings from Step 2 into the severity ratings.
 
 ## Output Format
-
-Structure your review as:
 
 ```markdown
 ## PR Review: [PR title]
 
 ### Summary
-[1-2 sentence summary of what the PR does and overall assessment]
+[1-2 sentence summary and overall assessment]
 
 ### Findings
 
@@ -181,28 +72,17 @@ Structure your review as:
 #### [MAJOR] Title
 ...
 
-#### [MINOR] Title
-...
-
 ### Positive Observations
-[Note any well-done aspects: good error handling, clear logic, good test coverage]
+[Well-done aspects worth reinforcing]
 
 ### Questions for Author
-[Any clarifying questions about design decisions or intent]
+[Clarifying questions about design decisions]
 ```
 
-### Tools
+## Tips
 
-- **clangd LSP tools**: You can freely use clangd-related LSP tools during review. These are especially useful for:
-  - `lsp_document_symbols` — get an overview of all functions/types in a file
-  - `lsp_goto_definition` — jump to the definition of a function or type to understand its contract
-  - `lsp_find_references` — find all callers/usages to assess impact of a change
-  - `lsp_hover` — get type information and documentation for symbols
-  - `lsp_diagnostics` — check for compiler warnings/errors detected by clangd
-
-### Tips
-- Read the JIRA ticket for full requirements context before reviewing
-- Check git history of modified functions for recent related changes
-- When in doubt about CUBRID conventions, look at surrounding code in the same file
-- Pay extra attention to subsystem boundaries (e.g., storage calling transaction APIs)
-- For large PRs, prioritize reviewing the core logic changes over mechanical/boilerplate changes
+- Read the JIRA ticket before reviewing for full requirements context.
+- Check git history of modified functions for recent related changes.
+- When in doubt about CUBRID conventions, look at surrounding code in the same file.
+- Pay extra attention to subsystem boundaries (e.g., storage calling transaction APIs).
+- For large PRs, prioritize core logic changes over mechanical/boilerplate.
