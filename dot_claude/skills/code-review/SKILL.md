@@ -11,7 +11,7 @@ Perform a comprehensive code review of CUBRID engine C/C++ changes.
 
 ### Step 1: Gather Context
 
-1. **Determine the base branch** — never assume `main`. Run `gh pr view <number> --json baseRefName` to find the target branch. Then diff with `git diff <remote>/<base_branch>..HEAD`. Run this separately from other parallel calls.
+1. **Determine the base branch** — never assume `main`. Run `gh pr view <number> --json baseRefName` to find the target branch. Then diff with `git diff <remote>/<base_branch>...HEAD` (three dots). **IMPORTANT:** Always use `...` (three dots), not `..` (two dots). Two dots includes changes from the base branch itself, which leads to reviewing unrelated code and false findings. Three dots shows only changes introduced on the PR branch since the merge base. Run this separately from other parallel calls.
 2. Fetch the diff with `gh pr diff <number>` if a PR number is given.
 3. Identify touched CUBRID subsystems (storage, transaction, query, parser, optimizer, broker, etc.).
 4. Read surrounding code for modified functions to understand full context.
