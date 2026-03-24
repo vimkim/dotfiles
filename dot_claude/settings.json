@@ -19,7 +19,9 @@
       "Grep",
       "Glob",
       "Bash(ls:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(just build:*)",
+      "Bash(just build-test:*)"
     ],
     "additionalDirectories": [
       "/home/vimkim/gh"
@@ -56,7 +58,8 @@
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
     "oh-my-claudecode@omc": true,
-    "rust-analyzer-lsp@claude-plugins-official": true
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "discord@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "omc": {
