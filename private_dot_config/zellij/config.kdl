@@ -192,6 +192,9 @@ keybinds clear-defaults=true {
         bind "d" { Detach; }
         bind "Space" { NextSwapLayout; }
         bind "Ctrl x" { CloseFocus; SwitchToMode "Normal"; }
+        bind "Ctrl p" { CloseFocus; SwitchToMode "Normal"; }
+        bind "Ctrl t" { CloseTab; SwitchToMode "Normal"; }
+        bind "Ctrl s" { Quit; SwitchToMode "Normal"; }
         bind "Ctrl q" { Quit; }
     }
     shared_except "locked" {
