@@ -246,6 +246,7 @@ alias ali = nvim ~/.local/share/chezmoi/private_dot_config/nushell/alias.nu
 alias ai = claude
 alias battery = do { upower -e | fzf --preview='upower -i {}' }
 alias c = cl
+alias cla = claude
 alias co = claude
 alias crc = crc.sh
 alias cx = cl (fd -H -I -t d | fzfm)
