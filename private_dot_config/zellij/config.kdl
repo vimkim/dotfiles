@@ -205,7 +205,7 @@ keybinds clear-defaults=true {
         bind "Ctrl p" { CloseFocus; SwitchToMode "Normal"; }
         bind "Ctrl t" { CloseTab; SwitchToMode "Normal"; }
         bind "Ctrl s" { Quit; SwitchToMode "Normal"; }
-        bind "Ctrl q" { Quit; }
+        // bind "Ctrl q" { Quit; }
     }
     shared_except "locked" {
         bind "Alt g" { SwitchToMode "Locked"; }

@@ -111,6 +111,10 @@ layout {
     default_tab_template {
         children
         pane size=1 borderless=true {
+            // For download in nushell:
+            //
+            // mkdir ~/temp/zjstatus; wget -P ~/temp/zjstatus https://github.com/dj95/zjstatus/releases/download/v0.22.0/zjstatus.wasm
+            //
             // plugin location="https://github.com/dj95/zjstatus/releases/latest/download/zjstatus.wasm" {
             plugin location="file:~/temp/zjstatus/zjstatus.wasm" {
                 // hide_frame_for_single_pane "true"
