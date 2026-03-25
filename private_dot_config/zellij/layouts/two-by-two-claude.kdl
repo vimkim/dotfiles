@@ -3,125 +3,19 @@ layout {
         pane split_direction="vertical" {
             pane split_direction="horizontal" {
                 pane command="bash" focus=true {
-                    args "-ic" "claude; exec nu"
+                    args "-c" "claude; exec nu"
                 }
                 pane command="bash" {
-                    args "-ic" "claude --permission-mode plan; exec nu"
+                    args "-c" "claude --permission-mode plan; exec nu"
                 }
             }
             pane split_direction="horizontal" {
                 pane command="bash" {
-                    args "-ic" "claude --permission-mode plan; exec nu"
+                    args "-c" "claude --permission-mode plan; exec nu"
                 }
                 pane command="bash" {
-                    args "-ic" "claude --permission-mode plan; exec nu"
+                    args "-c" "claude --permission-mode plan; exec nu"
                 }
-            }
-        }
-    }
-    tab_template name="ui" {
-        children
-        pane size=1 borderless=true {
-            plugin location="compact-bar"
-        }
-    }
-    swap_tiled_layout name="vertical" {
-        ui max_panes=4 {
-            pane split_direction="vertical" {
-                pane
-                pane {
-                    children
-                }
-            }
-        }
-        ui max_panes=7 {
-            pane split_direction="vertical" {
-                pane {
-                    children
-                }
-                pane {
-                    pane
-                    pane
-                    pane
-                    pane
-                }
-            }
-        }
-        ui max_panes=11 {
-            pane split_direction="vertical" {
-                pane {
-                    children
-                }
-                pane {
-                    pane
-                    pane
-                    pane
-                    pane
-                }
-                pane {
-                    pane
-                    pane
-                    pane
-                    pane
-                }
-            }
-        }
-    }
-    swap_tiled_layout name="horizontal" {
-        ui max_panes=3 {
-            pane
-            pane
-        }
-        ui max_panes=7 {
-            pane {
-                pane split_direction="vertical" {
-                    children
-                }
-                pane split_direction="vertical" {
-                    pane
-                    pane
-                    pane
-                    pane
-                }
-            }
-        }
-        ui max_panes=11 {
-            pane {
-                pane split_direction="vertical" {
-                    children
-                }
-                pane split_direction="vertical" {
-                    pane
-                    pane
-                    pane
-                    pane
-                }
-                pane split_direction="vertical" {
-                    pane
-                    pane
-                    pane
-                    pane
-                }
-            }
-        }
-    }
-    swap_tiled_layout name="stacked" {
-        ui min_panes=4 {
-            pane split_direction="vertical" {
-                pane
-                pane stacked=true {
-                    children
-                }
-            }
-        }
-    }
-    swap_floating_layout name="staggered" {
-        floating_panes max_panes=1 {
-            pane {
-                y "0%"
-                x "40%"
-                width "80%"
-                height "100%"
             }
         }
     }
