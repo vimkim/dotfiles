@@ -172,6 +172,17 @@ keybinds clear-defaults=true {
                 launch_new false
             }
             OverrideLayout {
+                layout "claude-vsplit"
+                apply_only_to_active_tab true
+            }
+            SwitchToMode "Normal"
+        }
+        bind "C" {
+            MessagePlugin "file:~/.config/zellij/plugins/zellij-new-tab-next-to-current.wasm" {
+                name "new-tab-right"
+                launch_new false
+            }
+            OverrideLayout {
                 layout "two-by-two-claude"
                 apply_only_to_active_tab true
             }
