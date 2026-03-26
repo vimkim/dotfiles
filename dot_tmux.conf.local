@@ -378,18 +378,9 @@ bind C-a send-prefix
 # move status line to top
 #set -g status-position top
 
-bind ! select-window -t 1
-bind @ select-window -t 2
-bind \# select-window -t 3
-bind \$ select-window -t 4
-bind % select-window -t 5
-bind ^ select-window -t 6
-bind & select-window -t 7
-bind * select-window -t 8
-bind \( select-window -t 9
-bind \) select-window -t 10
+# -- zellij-style keybindings --------------------------------------------------
 
-# Bindings for switching windows with Alt key
+# Alt + Shift+number to switch windows (matches zellij Alt+! Alt+@ etc.)
 bind -n M-! select-window -t 1
 bind -n M-@ select-window -t 2
 bind -n M-# select-window -t 3
@@ -398,13 +389,57 @@ bind -n M-% select-window -t 5
 bind -n M-^ select-window -t 6
 bind -n M-& select-window -t 7
 bind -n M-* select-window -t 8
-bind -n M-( select-window -t 9
-bind -n M-) select-window -t 10
 
+# Alt+n: new window (like zellij Alt+n new tab)
+bind -n M-n new-window -c '#{pane_current_path}'
+
+# Alt+h/l: move focus or switch windows left/right (like zellij MoveFocusOrTab)
+bind -n M-h select-pane -L
+bind -n M-l select-pane -R
+bind -n M-j select-pane -D
+bind -n M-k select-pane -U
+
+# Alt+Left/Right/Down/Up: same as above with arrow keys
+bind -n M-Left select-pane -L
+bind -n M-Right select-pane -R
+bind -n M-Down select-pane -D
+bind -n M-Up select-pane -U
+
+# Alt+s: split pane down (like zellij Alt+s NewPane Down)
+bind -n M-s split-window -v -c '#{pane_current_path}'
+
+# Alt+v: split pane right (like zellij Alt+v NewPane Right)
+bind -n M-v split-window -h -c '#{pane_current_path}'
+
+# Alt+f: toggle zoom (like zellij Alt+f ToggleFocusFullscreen)
+bind -n M-f resize-pane -Z
+
+# Alt+(/): previous/next window (like zellij Alt+(/) prev/next tab)
+bind -n 'M-(' previous-window
+bind -n 'M-)' next-window
+
+# Alt+,/.: move window left/right (like zellij Alt+,/. MoveTab)
+bind -n 'M-,' swap-window -t -1\; select-window -t -1
+bind -n 'M-.' swap-window -t +1\; select-window -t +1
+
+# Alt+=/- : resize pane (like zellij Alt+=/- Resize)
+bind -n M-= resize-pane -U 2
+bind -n M-- resize-pane -D 2
+
+# Alt+t: toggle between last pane (closest to zellij Alt+t ToggleFloatingPanes)
+bind -n M-t last-pane
+
+# Alt+e: enter copy mode / edit scrollback (like zellij Alt+e EditScrollback)
+bind -n M-e copy-mode
+
+# Alt+w: choose session (like zellij Alt+w session-manager)
+bind -n M-w choose-tree -Zs
+
+# Prefix bindings (keep useful ones)
 bind h select-pane -L
-bind n select-pane -D
-bind e select-pane -U
-bind i select-pane -R
+bind j select-pane -D
+bind k select-pane -U
+bind l select-pane -R
 
 # Smart pane switching with awareness of Vim splits.
 # See: https://github.com/christoomey/vim-tmux-navigator
