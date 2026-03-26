@@ -69,8 +69,7 @@
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
     "oh-my-claudecode@omc": true,
-    "rust-analyzer-lsp@claude-plugins-official": true,
-    "discord@claude-plugins-official": true
+    "rust-analyzer-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "omc": {
@@ -80,5 +79,9 @@
       }
     }
   },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "effortLevel": "high",
   "skipDangerousModePermissionPrompt": true
 }
