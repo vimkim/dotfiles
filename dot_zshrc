@@ -5,11 +5,6 @@
 
 # set -v
 
-export ZSH_COMPDUMP="$HOME/.cache/.zcompdump-$HOST"
-autoload -U +X compinit
-compinit -C -d "$ZSH_COMPDUMP"
-
-
 # LOCALE
 if [[ -f /etc/centos-release ]]; then
     if grep -q "CentOS Linux release 7" /etc/centos-release; then
@@ -123,6 +118,19 @@ fi
 ## https://nixos.wiki/wiki/Locales
 ## if not set, lazygit on ubuntu will complain about locale
 export LOCALE_ARCHIVE=/usr/lib/locale/locale-archive
+
+# PATHs needed by non-interactive shells (e.g. Claude Code subagents)
+_cached_source brew '/home/linuxbrew/.linuxbrew/bin/brew shellenv'
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+export MY_SCRIPTS="$HOME/.config/my-scripts"
+add_to_path "$MY_SCRIPTS/bin"
+
+# --- Non-interactive shells stop here ---
+[[ $- != *i* ]] && return
+
+export ZSH_COMPDUMP="$HOME/.cache/.zcompdump-$HOST"
+autoload -U +X compinit
+compinit -C -d "$ZSH_COMPDUMP"
 
 alias my-nix-install='my-nix-install.sh'
 
@@ -355,10 +363,6 @@ fi
 
 
 # zsh personal aliases
-# must be below export PATHs, since it checks whether each command exists.
-export MY_SCRIPTS="$HOME/.config/my-scripts"
-add_to_path "$MY_SCRIPTS/bin"
-
 source "$MY_SCRIPTS/zsh/aliases.zsh"
 alias zalias="$CHEZ_EDITOR $MY_SCRIPTS/zsh/aliases.zsh"
 alias zali='zalias'
@@ -392,10 +396,6 @@ else
 fi
 
 
-# krew
-export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
-
-
 if [ "$PWD" = "$HOME" ] && [ -z "$ZELLIJ" ]; then
     $MY_SCRIPTS/bin/fastfetch.zsh
     gita ll
@@ -426,8 +426,6 @@ if [[ ! -d "$HOME/.config/fzf-scripts" ]]; then
     git clone https://github.com/DanielFGray/fzf-scripts "$HOME/.config/fzf-scripts"
 fi
 add_to_path "$HOME/.config/fzf-scripts"
-
-_cached_source brew '/home/linuxbrew/.linuxbrew/bin/brew shellenv'
 
 # zprof
 
