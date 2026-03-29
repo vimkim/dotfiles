@@ -205,7 +205,7 @@ if (which wslpath | is-not-empty) {
 # Shell Startup Decoration
 ###############################################################################
 
-fastfetch
+if ("CLAUDE" not-in $env) { fastfetch }
 
 # let host = (sys host | get hostname)
 # let shell = $env.SHELL
@@ -217,7 +217,7 @@ fastfetch
 # ║   SHLVL → ($env.SHLVL)
 # ╚══════════════════════════════╝"
 
-zellij ls
+if ("CLAUDE" not-in $env) { zellij ls }
 
 ulimit -c unlimited
 

@@ -236,7 +236,7 @@ export DIRSTACKSIZE=100
 plugins=(dirpersist gitfast gh rust)
 [[ -f $ZSH/oh-my-zsh.sh ]] && source $ZSH/oh-my-zsh.sh
 
-zellij_autorun
+# zellij_autorun
 
 export CHEZ_EDITOR='chezmoi edit --watch'
 
