@@ -56,10 +56,6 @@ if (( $+commands[bat] )); then
 
 fi
 
-# Conditionally set alias for `broot`
-if (( $+commands[broot] )); then
-    alias tree='broot'
-fi
 
 if (( $+commands[delta] )); then
     _cached_source delta-comp 'delta --generate-completion zsh'
