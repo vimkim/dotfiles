@@ -291,3 +291,5 @@ export USER=$(whoami)
 
 . "$HOME/.cargo/env"
 source -- ~/.local/share/blesh/ble.sh
+
+. "$HOME/.local/bin/env"
