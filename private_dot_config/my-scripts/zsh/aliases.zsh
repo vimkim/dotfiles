@@ -39,12 +39,12 @@ function command_exists {
 }
 
 # Conditionally set alias for `dust`
-if command_exists dust; then
+if (( $+commands[dust] )); then
     alias du='dust'
 fi
 
 # Conditionally set alias for `bat`
-if command_exists bat; then
+if (( $+commands[bat] )); then
     alias cat='bat'
     alias bh='bat -l help'
     export MANPAGER="sh -c 'sed -u -e \"s/\\x1B\[[0-9;]*m//g; s/.\\x08//g\" | bat -p -lman'" # as recommended in bat repo readme
@@ -57,18 +57,17 @@ if command_exists bat; then
 fi
 
 # Conditionally set alias for `broot`
-if command_exists broot; then
+if (( $+commands[broot] )); then
     alias tree='broot'
 fi
 
-if command_exists delta; then
-    # alias diff='delta'
-    source <(delta --generate-completion zsh)
-elif command_exists difft; then
+if (( $+commands[delta] )); then
+    _cached_source delta-comp 'delta --generate-completion zsh'
+elif (( $+commands[difft] )); then
     alias diff='difft --color=always'
 fi
 
-if [ -x "$(command -v eza)" ]; then
+if (( $+commands[eza] )); then
 
     export EZA_COLORS="da=35;$EZA_COLORS"
     export EZA_COMMON_OPTIONS=(--group-directories-last -aF -r --time-style=relative)
@@ -89,7 +88,7 @@ if [ -x "$(command -v eza)" ]; then
     alias ll='my-list-long'
     alias ls='my-list-long'
     alias l='my-list-long'
-elif [ -x "$(command -v lsd)" ]; then
+elif (( $+commands[lsd] )); then
     alias ls='lsd -aF'
     alias l='lsd -aF'
     alias la='lsd -laF'
@@ -100,7 +99,7 @@ fi
 
 alias pfzf='ps -ef | fzf | awk "{print \$2}"'
 alias pscp='ps -ef | fzf | awk "{print \$2}" | xclip -selection clipboard'
-if [ -x "$(command -v procs)" ]; then
+if (( $+commands[procs] )); then
     alias pps='procs'
     alias ppstt='procs --tree --thread'
     pscopy() {
@@ -111,7 +110,7 @@ if [ -x "$(command -v procs)" ]; then
     }
 
     alias pscp='pscopy'
-    source <(procs --gen-completion-out zsh)
+    _cached_source procs-comp 'procs --gen-completion-out zsh'
 fi
 
 alias penv='env | fzf --exact -i'
