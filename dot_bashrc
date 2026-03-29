@@ -47,6 +47,12 @@ export PATH="$PATH:/opt/nvim-linux64/bin"
 
 export PATH="$HOME/.local/bin:$PATH"
 
+# If not running interactively, don't do anything
+case $- in
+*i*) ;;
+*) return ;;
+esac
+
 # Config profiles
 alias profile="$EDITOR ~/.bashrc"
 
@@ -195,12 +201,6 @@ alias ii="explorer.exe"
 
 ## zoxide
 eval "$(zoxide init bash)"
-
-# If not running interactively, don't do anything
-case $- in
-*i*) ;;
-*) return ;;
-esac
 
 # bash-it
 

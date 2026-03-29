@@ -153,8 +153,8 @@ which-alias() {
 alias ppath='echo "$PATH" | tr ":" "\n" | nl'
 
 ## Safety Features
-alias cp='cp -i' # confirm before overwriting something
-alias mv='mv -i' # confirm before overwriting something
+# alias cp='cp -i' # removed: hangs non-interactive shells (claude code)
+# alias mv='mv -i' # removed: hangs non-interactive shells (claude code)
 
 ## utility aliases
 mc() {
