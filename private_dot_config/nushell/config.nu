@@ -74,6 +74,10 @@ source ~/my-cubrid/aliases.nu
 source ~/.config/nushell/completions.nu
 source ~/.config/nushell/zellij.nu
 
+if ($"($env.HOME)/.cargo/env.nu" | path exists) {
+    source "~/.cargo/env.nu"
+}
+
 # wezterm fix: https://github.com/nushell/nushell/issues/5585
 # no need for wezterm nightly build after 2025
 $env.config.shell_integration.osc133 = false
