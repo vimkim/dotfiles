@@ -26,7 +26,7 @@ alias gdbinit="$CHEZ_EDITOR ~/.config/gdb/gdbinit"
 
 # System aliases
 # alias rm='rm -i'
-alias rm='trash'
+# alias rm='trash'
 
 alias ls='ls -aF'
 alias l='ls -AF'
