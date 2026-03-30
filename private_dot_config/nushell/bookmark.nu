@@ -2,7 +2,7 @@
 # Directory Bookmarks (fzf TUI)
 ###############################################################################
 
-const bookmark_file = ($nu.home-path | path join ".bookmarks.nuon")
+const bookmark_file = ($nu.home-dir | path join ".bookmarks.nuon")
 
 def _bm_load [] {
   if ($bookmark_file | path exists) {
