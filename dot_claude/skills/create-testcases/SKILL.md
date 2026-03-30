@@ -1,3 +1,10 @@
+---
+name: create-testcases
+description: Create CUBRID test cases (unit/SQL/shell) for a given feature or bug fix. Use when the user asks to create tests, write test cases, or mentions testing a CBRD ticket.
+argument-hint: [feature-description or CBRD-XXXXX]
+disable-model-invocation: true
+---
+
 Create CUBRID test cases for a given feature or bug fix.
 
 Given a description of the feature/fix to test (and optionally a JIRA ticket like CBRD-XXXXX), create all three types of test cases:
