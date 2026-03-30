@@ -4,7 +4,7 @@ description: "CUBRID C/C++ PR code review with precondition validation, LSP/clan
 argument-hint: "<pr-url>"
 model: opus
 effort: max
-allowed-tools: Bash(gh *), Bash(git *), Bash(jq *), Bash(curl *), Bash(${CLAUDE_SKILL_DIR}/scripts/*), Read, Glob, Grep, Agent, mcp__plugin_oh-my-claudecode_t__lsp_diagnostics, mcp__plugin_oh-my-claudecode_t__lsp_diagnostics_directory, mcp__plugin_oh-my-claudecode_t__lsp_hover, mcp__plugin_oh-my-claudecode_t__lsp_goto_definition, mcp__plugin_oh-my-claudecode_t__lsp_find_references, mcp__plugin_oh-my-claudecode_t__lsp_document_symbols
+allowed-tools: Bash(gh *), Bash(git *), Bash(jq *), Bash(curl *), Bash(${CLAUDE_SKILL_DIR}/scripts/*), Read, Write, Glob, Grep, Agent, mcp__plugin_oh-my-claudecode_t__lsp_diagnostics, mcp__plugin_oh-my-claudecode_t__lsp_diagnostics_directory, mcp__plugin_oh-my-claudecode_t__lsp_hover, mcp__plugin_oh-my-claudecode_t__lsp_goto_definition, mcp__plugin_oh-my-claudecode_t__lsp_find_references, mcp__plugin_oh-my-claudecode_t__lsp_document_symbols
 ---
 
 You are reviewing a CUBRID database engine pull request. Follow every step below precisely.
@@ -201,6 +201,61 @@ No issues found. Reviewed <N> changed files for CUBRID anti-patterns, correctnes
 
 ---
 
+## Step 7: Generate Report
+
+After completing the review (whether issues were found or not), generate a Korean-language review report as a Markdown file.
+
+**File name:** `PR-<NUMBER>-report.md` in the repository root.
+
+The report must include the following sections written in **Korean** (section headers use `##`):
+
+```markdown
+# PR #<NUMBER> 코드 리뷰 보고서
+
+**PR:** [<OWNER>/<REPO>#<NUMBER>](https://github.com/<OWNER>/<REPO>/pull/<NUMBER>)
+**제목:** <PR title>
+**작성자:** <author>
+**베이스 브랜치:** <base_ref>
+**HEAD SHA:** `<head_sha>`
+**리뷰 일시:** <today's date>
+
+---
+
+## 1. PR 개요
+<PR 목적 및 주요 변경 사항을 표로 정리>
+<변경 파일 목록>
+
+## 2. JIRA 컨텍스트
+<JIRA 티켓 정보 요약 (해당 시)>
+
+## 3. 리뷰 방법론
+<사용된 에이전트 및 분석 영역을 표로 정리>
+
+## 4. 리뷰 결과
+### 4.1 CUBRID 안티패턴 검사
+<검사 항목별 결과 표>
+
+### 4.2 로직/정확성 버그
+<발견 사항 또는 "이슈 없음">
+
+### 4.3 LSP/clangd 진단
+<진단 결과>
+
+### 4.4 동시성/트랜잭션 안전성
+<검사 항목별 결과 표>
+
+### 4.5 PR 컨텍스트/이력 분석
+<기존 리뷰 코멘트 처리 현황 표>
+<미응답 코멘트 표 (해당 시)>
+
+## 5. 종합 평가
+<결론 및 권장 사항>
+```
+
+Use the `Write` tool to create the file. Inform the user of the file path when done.
+
+---
+
 ## Rules
 
 - **Never** post duplicate feedback — always check existing comments first
@@ -209,5 +264,6 @@ No issues found. Reviewed <N> changed files for CUBRID anti-patterns, correctnes
 - **Never** fabricate issues — false positives erode trust
 - **Always** provide evidence (code snippet, LSP diagnostic, CLAUDE.md quote)
 - **Always** use the full HEAD SHA in GitHub links
+- **Always** generate the Korean report as the final step
 - Keep comments brief and actionable
 - If a JIRA ticket exists, verify implementation matches intent
