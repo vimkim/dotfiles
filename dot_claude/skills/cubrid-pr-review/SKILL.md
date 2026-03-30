@@ -1,5 +1,5 @@
 ---
-name: review-cubrid-pr
+name: cubrid-pr-review
 description: "CUBRID C/C++ PR code review with LSP/clangd analysis and C++ safety checks. Use when reviewing a CUBRID pull request, when the user shares a GitHub PR URL from a CUBRID repo, asks to review or check a pull request, or requests LSP-based analysis of PR changes. Even if the user just pastes a CUBRID PR link without explicit instructions, this skill applies."
 argument-hint: "<pr-url>"
 model: opus
