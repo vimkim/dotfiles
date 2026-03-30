@@ -53,7 +53,8 @@ Save all comments. Group inline comments into threads (by `in_reply_to_id`). You
 ### 2c. JIRA Context (if applicable)
 If the PR title contains a `CBRD-XXXXX` ticket ID, fetch the JIRA issue:
 ```bash
-curl -sL "http://jira.cubrid.org/rest/api/2/issue/CBRD-XXXXX?fields=summary,description,comment" 2>/dev/null
+which uv >/dev/null 2>&1 || { echo "Error: uv is not installed or not in PATH." >&2; exit 1; }
+cubrid-jira-search CBRD-XXXXX
 ```
 This gives the "why" behind the change. Evaluate whether the implementation matches intent.
 
