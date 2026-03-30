@@ -1,13 +1,13 @@
 ---
 name: review-cubrid-pr
-description: "CUBRID C/C++ PR code review with precondition validation, LSP/clangd analysis, and PR comment tracking. Use when reviewing a CUBRID pull request."
+description: "CUBRID C/C++ PR code review with precondition validation, LSP/clangd analysis, and PR comment tracking. Use when reviewing a CUBRID pull request, when the user shares a GitHub PR URL from a CUBRID repo, asks to review or check a pull request, wants code review for CUBRID changes, asks about anti-patterns in a PR, or requests LSP-based analysis of PR changes. Even if the user just pastes a CUBRID PR link without explicit instructions, this skill applies."
 argument-hint: "<pr-url>"
 model: opus
 effort: max
 allowed-tools: Bash(gh *), Bash(git *), Bash(jq *), Bash(curl *), Bash(${CLAUDE_SKILL_DIR}/scripts/*), Read, Write, Glob, Grep, Agent, mcp__plugin_oh-my-claudecode_t__lsp_diagnostics, mcp__plugin_oh-my-claudecode_t__lsp_diagnostics_directory, mcp__plugin_oh-my-claudecode_t__lsp_hover, mcp__plugin_oh-my-claudecode_t__lsp_goto_definition, mcp__plugin_oh-my-claudecode_t__lsp_find_references, mcp__plugin_oh-my-claudecode_t__lsp_document_symbols
 ---
 
-You are reviewing a CUBRID database engine pull request. Follow every step below precisely.
+You are reviewing a CUBRID database engine pull request. CUBRID is a multi-threaded, open-source RDBMS with a large C/C++ codebase that has project-specific conventions (memory management macros, include ordering, error propagation patterns) that standard linters don't catch. This skill exists to catch those domain-specific issues and provide deep analysis that CI alone cannot.
 
 **PR URL (required):** $ARGUMENTS
 
@@ -71,10 +71,12 @@ ${CLAUDE_SKILL_DIR}/reference.md
 
 ## Step 3: Parallel Review (5 agents)
 
+The review is split into 5 specialized agents because CUBRID bugs cluster into distinct domains — a concurrency expert catches lock ordering issues that a pattern checker would miss, and vice versa. Parallelism also keeps total review time reasonable despite the depth of each analysis.
+
 Launch **5 parallel Opus agents**. Each agent receives:
 - The PR diff
 - Changed files with line ranges
-- Existing PR comments (to avoid duplication)
+- Existing PR comments (so agents don't re-raise points already discussed)
 - Relevant CLAUDE.md/AGENTS.md content
 - JIRA context (if available)
 
@@ -132,20 +134,22 @@ Only flag issues **introduced by this PR**, not pre-existing.
 
 ## Step 4: Score & Filter
 
+False positives erode reviewer trust — once an author sees a few bad flags, they start ignoring real ones too. This scoring step exists to keep precision high. The thresholds are calibrated so that only findings worth the author's attention survive.
+
 Score each finding (0-100):
 
-| Score | Action |
-|-------|--------|
-| 0-50 | **Drop** — false positive, pre-existing, or nitpick |
-| 51-75 | **Include only** if LSP diagnostic or CLAUDE.md anti-pattern |
-| 76-100 | **Include** — high confidence, real issue |
+| Score | Action | Rationale |
+|-------|--------|-----------|
+| 0-50 | **Drop** | False positive, pre-existing, or nitpick — posting these wastes the author's time and trains them to ignore review comments |
+| 51-75 | **Include only** if LSP diagnostic or CLAUDE.md anti-pattern | Mid-confidence findings are worth flagging only when backed by tool evidence or explicit project rules |
+| 76-100 | **Include** | High confidence, real issue — these are the findings that justify the review |
 
-**Discard** findings that:
-- Are pre-existing (not introduced by this PR)
-- Were already raised in existing PR comments
-- Would be caught by CI (compilation, formatting, linting)
-- Are stylistic preferences not required by CLAUDE.md
-- Are on unmodified lines
+Discard findings that fall into these categories (each represents a common false-positive source):
+- Pre-existing issues (not introduced by this PR) — the author shouldn't fix unrelated tech debt in a focused PR
+- Already raised in existing PR comments — duplicates add noise and suggest the reviewer didn't read the thread
+- Would be caught by CI (compilation, formatting, linting) — redundant with automated checks
+- Stylistic preferences not required by CLAUDE.md — subjective opinions don't belong in automated review
+- On unmodified lines — same as pre-existing; out of scope
 
 If no findings survive, go to Step 6.
 
@@ -203,11 +207,11 @@ No issues found. Reviewed <N> changed files for CUBRID anti-patterns, correctnes
 
 ## Step 7: Generate Report
 
-After completing the review (whether issues were found or not), generate a Korean-language review report as a Markdown file.
+After completing the review (whether issues were found or not), generate a Korean-language review report as a Markdown file. The report is in Korean because the CUBRID review team primarily communicates in Korean. The structured format below ensures reviewers can quickly scan scope, methodology, and findings without reading the full PR diff.
 
 **File name:** `PR-<NUMBER>-report.md` in the repository root.
 
-The report must include the following sections written in **Korean** (section headers use `##`):
+The report follows this structure (sections in Korean, headers with `##` for easy navigation):
 
 ```markdown
 # PR #<NUMBER> 코드 리뷰 보고서
@@ -256,14 +260,15 @@ Use the `Write` tool to create the file. Inform the user of the file path when d
 
 ---
 
-## Rules
+## Guiding Principles
 
-- **Never** post duplicate feedback — always check existing comments first
-- **Never** flag pre-existing issues — only what this PR introduces
-- **Never** suggest style/formatting changes that CI catches
-- **Never** fabricate issues — false positives erode trust
-- **Always** provide evidence (code snippet, LSP diagnostic, CLAUDE.md quote)
-- **Always** use the full HEAD SHA in GitHub links
-- **Always** generate the Korean report as the final step
-- Keep comments brief and actionable
-- If a JIRA ticket exists, verify implementation matches intent
+These principles exist because CUBRID engineers receive automated review comments alongside human reviews. If the automated review is noisy, inaccurate, or redundant, engineers learn to ignore it — which defeats the purpose.
+
+- **Check existing comments before posting.** Duplicate feedback clutters the PR thread and signals that the reviewer didn't read the discussion. Group inline comments by `in_reply_to_id` in Step 2b specifically so you can detect threads.
+- **Only flag issues introduced by this PR.** Authors shouldn't be asked to fix unrelated pre-existing problems in a focused change. If you notice a systemic pre-existing issue worth addressing, mention it in the report (Step 7) as a separate observation, not as a PR comment.
+- **Skip what CI already catches.** CUBRID CI runs cppcheck, astyle, and compilation checks. Flagging formatting or compiler warnings duplicates that pipeline and adds noise.
+- **Every finding needs evidence.** A code snippet, LSP diagnostic output, or CLAUDE.md rule citation. Unsupported claims ("this looks wrong") are not actionable and get ignored.
+- **Use the full HEAD SHA in GitHub links** so links remain stable even after force-pushes. Short SHAs or branch-relative links break.
+- **Generate the Korean report as the final step** — it serves as the permanent record of the review for the team, even when no issues are found.
+- **Keep comments brief and actionable.** Engineers scan review comments quickly; a concise finding with evidence is more impactful than a lengthy explanation.
+- **If a JIRA ticket exists, verify implementation matches intent.** The ticket captures the "why" — if the implementation diverges from the stated goal, that's worth flagging.
