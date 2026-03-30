@@ -152,61 +152,11 @@ Discard findings that fall into these categories (each represents a common false
 - Stylistic preferences not required by CLAUDE.md — subjective opinions don't belong in automated review
 - On unmodified lines — same as pre-existing; out of scope
 
-If no findings survive, go to Step 6.
+If no findings survive, proceed to Step 5 (report will note no issues found).
 
 ---
 
-## Step 5: Post Review
-
-Post as **inline review comments** via the GitHub API:
-
-```bash
-gh api "repos/<OWNER>/<REPO>/pulls/<NUMBER>/reviews" \
-  --method POST \
-  -f event="COMMENT" \
-  -f body="<SUMMARY>" \
-  ...
-```
-
-Each inline comment body:
-```
-**[<CATEGORY>]** <description>
-
-<evidence or code reference>
-```
-
-Categories: `anti-pattern`, `bug`, `concurrency`, `lsp-diagnostic`, `review-context`
-
-Summary format:
-
-```
-### Code Review — PR #<NUMBER>
-
-Reviewed <N> changed files, found <M> issues:
-
-| # | File | Line | Category | Description |
-|---|------|------|----------|-------------|
-| 1 | `path/to/file.c` | L42 | bug | Brief description |
-
-<sub>Reviewed with clangd LSP analysis. Checked CUBRID anti-patterns, concurrency safety, and correctness.</sub>
-```
-
-**Link formatting:** Use full SHA — `https://github.com/<OWNER>/<REPO>/blob/<HEAD_SHA>/<path>#L<start>-L<end>`
-
----
-
-## Step 6: No Issues Path
-
-Post a brief comment:
-```
-### Code Review — PR #<NUMBER>
-
-No issues found. Reviewed <N> changed files for CUBRID anti-patterns, correctness bugs, concurrency safety, and clangd diagnostics.
-```
-
----
-
-## Step 7: Generate Report
+## Step 5: Generate Report
 
 After completing the review (whether issues were found or not), generate a Korean-language review report as a Markdown file. The report is in Korean because the CUBRID review team primarily communicates in Korean. The structured format below ensures reviewers can quickly scan scope, methodology, and findings without reading the full PR diff.
 
@@ -275,11 +225,11 @@ Use the `Write` tool to create the file. Inform the user of the file path when d
 
 These principles exist because CUBRID engineers receive automated review comments alongside human reviews. If the automated review is noisy, inaccurate, or redundant, engineers learn to ignore it — which defeats the purpose.
 
-- **Check existing comments before posting.** Duplicate feedback clutters the PR thread and signals that the reviewer didn't read the discussion. Group inline comments by `in_reply_to_id` in Step 2b specifically so you can detect threads.
-- **Only flag issues introduced by this PR.** Authors shouldn't be asked to fix unrelated pre-existing problems in a focused change. If you notice a systemic pre-existing issue worth addressing, mention it in the report (Step 7) as a separate observation, not as a PR comment.
+- **Check existing comments before analyzing.** Duplicate findings clutter the report and signal that the reviewer didn't read the discussion. Group inline comments by `in_reply_to_id` in Step 2b specifically so you can detect threads.
+- **Only flag issues introduced by this PR.** Authors shouldn't be asked to fix unrelated pre-existing problems in a focused change. If you notice a systemic pre-existing issue worth addressing, mention it in the report as a separate observation.
 - **Skip what CI already catches.** CUBRID CI runs cppcheck, astyle, and compilation checks. Flagging formatting or compiler warnings duplicates that pipeline and adds noise.
 - **Every finding needs evidence.** A code snippet, LSP diagnostic output, or CLAUDE.md rule citation. Unsupported claims ("this looks wrong") are not actionable and get ignored.
 - **Use the full HEAD SHA in GitHub links** so links remain stable even after force-pushes. Short SHAs or branch-relative links break.
 - **Generate the Korean report as the final step** — it serves as the permanent record of the review for the team, even when no issues are found.
-- **Keep comments brief and actionable.** Engineers scan review comments quickly; a concise finding with evidence is more impactful than a lengthy explanation.
+- **Do not post inline review comments to GitHub.** All findings go into the local report file only. The user will decide what to post.
 - **If a JIRA ticket exists, verify implementation matches intent.** The ticket captures the "why" — if the implementation diverges from the stated goal, that's worth flagging.
