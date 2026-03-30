@@ -349,6 +349,11 @@ alias ts = tspin
 alias v = nvim
 alias w = which
 alias wa = which -a
+source ~/.config/nushell/bookmark.nu
+alias ba = bm add
+alias bd = bm del
+alias bl = bm list
+
 alias za = do { SHELL=nu attach-or-new.sh }
 alias ze = zellij
 alias zs = zellij -s
