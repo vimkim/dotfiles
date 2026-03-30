@@ -223,6 +223,16 @@ The report follows this structure (sections in Korean, headers with `##` for eas
 **HEAD SHA:** `<head_sha>`
 **리뷰 일시:** <today's date>
 
+> **이 리뷰 보고서는 Claude Code (Opus 4.6, max effort)에 의해 자동 생성되었습니다.**
+>
+> 수행된 분석:
+> - **<N>개 병렬 에이전트** 투입 (안티패턴, 로직/정확성, LSP/clangd, 동시성, PR 컨텍스트)
+> - **LSP/clangd 정적 분석**: 변경된 파일에 대해 진단, 타입 호버, 참조 추적 수행
+> - **CUBRID 도메인 전용 안티패턴** 검사 (`reference.md` 기반)
+> - **JIRA 컨텍스트 교차 검증** (해당 시)
+> - 기존 PR 코멘트 중복 제거 및 CI 중복 필터링 적용
+> - 신뢰도 스코어링 (0-100)으로 오탐 최소화
+
 ---
 
 ## 1. PR 개요
