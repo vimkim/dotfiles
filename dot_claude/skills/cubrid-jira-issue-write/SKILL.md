@@ -96,11 +96,12 @@ Refer to existing issues in `/home/vimkim/gh/my-cubrid-jira/issues/` for style c
 
 ## Execution Steps
 
-1. **Gather context**: Read relevant source code, prior analysis, or conversation context
-2. **Determine sections**: Based on issue type (bug/feature/task/analysis), pick the right section mix
-3. **Write the issue**: Follow the format above, in Korean with English `##` headers
-4. **Save the file**: Write to `/home/vimkim/gh/my-cubrid-jira/issues/CBRD-XXXXX-slug.md`
-5. **Show the user**: Print the file path and a brief summary
+1. **Check output directory**: Verify that `/home/vimkim/gh/my-cubrid-jira/issues/` exists. If it does NOT exist, **stop immediately** and tell the user: "Error: Issue directory `/home/vimkim/gh/my-cubrid-jira/issues/` does not exist. Please clone or create the repository first." Do NOT create the directory automatically.
+2. **Gather context**: Read relevant source code, prior analysis, or conversation context
+3. **Determine sections**: Based on issue type (bug/feature/task/analysis), pick the right section mix
+4. **Write the issue**: Follow the format above, in Korean with English `##` headers
+5. **Save the file**: Write to `/home/vimkim/gh/my-cubrid-jira/issues/CBRD-XXXXX-slug.md`
+6. **Show the user**: Print the file path and a brief summary
 
 ## Arguments
 
