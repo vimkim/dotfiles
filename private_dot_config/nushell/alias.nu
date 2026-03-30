@@ -104,7 +104,20 @@ def clip [] {
 # Just
 ###############################################################################
 
-alias n = commandline edit (just.nu -f ./justfile -d . | str trim)
+# Custom completer for just recipes
+def "nu-complete just-recipes" [] {
+    if (not ("./justfile" | path exists)) { return [] }
+    just -f ./justfile -d . --summary | split row ' ' | where { $in != "" }
+}
+
+# n: no args → fzf + paste to edit line; with args → execute just directly
+def --env --wrapped n [...args: string@"nu-complete just-recipes"] {
+    if ($args | is-empty) {
+        commandline edit (just.nu -f ./justfile -d . | str trim)
+    } else {
+        just -f ./justfile -d . ...$args
+    }
+}
 alias j = just
 alias jj = just --choose
 alias nn = just --choose
@@ -247,6 +260,7 @@ alias ai = claude
 alias battery = do { upower -e | fzf --preview='upower -i {}' }
 alias c = cl
 alias cla = claude
+alias cc = claude
 alias co = claude
 alias crc = crc.sh
 alias cx = cl (fd -H -I -t d | fzfm)
