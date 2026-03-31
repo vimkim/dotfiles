@@ -40,7 +40,11 @@ Pass optional arguments to customize:
 
 ### Required Sections
 
+The JIRA issue link **must** appear at the very top of the PR body, before any section headers.
+
 ```markdown
+https://jira.cubrid.org/browse/CBRD-XXXXX
+
 ## Description
 (변경 사항에 대한 배경 및 설명)
 
@@ -94,7 +98,8 @@ If there are uncommitted changes, warn the user and ask whether to proceed or co
 Based on the diff analysis:
 
 1. **Title**: `[CBRD-XXXXX] Imperative English summary`
-2. **Body**: Korean text with English `##` headers. Structure:
+2. **Body**: Start with the JIRA link on the first line, then Korean text with English `##` headers:
+   - `https://jira.cubrid.org/browse/CBRD-XXXXX` — 맨 위에 JIRA 이슈 링크
    - `## Description` — 왜 이 변경이 필요한지 배경 설명
    - `## Implementation` — 주요 변경 내용을 bullet points로 정리. 파일명, 함수명 포함.
    - `## Remarks` — 리뷰어가 알아야 할 참고 사항, 제한 사항, 후속 작업
@@ -114,6 +119,8 @@ Show the draft to the user and ask for confirmation before creating.
      --head <user>:<branch> \
      --title "[CBRD-XXXXX] Title" \
      --body "$(cat <<'EOF'
+   https://jira.cubrid.org/browse/CBRD-XXXXX
+
    ## Description
    한국어 설명...
 
