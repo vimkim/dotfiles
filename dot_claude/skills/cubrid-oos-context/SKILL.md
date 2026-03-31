@@ -9,6 +9,31 @@ This skill loads context about the **OOS (Out-of-row Overflow Storage)** project
 
 $ARGUMENTS
 
+## Step 0: Validate environment
+
+Before loading context, verify the workspace is ready for OOS development. Run the bundled validation script against the current working directory:
+
+```bash
+bash <skill-path>/scripts/validate-env.sh "$PWD"
+```
+
+This checks that:
+- You're in a **git repository** (or worktree) — needed for code search, grep, and git features
+- The directory is a **CUBRID source tree** (has CMakeLists.txt + CMakePresets.json)
+- **OOS source files** exist (oos_file.cpp — indicates you're on a feat/oos branch)
+- **PRESET_MODE** is set and a **build directory** exists (build_preset_*)
+- **compile_commands.json** is present at the project root — this is essential for LSP features (hover, goto-definition, find-references via clangd)
+- **clangd** and **just** are available
+
+**If the script reports errors (exit code 1):**
+- Warn the user about what's missing and how to fix it
+- If `compile_commands.json` is missing, tell the user to run `just build` (which generates it via CMake's `CMAKE_EXPORT_COMPILE_COMMANDS=ON`) and then symlink it: `ln -sf build_preset_${PRESET_MODE}/compile_commands.json .`
+- If not in a git repo, suggest switching to a CUBRID worktree (e.g., one under `~/gh/cb/`)
+- Do NOT skip context loading — proceed with steps below, but note the limitations
+
+**If the script reports only warnings (exit code 0):**
+- Note the warnings but proceed normally — the environment is usable
+
 ## Step 1: Load core context from the vault
 
 Read the two key files from the local Obsidian vault:
