@@ -32,7 +32,12 @@
       "Bash(git blame*)",
       "Bash(find:*)",
       "Bash(fd:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(* | head *)",
+      "Bash(* | tail *)",
+      "Bash(* | wc *)",
+      "Bash(* | sort *)",
+      "Bash(* | grep *)"
     ],
     "additionalDirectories": [
       "/home/vimkim/gh"
