@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
       "Read",
@@ -99,7 +102,10 @@
       "mcp__plugin_oh-my-claudecode_t__session_search",
       "mcp__plugin_oh-my-claudecode_t__trace_summary",
       "mcp__plugin_oh-my-claudecode_t__trace_timeline",
-      "mcp__plugin_oh-my-claudecode_t__ast_grep_search"
+      "mcp__plugin_oh-my-claudecode_t__ast_grep_search",
+      "Bash(cubrid-jira-search *)",
+      "Bash(check-prereqs.sh*)",
+      "Bash(validate-env.sh*)"
     ],
     "additionalDirectories": [
       "/home/vimkim/gh"
@@ -146,9 +152,6 @@
       }
     }
   },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-  },
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "skipDangerousModePermissionPrompt": true
 }
