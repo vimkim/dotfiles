@@ -4,18 +4,22 @@ def zellij-update-tabname-git [] {
     mut tab_name = if ($current_dir == $env.HOME) {
       "~"
     } else {
-      let current_dir_len = ($current_dir | str length);
       ($current_dir | path parse | get stem | str substring 0..8)
     };
 
-    let in_git = (try { git rev-parse --is-inside-work-tree err> /dev/null } catch { "false" });
-    if ($in_git | into bool) {
-      # Get the git superproject root if available.
-      let git_root_super = (try { git rev-parse --show-superproject-working-tree } catch { "" });
-      let git_root = if ($git_root_super == "") {
-        (try { git rev-parse --show-toplevel } catch { "" })
+    # Single git call: lines are [is-inside-work-tree, superproject (maybe empty), toplevel]
+    let git_info = try {
+      git rev-parse --is-inside-work-tree --show-superproject-working-tree --show-toplevel err> /dev/null | lines
+    } catch {
+      []
+    };
+
+    if ($git_info | length) >= 2 {
+      # First line is "true", remaining lines: if 3 lines then superproject + toplevel, if 2 lines then just toplevel
+      let git_root = if ($git_info | length) >= 3 {
+        $git_info | get 1
       } else {
-        $git_root_super
+        $git_info | get 1
       };
 
       let repo_name = ($git_root | path parse | get stem);
@@ -37,17 +41,22 @@ def zellij-update-tabname-git [] {
       }
     }
 
-    # Get the current tab ID and rename by ID (race-free even when opening tabs fast).
-    # Falls back to plain rename-tab if current-tab-info isn't ready yet (new tab init).
+    # Look up tab ID by pane ID (focus-independent, race-free).
     let tab_id = try {
-      zellij action current-tab-info | lines | where ($it | str starts-with "id:") | first | str replace "id: " "" | str trim | into int
+      let pane_id = $env.ZELLIJ_PANE_ID;
+      zellij action list-panes --tab | lines | skip 1
+        | where ($it | str contains $"terminal_($pane_id)")
+        | first | split row -r "\\s\\s+" | get 0 | into int
     } catch {
       null
     };
-    if $tab_id != null {
-      zellij action rename-tab --tab-id $tab_id $tab_name
-    } else {
-      zellij action rename-tab $tab_name
+    let tab_name = $tab_name;
+    job spawn {
+      if $tab_id != null {
+        zellij action rename-tab --tab-id $tab_id $tab_name
+      } else {
+        zellij action rename-tab $tab_name
+      }
     }
   }
 }
