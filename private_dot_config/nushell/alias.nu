@@ -281,6 +281,7 @@ alias fm = fzf-make
 alias ghc = ~/.config/my-scripts/bin/github-clone-confirm.sh
 alias ghcf = ~/.config/my-scripts/bin/gh-clone-fuzzy.sh
 alias ghcu = ~/.config/my-scripts/bin/git-clone-user.sh
+alias ghpr = do { gh pr view --json url -q .url }
 alias gfpa = git fetch --all --prune
 alias gl = ~/.config/my-scripts/bin/git-log.sh
 alias gld = do { ~/.config/my-scripts/bin/git-log.sh develop }
