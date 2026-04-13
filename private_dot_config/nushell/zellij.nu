@@ -37,7 +37,17 @@ def zellij-update-tabname-git [] {
       }
     }
 
-    # Update the zellij tab name.
-    zellij action rename-tab $tab_name;
+    # Get the current tab ID and rename by ID (race-free even when opening tabs fast).
+    # Falls back to plain rename-tab if current-tab-info isn't ready yet (new tab init).
+    let tab_id = try {
+      zellij action current-tab-info | lines | where ($it | str starts-with "id:") | first | str replace "id: " "" | str trim | into int
+    } catch {
+      null
+    };
+    if $tab_id != null {
+      zellij action rename-tab --tab-id $tab_id $tab_name
+    } else {
+      zellij action rename-tab $tab_name
+    }
   }
 }
