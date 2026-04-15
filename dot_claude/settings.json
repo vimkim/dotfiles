@@ -104,8 +104,8 @@
       "mcp__plugin_oh-my-claudecode_t__trace_timeline",
       "mcp__plugin_oh-my-claudecode_t__ast_grep_search",
       "Bash(cubrid-jira-search *)",
-      "Bash(check-prereqs.sh*)",
-      "Bash(validate-env.sh*)"
+      "Bash(/home/vimkim/.claude/skills/cubrid-pr-review/scripts/check-prereqs.sh*)",
+      "Bash(/home/vimkim/.claude/skills/cubrid-oos-context/scripts/validate-env.sh*)"
     ],
     "additionalDirectories": [
       "/home/vimkim/gh"
