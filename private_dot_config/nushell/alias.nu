@@ -261,7 +261,8 @@ alias battery = do { upower -e | fzf --preview='upower -i {}' }
 alias c = cl
 alias cla = claude
 alias cc = claude
-alias co = claude
+alias cyo = claude --dangerously-skip-permissions
+alias cds = claude --dangerously-skip-permissions
 alias crc = crc.sh
 alias cx = cl (fd -H -I -t d | fzfm)
 alias cz = zi
