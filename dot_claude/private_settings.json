@@ -108,6 +108,7 @@
       "Bash(/home/vimkim/.claude/skills/cubrid-pr-review/scripts/check-prereqs.sh*)",
       "Bash(/home/vimkim/.claude/skills/cubrid-oos-context/scripts/validate-env.sh*)"
     ],
+    "defaultMode": "auto",
     "additionalDirectories": [
       "/home/vimkim/gh"
     ]
@@ -143,7 +144,9 @@
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
     "oh-my-claudecode@omc": true,
-    "rust-analyzer-lsp@claude-plugins-official": true
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "learn-with-interview@learn-with-interview-local": true,
+    "codex@openai-codex": true
   },
   "extraKnownMarketplaces": {
     "omc": {
@@ -151,8 +154,23 @@
         "source": "git",
         "url": "https://github.com/Yeachan-Heo/oh-my-claudecode.git"
       }
+    },
+    "learn-with-interview-local": {
+      "source": {
+        "source": "directory",
+        "path": "/home/vimkim/temp/learn-with-interview"
+      }
+    },
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
+      }
     }
   },
-  "effortLevel": "high",
-  "skipDangerousModePermissionPrompt": true
+  "effortLevel": "xhigh",
+  "skipDangerousModePermissionPrompt": true,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "remoteControlAtStartup": true
 }
