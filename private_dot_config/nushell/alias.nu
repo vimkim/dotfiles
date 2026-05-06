@@ -279,6 +279,7 @@ alias fda = fd -H -I
 alias ff = fastfetch
 alias fmake = fzf-make
 alias fm = fzf-make
+alias gh_auth_login = with-env { BROWSER: "echo" } { gh auth login }
 alias ghc = ~/.config/my-scripts/bin/github-clone-confirm.sh
 alias ghcf = ~/.config/my-scripts/bin/gh-clone-fuzzy.sh
 alias ghcu = ~/.config/my-scripts/bin/git-clone-user.sh
