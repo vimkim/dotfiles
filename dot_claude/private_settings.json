@@ -139,6 +139,15 @@
             "command": "node \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/code-simplifier.mjs\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/codex-bg-review.sh\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PermissionRequest": [
