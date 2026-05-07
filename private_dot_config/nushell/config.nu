@@ -110,8 +110,24 @@ $env.TOPIARY_LANGUAGE_DIR = ($env.XDG_CONFIG_HOME | path join topiary languages)
 
 use std/config *
 
+$env.DIRENV_FROZEN = "0"
+
+def --env direnv-freeze [] {
+  if (which direnv | is-empty) { return }
+  direnv export json | from json | default {} | load-env
+  $env.PATH = do (env-conversions).path.from_string $env.PATH
+  $env.DIRENV_FROZEN = "1"
+  print "direnv: frozen — pre_prompt hook will skip until thaw"
+}
+
+def --env direnv-thaw [] {
+  $env.DIRENV_FROZEN = "0"
+  print "direnv: thawed — pre_prompt hook re-enabled"
+}
+
 $env.config.hooks.pre_prompt ++= [
   {||
+    if ($env.DIRENV_FROZEN? == "1") { return }
     if (which direnv | is-empty) {
       # If direnv isn't installed, do nothing
       return
