@@ -7,6 +7,8 @@ description: "Iteratively improve a document by looping a writer subagent agains
 
 A two-agent loop for producing rigorous documents. One subagent writes; another grills it relentlessly. The writer revises until the reviewer is satisfied — or a round cap stops the loop and hands control back to the human.
 
+By default, the loop is driven by the `oh-my-claudecode:ralph` persistence engine, which uses hook-driven continuation to prevent silent halts at round boundaries. A simpler in-prose "lite" mode is available for short interactive runs.
+
 ## Why this exists
 
 Single-pass writing tends toward hand-wavy, filler-heavy prose. A *separate* reviewer — one with no investment in defending the draft — catches what the writer missed; looping forces real iteration instead of cosmetic edits, and the explicit verdict keeps the loop honest. Self-review collapses into self-justification, which is why this skill always uses two distinct agents.
@@ -14,6 +16,21 @@ Single-pass writing tends toward hand-wavy, filler-heavy prose. A *separate* rev
 ## When to use
 
 Long-form writing where quality matters more than speed and the user will spend tokens on iteration. Skip short messages, code comments, or anything you could write in two sentences.
+
+## When NOT to wrap with autopilot
+
+Do not invoke this skill from `/oh-my-claudecode:autopilot`. Autopilot's QA cycle (build/lint/test) and Phase 4 reviewers (code-reviewer, security-reviewer) are calibrated for code, not prose, and will either skip silently or emit nonsense verdicts on documents.
+
+The correct multi-stage pipeline for high-stakes writing is:
+
+```
+/oh-my-claudecode:deep-interview "vague topic"
+  → Socratic Q&A produces a grounded brief
+  → /grill-and-revise (ralph mode)
+  → reviewer-approved draft
+```
+
+Mirror autopilot's structure (deep-interview → execution loop), not autopilot itself.
 
 ## Inputs to gather before launching
 
@@ -27,13 +44,115 @@ Ask the user (briefly, all at once) if these aren't already clear from context:
 
 Confirm before launching. The loop runs subagents and burns tokens; don't fire it speculatively from an ambiguous request.
 
-## The loop
+### Preflight gate
+
+If the user gave only a topic with no audience and no source material, **do not launch the loop**. Redirect to deep-interview first:
+
+> "The brief is too thin to ground a writer — the reviewer will spend rounds tearing apart fabricated content. Run `/oh-my-claudecode:deep-interview "<topic>"` first to extract a structured brief, then re-launch grill-and-revise with the resulting spec."
+
+Skip this gate only if the user has explicitly said "I know it's thin, run anyway" or has provided source material under #3.
+
+## Mode selection
+
+Choose the loop driver from the round cap:
+
+- **`max_rounds ≥ 3`** → **Ralph mode (default)**. Hook-driven continuation prevents silent halts; PRD-backed state survives crashes.
+- **`max_rounds ≤ 2`** → **Lite mode**. The in-prose loop below; cheaper to set up, no PRD scaffolding.
+
+Do not ask the user which mode to use. Pick from `max_rounds` and proceed.
+
+## Ralph mode (default)
+
+Wrap the writer/reviewer cycle in a single ralph user story. Ralph's iteration loop fires writer + reviewer rounds until the acceptance criteria are met or the user cancels — its "boulder never stops" continuation hook removes the round-boundary silent-halt failure mode that the in-prose loop suffers from.
+
+### Step R1 — Build the PRD
+
+Write a PRD to ralph's session-scoped path (`.omc/state/sessions/{sessionId}/prd.json` if a session ID is available; fall back to `.omc/prd.json`). Use this exact shape:
+
+```json
+{
+  "stories": [
+    {
+      "id": "US-001-grill-loop",
+      "title": "Grill-and-revise <slug> until reviewer approves",
+      "passes": false,
+      "acceptanceCriteria": [
+        "File exists at <draft_path> and starts with a ## TL;DR section of 3–5 plain-language lines",
+        "Latest reviewer pass on <draft_path> emits a line matching /^\\s*\\**\\s*VERDICT:\\s*APPROVED\\s*\\**\\s*\\.?\\s*$/im",
+        "Reviewer's last numbered critique list contains zero outstanding items"
+      ],
+      "context": {
+        "draft_path": "<draft_path>",
+        "topic": "<topic>",
+        "audience": "<audience>",
+        "review_angle": "<review_angle>",
+        "source_material": ["<paths or inline refs>"],
+        "max_rounds": <N>
+      }
+    }
+  ]
+}
+```
+
+Substitute the real values from the gathered inputs. The acceptance criteria are concrete enough to satisfy ralph's "no generic boilerplate" gate (ralph SKILL.md, Step 1c).
+
+### Step R2 — Launch ralph
+
+Invoke ralph with two non-negotiable flags:
+
+- **`--no-deslop`** — `ai-slop-cleaner` is calibrated for code and will mangle prose. This flag is not optional for grill-and-revise runs.
+- **`--critic=critic`** — the `critic` agent is the right reviewer for prose. The `architect` agent (ralph's default) is calibrated for code architecture and emits low-signal critiques on documents. This flag is not optional either.
+
+Refuse to launch ralph if either flag is missing. If a caller tries to override `--critic=architect` or omit `--no-deslop`, surface the issue to the user before proceeding.
+
+Example invocation:
+
+```
+/oh-my-claudecode:ralph --no-deslop --critic=critic "Drive the grill-and-revise loop on the PRD at <prd_path>. Each iteration: spawn one writer subagent, then one reviewer subagent, then update <draft_path>.grill.json with the verdict and critique. Continue until US-001-grill-loop has passes: true."
+```
+
+### Step R3 — Per-iteration body (what ralph runs each round)
+
+Inside each ralph iteration, run exactly one writer pass and one reviewer pass, in sequence:
+
+1. **Writer pass** — same as Lite mode Step 1 below. Spawn `subagent_type=executor` with `model=opus` for technically dense topics, `sonnet` otherwise. Pass the topic, source material, `draft_path`, the TL;DR requirement, and (on rounds ≥ 2) the reviewer's last critique. The writer must return only `OK` after saving the file.
+
+2. **Reviewer pass** — same as Lite mode Step 2 below. Spawn `subagent_type=critic` (or `code-reviewer` / `executor` as fallback) with the persona from `references/reviewer-prompt.md`, the verdict contract, and the review angle.
+
+3. **Persist state** — update the sidecar `<draft_path>.grill.json` with `{ round, verdict, last_critique }` so the next iteration's writer can read the prior critique. This sidecar is a *cache* for the writer; the PRD remains the source of truth for ralph.
+
+4. **Update the PRD** — if the reviewer emitted `VERDICT: APPROVED` AND the critique list is empty, set `passes: true` on US-001-grill-loop. Otherwise leave `passes: false` so ralph continues iterating.
+
+Ralph's continuation hook ("The boulder never stops") fires the next iteration automatically. The orchestrator does not have to "decide to keep going" between rounds — that is the entire point of ralph mode.
+
+### Step R4 — Ralph's final verification
+
+When the story flips to `passes: true`, ralph runs its own Step 7 reviewer pass against the acceptance criteria. With `--critic=critic`, this is the same critic flavor used in the per-round loop, so the verdict semantics line up. The mandatory deslop pass at ralph Step 7.5 is skipped because of `--no-deslop`. Ralph then exits via `/oh-my-claudecode:cancel`.
+
+### Round cap handling
+
+If iterations reach `max_rounds` without `VERDICT: APPROVED`, ralph will keep iterating because acceptance criteria are unmet. To enforce the cap, the per-iteration body must check the round counter in the sidecar before launching the writer: if `round >= max_rounds`, stop the loop and surface to the user. Ask: (a) accept the draft as-is, (b) extend the cap, or (c) abandon. Do not silently keep iterating past the cap.
+
+### Multi-reviewer panel (optional)
+
+For high-stakes documents, the per-iteration reviewer pass can fan out to multiple critics in parallel via ultrawork-style fire-all-at-once delegation:
+
+- Pass `--reviewers=critic,architect,security-reviewer` (or any subset of available agent types) when launching grill-and-revise.
+- In Step R3 (Reviewer pass), spawn N reviewer subagents in a single message — one per reviewer in the list — each with the same draft and review angle but its own persona.
+- Merge the numbered critiques into a single deduplicated list before persisting to the sidecar.
+- Emit `VERDICT: APPROVED` only when **all** reviewers approve. Any single `VERDICT: REVISE` keeps the story `passes: false`.
+
+Single-critic remains the default. The panel is opt-in; do not enable it without explicit `--reviewers=...` from the user.
+
+## Lite mode (max_rounds ≤ 2)
+
+For one-off interactive runs where you want to read each round's critique as it lands, drive the loop in-prose without ralph.
 
 Track this state across rounds:
 
 - `draft_path` — file the writer writes to and the reviewer reads.
 - `round` — starts at 1, increments each cycle.
-- `max_rounds` — default 5.
+- `max_rounds` — must be ≤ 2 for Lite mode; otherwise switch to Ralph mode.
 - `last_critique` — the reviewer's most recent feedback (empty on round 1).
 
 Run rounds in this order:
@@ -83,20 +202,8 @@ Then act on the parsed verdict:
 
 - **Don't sanitize the critique before passing it to the writer.** Harsh stays harsh; softening defeats the loop.
 - **Don't be the reviewer yourself.** You're too close and too eager to please the user — spawn a real subagent every round.
-
-## Driving with ralph (recommended for long runs)
-
-The in-prose loop above is fragile: round boundaries are natural turn ends, and a single distracted response can silently halt the iteration. For high-stakes documents or large round caps (>3), drive `grill-and-revise` under the `oh-my-claudecode:ralph` skill instead — ralph's hook system emits "The boulder never stops" continuation signals that prevent the orchestrator from drifting into a final-looking summary mid-loop.
-
-To invoke under ralph:
-
-1. Persist loop state to a sidecar file alongside the draft: `<draft_path>.grill.json` with shape `{ "round": N, "max_rounds": M, "verdict": "REVISE|APPROVED|null", "last_critique": "...", "draft_path": "..." }`. Update it after every reviewer pass. This is what survives across ralph iterations.
-2. Hand ralph a single user story whose acceptance criterion is: `"<draft_path>.grill.json shows verdict=APPROVED, OR round>=max_rounds with user explicitly accepting the cap"`. Refine the auto-generated PRD scaffold to this exact criterion — do not leave the generic "Implementation is complete" placeholder.
-3. Each ralph iteration reads the sidecar, picks up at the recorded round, runs one writer + reviewer pass (Steps 1–2 above), updates the sidecar, and lets ralph's continuation hook fire the next iteration. The orchestrator never has to "decide to keep going" — ralph's hook does.
-4. Pass `--no-deslop` to ralph: the deslop pass is for *code* cleanup and is not appropriate for prose drafts. Without this flag ralph will run `ai-slop-cleaner` on your document, which is the wrong tool.
-5. Optionally pass `--critic=critic` so ralph's own approval reviewer at Step 7 is the same critic flavor as the in-loop reviewer; this keeps the verdict semantics consistent.
-
-When *not* to use ralph: round caps of 1–2, or one-off interactive runs where you want to read each round's critique as it lands. The plain in-prose loop is simpler for those.
+- **Don't wrap this skill with autopilot.** Autopilot's code-oriented QA and reviewer phases will misfire on prose. Use the `deep-interview → grill-and-revise` pipeline instead.
+- **Don't drop `--no-deslop` or `--critic=critic` in ralph mode.** The defaults are wrong for prose and will silently degrade the output.
 
 ## After the loop
 
