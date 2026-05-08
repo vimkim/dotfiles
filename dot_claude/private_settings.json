@@ -116,15 +116,6 @@
   "hooks": {
     "Stop": [
       {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'done' | curl -s -H 'Priority: min' -d @- ntfy.sh/vimkim-claude"
-          }
-        ]
-      },
-      {
         "hooks": [
           {
             "type": "command",
@@ -146,17 +137,6 @@
             "type": "command",
             "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/codex-bg-review.sh\"",
             "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PermissionRequest": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'jq -r .tool_name | curl -s -H \"Priority: min\" -d @- ntfy.sh/vimkim-claude'"
           }
         ]
       }
