@@ -7,7 +7,7 @@ description: "Iteratively improve a document by looping a writer subagent agains
 
 A two-agent loop for producing rigorous documents. One subagent writes; another grills it relentlessly. The writer revises until the reviewer is satisfied — or a round cap stops the loop and hands control back to the human.
 
-By default, the loop is driven by the `oh-my-claudecode:ralph` persistence engine, which uses hook-driven continuation to prevent silent halts at round boundaries. A simpler in-prose "lite" mode is available for short interactive runs.
+The loop is always driven by the `oh-my-claudecode:ralph` persistence engine, which uses hook-driven continuation to prevent silent halts at round boundaries. There is no in-prose fallback — round-boundary silent halts are the dominant failure mode for multi-round writer/reviewer loops, and ralph is the mechanism that prevents them.
 
 ## Why this exists
 
@@ -26,7 +26,7 @@ The correct multi-stage pipeline for high-stakes writing is:
 ```
 /oh-my-claudecode:deep-interview "vague topic"
   → Socratic Q&A produces a grounded brief
-  → /grill-and-revise (ralph mode)
+  → /grill-and-revise
   → reviewer-approved draft
 ```
 
@@ -52,16 +52,13 @@ If the user gave only a topic with no audience and no source material, **do not 
 
 Skip this gate only if the user has explicitly said "I know it's thin, run anyway" or has provided source material under #3.
 
-## Mode selection
+## Loop driver
 
-Choose the loop driver from the round cap:
+Every run uses ralph — regardless of `max_rounds`, topic size, or perceived triviality. There is no Lite mode and no in-prose fallback. If ralph cannot be invoked (skill missing, dependencies unavailable), stop and surface the issue to the user rather than running the loop in-prose.
 
-- **`max_rounds ≥ 3`** → **Ralph mode (default)**. Hook-driven continuation prevents silent halts; PRD-backed state survives crashes.
-- **`max_rounds ≤ 2`** → **Lite mode**. The in-prose loop below; cheaper to set up, no PRD scaffolding.
+Do not ask the user which mode to use. There is only one mode.
 
-Do not ask the user which mode to use. Pick from `max_rounds` and proceed.
-
-## Ralph mode (default)
+## Ralph mode
 
 Wrap the writer/reviewer cycle in a single ralph user story. Ralph's iteration loop fires writer + reviewer rounds until the acceptance criteria are met or the user cancels — its "boulder never stops" continuation hook removes the round-boundary silent-halt failure mode that the in-prose loop suffers from.
 
@@ -115,15 +112,31 @@ Example invocation:
 
 Inside each ralph iteration, run exactly one writer pass and one reviewer pass, in sequence:
 
-1. **Writer pass** — same as Lite mode Step 1 below. Spawn `subagent_type=executor` with `model=opus` for technically dense topics, `sonnet` otherwise. Pass the topic, source material, `draft_path`, the TL;DR requirement, and (on rounds ≥ 2) the reviewer's last critique. The writer must return only `OK` after saving the file.
+1. **Writer pass.** Spawn `subagent_type=executor` with `model=opus` for technically dense or high-stakes topics, `sonnet` otherwise. Give the writer:
+   - The topic, purpose, audience, and any source material (paths or inline content).
+   - The exact `draft_path`. Tell it: "Read the existing draft at this path if present; otherwise create the file. Save the revised draft to this exact path."
+   - A required TL;DR: "Start the document with a `## TL;DR` section containing a 3-5 line plain-language summary of what the document says and why it matters. Write it for a human skimming in 10 seconds — no jargon dump, no bullet salad."
+   - On rounds ≥ 2, include the reviewer's `last_critique` verbatim and instruct: "Address every numbered point. If you disagree with a point, revise the document so the reviewer's concern no longer applies — do not argue back inside the document. Don't add 'reviewer asked for X' notes, change markers, or meta-commentary; the output is the document, not a changelog."
+   - The output contract: "Return only the literal string `OK` once you have saved the file. The artifact is the file, not your report. Do not echo the draft back, do not summarize the changes, do not narrate." Verbose returns bloat the orchestrator's context across rounds.
 
-2. **Reviewer pass** — same as Lite mode Step 2 below. Spawn `subagent_type=critic` (or `code-reviewer` / `executor` as fallback) with the persona from `references/reviewer-prompt.md`, the verdict contract, and the review angle.
+2. **Reviewer pass.** Spawn `subagent_type=critic`. Give the reviewer:
+   - The exact `draft_path` to read.
+   - The topic, purpose, audience, and review angle (so it can judge fit, not just surface prose).
+   - The reviewer persona — load `references/reviewer-prompt.md` and pass its contents into the subagent prompt verbatim. The persona is the soul of this skill; do not paraphrase it.
+   - The verdict contract: end the response with exactly one of these lines, on its own line, with no surrounding markdown:
+     - `VERDICT: APPROVED` — the document is solid; no further revisions needed.
+     - `VERDICT: REVISE` — preceded by a numbered list of concrete issues the writer must address.
+   - A reminder: "Return only the numbered critique followed by the verdict line. No 'Here is my review' preface, no 'Hope this helps' close."
 
-3. **Persist state** — update the sidecar `<draft_path>.grill.json` with `{ round, verdict, last_critique }` so the next iteration's writer can read the prior critique. This sidecar is a *cache* for the writer; the PRD remains the source of truth for ralph.
+   Do **not** pass the previous draft alongside the new one — the reviewer judges the current draft on its own terms.
+
+   Parse the verdict with the tolerant matcher `/^\s*\**\s*VERDICT:\s*(APPROVED|REVISE)\s*\**\s*\.?\s*$/im` (accepts bold, trailing punctuation). If no parseable verdict, re-prompt the same reviewer once with its last 3 lines quoted back; if it fails twice, stop the loop and surface the raw output to the user.
+
+3. **Persist state** — update the sidecar `<draft_path>.grill.json` with `{ round, verdict, last_critique }` so the next iteration's writer can read the prior critique. The critique is `last_critique` = everything before the verdict line. This sidecar is a *cache* for the writer; the PRD remains the source of truth for ralph.
 
 4. **Update the PRD** — if the reviewer emitted `VERDICT: APPROVED` AND the critique list is empty, set `passes: true` on US-001-grill-loop. Otherwise leave `passes: false` so ralph continues iterating.
 
-Ralph's continuation hook ("The boulder never stops") fires the next iteration automatically. The orchestrator does not have to "decide to keep going" between rounds — that is the entire point of ralph mode.
+Ralph's continuation hook ("The boulder never stops") fires the next iteration automatically. The orchestrator does not have to "decide to keep going" between rounds — that is the entire point of using ralph here.
 
 ### Step R4 — Ralph's final verification
 
@@ -144,66 +157,13 @@ For high-stakes documents, the per-iteration reviewer pass can fan out to multip
 
 Single-critic remains the default. The panel is opt-in; do not enable it without explicit `--reviewers=...` from the user.
 
-## Lite mode (max_rounds ≤ 2)
-
-For one-off interactive runs where you want to read each round's critique as it lands, drive the loop in-prose without ralph.
-
-Track this state across rounds:
-
-- `draft_path` — file the writer writes to and the reviewer reads.
-- `round` — starts at 1, increments each cycle.
-- `max_rounds` — must be ≤ 2 for Lite mode; otherwise switch to Ralph mode.
-- `last_critique` — the reviewer's most recent feedback (empty on round 1).
-
-Run rounds in this order:
-
-### Step 1 — Writer pass
-
-Spawn a writer subagent. Use `subagent_type=executor` with `model=opus` for technically dense or high-stakes topics, `sonnet` otherwise. Give the writer:
-
-- The topic, purpose, audience, and any source material (paths or inline content).
-- The exact `draft_path`. Tell it: "Read the existing draft at this path if present; otherwise create the file. Save the revised draft to this exact path."
-- A required TL;DR: "Start the document with a `## TL;DR` section containing a 3-5 line plain-language summary of what the document says and why it matters. Write it for a human skimming in 10 seconds — no jargon dump, no bullet salad."
-- On rounds ≥ 2, include the reviewer's `last_critique` verbatim and instruct: "Address every numbered point. If you disagree with a point, revise the document so the reviewer's concern no longer applies — do not argue back inside the document. Don't add 'reviewer asked for X' notes, change markers, or meta-commentary; the output is the document, not a changelog."
-- A reminder that the writer should not explain its changes to *you* (the orchestrator) at length. Tell it: "Return only the literal string `OK` once you have saved the file. The artifact is the file, not your report. Do not echo the draft back, do not summarize the changes, do not narrate." Verbose subagent returns bloat the orchestrator's context across rounds and cause the loop to lose track of state.
-
-Wait for the writer to finish before starting the reviewer.
-
-### Step 2 — Reviewer pass
-
-Spawn a reviewer subagent. Prefer `subagent_type=critic` if available; fall back to `code-reviewer`, then `executor`. Give the reviewer:
-
-- The exact `draft_path` to read.
-- The topic, purpose, audience, and review angle (so it can judge fit, not just surface prose).
-- The reviewer persona — load it from `references/reviewer-prompt.md` and pass its contents into the subagent prompt verbatim. The persona is the soul of this skill; do not paraphrase it.
-- The verdict contract: the reviewer must end its response with exactly one of these lines, on its own line, with no surrounding markdown:
-  - `VERDICT: APPROVED` — the document is solid; no further revisions needed.
-  - `VERDICT: REVISE` — preceded by a numbered list of concrete issues the writer must address.
-- A reminder to keep the response focused: "Return only the numbered critique followed by the verdict line. Do not preface with 'Here is my review' or close with 'Hope this helps'. Long preambles bloat the orchestrator's context."
-
-Do **not** pass the previous draft alongside the new one. The reviewer judges the current draft on its own terms, not as an improvement-grading exercise.
-
-Wait for the reviewer to finish, then parse its output for the verdict line.
-
-### Step 3 — Decide
-
-Parse the reviewer's verdict using a tolerant matcher: the regex `/^\s*\**\s*VERDICT:\s*(APPROVED|REVISE)\s*\**\s*\.?\s*$/im` against the response. This accepts `VERDICT: APPROVED`, `**VERDICT: REVISE**`, `VERDICT: REVISE.`, etc. — critic-style agents frequently bold or punctuate the line despite the contract.
-
-Then act on the parsed verdict:
-
-- **`APPROVED`** → loop ends. Tell the user the document was approved at round N and where to find it. Show the user a 2-3 line summary of the headline changes the reviewer pushed for over the rounds.
-- **`REVISE`** →
-  - Save everything before the verdict line (the numbered critique) as `last_critique`.
-  - If `round < max_rounds` → increment `round` and **immediately invoke Step 1 in the same orchestrator turn**. Do not write a status message, do not summarize the round, do not address the user between rounds. The only user-facing output between rounds is a single short line like `→ round N` so the user can see progress; everything else stays silent until APPROVED or the cap is hit. Round boundaries are the most common silent-halt point because the orchestrator treats them as natural turn ends — resist that.
-  - If `round == max_rounds` → loop ends with cap reached. Show the user the final draft path, the unresolved critique, and ask: (a) accept the draft as-is, (b) extend the cap by N more rounds, or (c) abandon. Don't keep looping silently.
-- **No parseable verdict** → don't guess. Re-prompt the same reviewer subagent and quote its actual final lines back so it can see what it produced: "Your response ended with: `<paste last 3 lines>`. The orchestrator's verdict parser requires a line matching `VERDICT: APPROVED` or `VERDICT: REVISE` exactly — no bold, no markdown, no trailing punctuation. Append a corrected verdict line." If it fails twice, stop the loop and surface the issue to the user along with the reviewer's raw output.
-
 ## Anti-patterns
 
 - **Don't sanitize the critique before passing it to the writer.** Harsh stays harsh; softening defeats the loop.
 - **Don't be the reviewer yourself.** You're too close and too eager to please the user — spawn a real subagent every round.
+- **Don't run the writer/reviewer cycle in-prose.** Ralph's continuation hook is what prevents round-boundary silent halts. Driving the loop directly from the orchestrator turn reintroduces the failure mode this skill exists to avoid.
 - **Don't wrap this skill with autopilot.** Autopilot's code-oriented QA and reviewer phases will misfire on prose. Use the `deep-interview → grill-and-revise` pipeline instead.
-- **Don't drop `--no-deslop` or `--critic=critic` in ralph mode.** The defaults are wrong for prose and will silently degrade the output.
+- **Don't drop `--no-deslop` or `--critic=critic`.** The ralph defaults are wrong for prose and will silently degrade the output.
 
 ## After the loop
 
