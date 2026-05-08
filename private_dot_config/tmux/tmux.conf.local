@@ -422,7 +422,7 @@ bind -n M-& select-window -t 7
 bind -n M-* select-window -t 8
 
 # Alt+n: new window (like zellij Alt+n new tab)
-bind -n M-n new-window -c '#{pane_current_path}'
+bind -n M-n new-window -a -c '#{pane_current_path}'
 
 # Alt+h/l: move focus or switch windows left/right (like zellij MoveFocusOrTab)
 bind -n M-h select-pane -L
