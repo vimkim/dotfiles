@@ -466,6 +466,40 @@ bind -n M-e copy-mode
 # Alt+w: choose session (like zellij Alt+w session-manager)
 bind -n M-w choose-tree -Zs
 
+# Alt+Shift+H/L/J/K: swap pane in direction (like zellij Alt+H/L MovePane)
+bind -n M-H swap-pane -t '{left-of}'
+bind -n M-L swap-pane -t '{right-of}'
+bind -n M-J swap-pane -t '{down-of}'
+bind -n M-K swap-pane -t '{up-of}'
+
+# Alt+</>: move pane to previous/next window (like zellij Alt+</> BreakPane Left/Right)
+bind -n 'M-<' join-pane -t :-1
+bind -n 'M->' join-pane -t :+1
+
+# Alt+d: break pane out into new window (like zellij Alt+d TogglePaneEmbedOrFloating)
+bind -n M-d break-pane
+
+# Alt+b: run `just default` in a new pane to the right (like zellij Alt+b Run "just" "default")
+bind -n M-b split-window -h -c '#{pane_current_path}' 'just default'
+
+# Alt+[/]: cycle preset layouts (like zellij Alt+[/] PreviousSwapLayout/NextSwapLayout)
+# tmux has no inverse of next-layout, so both cycle forward.
+bind -n 'M-[' next-layout
+bind -n 'M-]' next-layout
+
+# Alt++: alias for Alt+= resize-pane (like zellij Alt+= / Alt++ Resize Increase)
+bind -n M-+ resize-pane -U 2
+
+# -- prefix (C-a) overrides for zellij tmux-mode parity ------------------------
+# zellij's tmux-mode bindings; override oh-my-tmux defaults where they clash so
+# muscle memory carries over.
+bind p previous-window     # zellij <prefix>p GoToPreviousTab (overrides oh-my-tmux paste-buffer)
+bind e copy-mode           # zellij <prefix>e SwitchToMode Scroll (overrides oh-my-tmux edit-config)
+bind b break-pane          # zellij <prefix>b BreakPane (overrides oh-my-tmux list-buffers)
+bind f resize-pane -Z      # zellij <prefix>f ToggleFocusFullscreen (overrides find-window)
+bind C-x kill-pane         # zellij <prefix>Ctrl-x CloseFocus
+bind C-t kill-window       # zellij <prefix>Ctrl-t CloseTab
+
 # Prefix bindings (keep useful ones)
 bind h select-pane -L
 bind j select-pane -D
