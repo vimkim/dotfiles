@@ -466,6 +466,9 @@ bind -n M-e copy-mode
 # Alt+w: choose session (like zellij Alt+w session-manager)
 bind -n M-w choose-tree -Zs
 
+# Alt+W: prompt for a new named session
+bind -n M-W command-prompt -p "new session name:" "new-session -s '%%'"
+
 # Alt+Shift+H/L/J/K: swap pane in direction (like zellij Alt+H/L MovePane)
 bind -n M-H swap-pane -t '{left-of}'
 bind -n M-L swap-pane -t '{right-of}'
