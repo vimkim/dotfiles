@@ -347,6 +347,8 @@ alias ppath = echo $env.PATH
 alias prof = nvim ~/.local/share/chezmoi/private_dot_config/nushell/config.nu
 alias re = ~/.config/my-scripts/bin/rerun-on-enter.nu
 alias t = just default
+alias ta = tmux a
+def tsn [name: string] { tmux new -d -s $name }
 alias ts = tspin
 # alias todo = nvim ~/.todo.md # replaced with vimkim/todo
 alias v = nvim
