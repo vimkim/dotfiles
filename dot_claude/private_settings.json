@@ -113,79 +113,10 @@
       "/home/vimkim/gh"
     ]
   },
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/persistent-mode.mjs\""
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/code-simplifier.mjs\""
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/keyword-detector.mjs\""
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/session-start.mjs\""
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/pre-tool-use.mjs\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/post-tool-use.mjs\""
-          }
-        ]
-      }
-    ],
-    "PostToolUseFailure": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/post-tool-use-failure.mjs\""
-          }
-        ]
-      }
-    ]
-  },
+  "hooks": {},
   "statusLine": {
     "type": "command",
-    "command": "sh ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hud/omc-hud-cache.sh ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hud/omc-hud.mjs"
+    "command": "node ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hud/omc-hud.mjs"
   },
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
