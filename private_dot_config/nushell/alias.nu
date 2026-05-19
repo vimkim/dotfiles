@@ -270,6 +270,8 @@ alias activate = overlay use .venv/bin/activate.nu
 def dea [] { deactivate }
 alias chez = chezmoi
 alias chezd = cl ~/.local/share/chezmoi/
+def chzdiff [] { chezmoi diff | diffnav }
+def chezdiff [] { chzdiff }
 alias caps = gsettings set org.gnome.desktop.input-sources xkb-options "['ctrl:nocaps']"
 alias caps_reset = gsettings reset org.gnome.desktop.input-sources xkb-options
 alias conf = cl ~/.config/

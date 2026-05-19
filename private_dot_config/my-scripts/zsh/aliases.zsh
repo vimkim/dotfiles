@@ -786,6 +786,8 @@ alias chezd='cd ~/.local/share/chezmoi'
 alias chzed='chezd' # for typo
 alias chezh='cd ~/.local/share/chezmoi'
 alias chezcd='cd ~/.local/share/chezmoi'
+alias chzdiff='chezmoi diff | diffnav'
+alias chezdiff='chzdiff'
 
 ## conf
 alias confd='cd ~/.config && echo "prefer using chezmoi edit"'
