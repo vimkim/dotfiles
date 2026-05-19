@@ -14,6 +14,7 @@ packages=(
     # binsider
     # broot
     btop
+    carapace
     # ccache
     cgdb
     # clang-tools

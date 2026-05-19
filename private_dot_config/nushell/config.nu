@@ -86,14 +86,7 @@ $env.config.rm.always_trash = true
 
 $env.config.show_banner = false
 
-# fzf-tab like completion
-$env.config.completions = {
-  case_sensitive: false
-  algorithm: "fuzzy"
-  external: {
-    enable: true
-  }
-}
+# completion config lives in completions.nu (carapace external completer)
 
 ###############################################################################
 # Topiary
