@@ -285,6 +285,44 @@ alias gh_auth_login = with-env { BROWSER: "echo" } { gh auth login }
 alias ghc = ~/.config/my-scripts/bin/github-clone-confirm.sh
 alias ghcf = ~/.config/my-scripts/bin/gh-clone-fuzzy.sh
 alias ghcu = ~/.config/my-scripts/bin/git-clone-user.sh
+
+# My open PRs across every repo (focus state at a glance)
+alias ghmy = gh search prs --author=@me --state=open
+
+# PR dashboard: open PRs grouped by review state — the "what needs my attention" view.
+# Uses GraphQL because `gh search prs` doesn't expose reviewDecision; viewer.pullRequests does.
+def ghpd [] {
+  let query = "{ viewer { pullRequests(first: 50, states: OPEN, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { number title isDraft reviewDecision repository { nameWithOwner } updatedAt } } } }"
+  gh api graphql -f $"query=($query)"
+  | from json
+  | get data.viewer.pullRequests.nodes
+  | each {|p|
+      let state = (if $p.isDraft { "DRAFT" } else if ($p.reviewDecision | is-empty) { "PENDING" } else { $p.reviewDecision })
+      # Focus order: things you can act on now sort first
+      let priority = (match $state {
+        "CHANGES_REQUESTED" => 0
+        "APPROVED" => 1
+        "PENDING" => 2
+        "REVIEW_REQUIRED" => 3
+        "DRAFT" => 4
+        _ => 5
+      })
+      {
+        repo: $p.repository.nameWithOwner
+        pr: $"#($p.number)"
+        state: $state
+        priority: $priority
+        updated: ($p.updatedAt | into datetime | format date "%Y-%m-%d")
+        title: $p.title
+      }
+    }
+  | sort-by priority updated
+  | reject priority
+}
+
+# PRs where someone is waiting on you to review
+alias ghrr = gh search prs --review-requested=@me --state=open
+
 alias ghpr = do { gh pr view --json url -q .url }
 alias gfpa = git fetch --all --prune
 alias gl = ~/.config/my-scripts/bin/git-log.sh
