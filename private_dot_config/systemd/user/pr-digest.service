@@ -1,0 +1,6 @@
+[Unit]
+Description=Generate desktop notification with GitHub PR focus state
+
+[Service]
+Type=oneshot
+ExecStart=%h/.config/my-scripts/bin/pr-digest.sh

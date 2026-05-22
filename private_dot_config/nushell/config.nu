@@ -251,3 +251,21 @@ if $env.TERM_PROGRAM? == "cursor" {
   $env.EDITOR = "code"
   $env.VISUAL = "code"
 }
+
+###############################################################################
+# Daily PR focus digest — printed once per day on first interactive shell.
+# Source file refreshed by systemd timer ~/.config/systemd/user/pr-digest.timer.
+###############################################################################
+
+if $nu.is-interactive {
+  let digest = ($env.HOME | path join ".cache" "pr-digest.md")
+  let ack    = ($env.HOME | path join ".cache" "pr-digest.ack")
+  if ($digest | path exists) {
+    let digest_mtime = (ls $digest | get 0.modified)
+    let ack_mtime    = (if ($ack | path exists) { ls $ack | get 0.modified } else { null })
+    if $ack_mtime == null or $digest_mtime > $ack_mtime {
+      print (open --raw $digest)
+      touch $ack
+    }
+  }
+}

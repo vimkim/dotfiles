@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily 9am PR focus digest (Mon-Fri)
+
+[Timer]
+# OnCalendar follows the system local timezone (verify with `timedatectl`).
+# Asia/Seoul -> 09:00 local fires at 00:00 UTC, weekdays only.
+OnCalendar=Mon..Fri 09:00:00
+# If the laptop was asleep at 09:00, fire on next wake.
+Persistent=true
+Unit=pr-digest.service
+
+[Install]
+WantedBy=timers.target
