@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# git-diffnav — pick two refs (A = base, B = target) from the commit graph
+# with fzf, then open `git diff A B` in diffnav.
+#
+# Usage:
+#   git diffnav            # pick A and B interactively from the graph
+#   git diffnav A          # A given, pick B
+#   git diffnav A B        # no picking, straight to diffnav
+#
+# In the picker: the list is `git log --graph --all`, the preview pane shows
+# the commit under the cursor (ctrl-/ toggles it). Picking a decorated branch
+# tip is the same as diffing against that branch.
+#
+# Env: GIT_DIFFNAV_PAGER overrides diffnav (e.g. delta, less).
+set -u
+
+pager=${GIT_DIFFNAV_PAGER:-diffnav}
+
+pick() {
+  git log --graph --oneline --decorate --all --color=always \
+    | fzf --ansi --no-sort --reverse \
+        --prompt="$1 > " \
+        --header="$2" \
+        --preview="echo {} | grep -oE '[a-f0-9]{7,}' | head -1 \
+                   | xargs -r git show --color=always --stat -p" \
+        --preview-window='right,60%,wrap' \
+        --bind='ctrl-/:toggle-preview' \
+    | grep -oE '[a-f0-9]{7,}' | head -1
+}
+
+a=${1:-$(pick 'A (base)'   'pick BASE — the "before" side of the diff   [ctrl-/ preview]')}
+[[ -n ${a} ]] || exit 130
+b=${2:-$(pick 'B (target)' "pick TARGET — diff will be: ${a}..?   [ctrl-/ preview]")}
+[[ -n ${b} ]] || exit 130
+
+git diff "$a" "$b" | "$pager"
