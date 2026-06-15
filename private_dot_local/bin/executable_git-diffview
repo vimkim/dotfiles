@@ -14,6 +14,8 @@
 #   -2   two-dot range (default)
 #   -r   include remote-tracking branches in the picker
 #   -n   dry run: print the nvim command instead of running it
+#   -p   print the final command to stdout instead of running it
+#        (for nushell `commandline edit`, etc.); fzf still runs on the tty
 #
 # Picker also offers two synthetic entries at the top:
 #   @working   the working tree (uncommitted + unstaged) — like `git diff`
@@ -31,6 +33,7 @@ range_dots=".."          # two-dot by default
 include_remotes=0
 working_only=0
 dry_run=0
+print_cmd=0
 
 while [[ "${1:-}" == -* ]]; do
   case "$1" in
@@ -39,6 +42,7 @@ while [[ "${1:-}" == -* ]]; do
     -2) range_dots=".." ;;
     -r) include_remotes=1 ;;
     -n|--dry-run) dry_run=1 ;;
+    -p|--print) print_cmd=1 ;;
     -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
   esac
@@ -53,7 +57,9 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
 run_dv() {  # run_dv <diffview-arg-or-empty>
   local arg="$1" cmd
   if [[ -z "$arg" ]]; then cmd="DiffviewOpen"; else cmd="DiffviewOpen ${arg}"; fi
-  if (( dry_run )); then
+  # -p/-n both emit the runnable shell command on stdout (nothing else lands
+  # there), so callers like nushell's `commandline edit` can capture it cleanly.
+  if (( print_cmd || dry_run )); then
     echo "nvim -c \"${cmd}\""
   else
     echo ":${cmd}" >&2
@@ -76,7 +82,10 @@ list_candidates() {
 # fzf picker; preview shows a git-log graph, with a fallback for @working.
 pick() {
   local prompt="$1"
-  list_candidates | fzf \
+  # fzf runs --preview through $SHELL; when the caller's shell is nushell/fish the
+  # preview's POSIX syntax (2>/dev/null, ||) fails to parse and the pane stays blank.
+  # Pin it to this script's bash interpreter so the preview renders regardless of $SHELL.
+  list_candidates | SHELL="$BASH" fzf \
     --prompt="$prompt> " \
     --height=60% --reverse --border \
     --header="@working = uncommitted (like git diff HEAD)" \

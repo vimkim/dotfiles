@@ -272,6 +272,8 @@ alias chez = chezmoi
 alias chezd = cl ~/.local/share/chezmoi/
 def chzdiff [] { chezmoi diff | diffnav }
 def chezdiff [] { chzdiff }
+# dv: fzf-pick two revisions, then drop the nvim Diffview command on the prompt to edit/run
+alias dv = commandline edit (git diffview -p | str trim)
 alias caps = gsettings set org.gnome.desktop.input-sources xkb-options "['ctrl:nocaps']"
 alias caps_reset = gsettings reset org.gnome.desktop.input-sources xkb-options
 alias conf = cl ~/.config/
