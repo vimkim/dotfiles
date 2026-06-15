@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+#
+# git-diffview — pick revisions with fzf and open them in nvim's Diffview.
+#
+# Usage:
+#   git diffview                 # pick BASE, then pick COMPARE (fzf both)
+#   git diffview <base>          # base given, pick COMPARE with fzf
+#   git diffview <base> <cmp>    # no fzf, diff the two directly
+#   git diffview -w              # uncommitted changes (staged + unstaged), like `git diff HEAD`
+#
+# Flags:
+#   -w   working-tree view: open :DiffviewOpen with no range (all uncommitted)
+#   -3   three-dot (merge-base / PR-style) range instead of two-dot
+#   -2   two-dot range (default)
+#   -r   include remote-tracking branches in the picker
+#   -n   dry run: print the nvim command instead of running it
+#
+# Picker also offers two synthetic entries at the top:
+#   @working   the working tree (uncommitted + unstaged) — like `git diff`
+#   HEAD       the current commit
+#
+# Examples:
+#   pick HEAD  then @working  ->  :DiffviewOpen HEAD     (== git diff HEAD)
+#   pick master then @working ->  :DiffviewOpen master   (working tree vs master)
+#   pick master then feature  ->  :DiffviewOpen master..feature
+
+set -euo pipefail
+
+WORKING='@working'       # synthetic picker entry meaning "the working tree"
+range_dots=".."          # two-dot by default
+include_remotes=0
+working_only=0
+dry_run=0
+
+while [[ "${1:-}" == -* ]]; do
+  case "$1" in
+    -w|--working) working_only=1 ;;
+    -3) range_dots="..." ;;                 # merge-base / PR-style diff
+    -2) range_dots=".." ;;
+    -r) include_remotes=1 ;;
+    -n|--dry-run) dry_run=1 ;;
+    -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
+    *) echo "unknown flag: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+# Must be inside a git work tree.
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+  echo "not a git repository" >&2; exit 1
+}
+
+run_dv() {  # run_dv <diffview-arg-or-empty>
+  local arg="$1" cmd
+  if [[ -z "$arg" ]]; then cmd="DiffviewOpen"; else cmd="DiffviewOpen ${arg}"; fi
+  if (( dry_run )); then
+    echo "nvim -c \"${cmd}\""
+  else
+    echo ":${cmd}" >&2
+    exec nvim -c "${cmd}"
+  fi
+}
+
+# -w short-circuits the pickers: straight to the uncommitted view.
+(( working_only )) && run_dv "" && exit 0
+
+# Build the candidate list: synthetic entries first, then branches.
+ref_globs=(refs/heads)
+(( include_remotes )) && ref_globs+=(refs/remotes)
+
+list_candidates() {
+  printf '%s\n' "$WORKING" 'HEAD'
+  git for-each-ref --format='%(refname:short)' "${ref_globs[@]}" | grep -v '/HEAD$'
+}
+
+# fzf picker; preview shows a git-log graph, with a fallback for @working.
+pick() {
+  local prompt="$1"
+  list_candidates | fzf \
+    --prompt="$prompt> " \
+    --height=60% --reverse --border \
+    --header="@working = uncommitted (like git diff HEAD)" \
+    --preview 'git log --oneline --graph --decorate --color=always -n 30 {} 2>/dev/null \
+               || echo "(working tree — uncommitted + unstaged changes)"' \
+    --preview-window=right,55%
+}
+
+base="${1:-}"
+cmp="${2:-}"
+[[ -z "$base" ]] && base="$(pick 'BASE')"
+[[ -z "$cmp"  ]] && cmp="$(pick 'COMPARE')"
+
+# fzf returns empty on <Esc>; bail out cleanly.
+[[ -z "$base" || -z "$cmp" ]] && { echo "aborted" >&2; exit 130; }
+
+# Resolve the diffview argument.
+if [[ "$base" == "$WORKING" || "$cmp" == "$WORKING" ]]; then
+  # Working tree is one endpoint. diffview compares a single rev to the work tree,
+  # so use the *other* side as that rev (empty -> plain :DiffviewOpen = all uncommitted).
+  other=""
+  [[ "$base" != "$WORKING" ]] && other="$base"
+  [[ "$cmp"  != "$WORKING" ]] && other="$cmp"
+  run_dv "$other"
+else
+  run_dv "${base}${range_dots}${cmp}"
+fi
