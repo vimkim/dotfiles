@@ -35,7 +35,7 @@ pick() {
   # renders even when the caller's shell is nushell/fish (which can't parse the
   # POSIX pipe/xargs syntax). $BASH is this script's interpreter.
   git log --graph --oneline --decorate --all --color=always \
-    | SHELL="$BASH" fzf --ansi --no-sort --reverse \
+    | SHELL="$BASH" fzf --ansi --no-sort --reverse --height=60% \
         --prompt="$1 > " \
         --header="$2" \
         --preview="echo {} | grep -oE '[a-f0-9]{7,}' | head -1 \
