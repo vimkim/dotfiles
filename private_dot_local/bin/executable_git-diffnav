@@ -7,6 +7,10 @@
 #   git diffnav A          # A given, pick B
 #   git diffnav A B        # no picking, straight to diffnav
 #
+# Flags:
+#   -p   print the final `git diff A B | diffnav` command to stdout instead of
+#        running it (for nushell `commandline edit`, etc.); fzf still runs on the tty
+#
 # In the picker: the list is `git log --graph --all`, the preview pane shows
 # the commit under the cursor (ctrl-/ toggles it). Picking a decorated branch
 # tip is the same as diffing against that branch.
@@ -15,10 +19,23 @@
 set -u
 
 pager=${GIT_DIFFNAV_PAGER:-diffnav}
+print_cmd=0
+
+while [[ ${1:-} == -* ]]; do
+  case "$1" in
+    -p|--print) print_cmd=1 ;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    *) echo "unknown flag: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 pick() {
+  # fzf runs --preview through $SHELL; pin it to this script's bash so the preview
+  # renders even when the caller's shell is nushell/fish (which can't parse the
+  # POSIX pipe/xargs syntax). $BASH is this script's interpreter.
   git log --graph --oneline --decorate --all --color=always \
-    | fzf --ansi --no-sort --reverse \
+    | SHELL="$BASH" fzf --ansi --no-sort --reverse \
         --prompt="$1 > " \
         --header="$2" \
         --preview="echo {} | grep -oE '[a-f0-9]{7,}' | head -1 \
@@ -33,4 +50,8 @@ a=${1:-$(pick 'A (base)'   'pick BASE — the "before" side of the diff   [ctrl-
 b=${2:-$(pick 'B (target)' "pick TARGET — diff will be: ${a}..?   [ctrl-/ preview]")}
 [[ -n ${b} ]] || exit 130
 
-git diff "$a" "$b" | "$pager"
+if (( print_cmd )); then
+  echo "git diff $a $b | $pager"
+else
+  git diff "$a" "$b" | "$pager"
+fi
