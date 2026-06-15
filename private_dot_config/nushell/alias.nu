@@ -272,10 +272,12 @@ alias chez = chezmoi
 alias chezd = cl ~/.local/share/chezmoi/
 def chzdiff [] { chezmoi diff | diffnav }
 def chezdiff [] { chzdiff }
-# dv: fzf-pick two revisions, then drop the nvim Diffview command on the prompt to edit/run
-alias dv = commandline edit (git diffview -p | str trim)
-# dn: fzf-pick two refs from the commit graph, then drop the `git diff A B | diffnav` command on the prompt to edit/run
-alias dn = commandline edit (git diffnav -p | str trim)
+# dv: fzf-pick two revisions, then drop the nvim Diffview command on the prompt to edit/run.
+# --wrapped forwards extra flags/args to git-diffview, e.g. `dv -r` (incl. remote branches), `dv -3`, `dv master`.
+def --wrapped dv [...rest] { commandline edit (git diffview -p ...$rest | str trim) }
+# dn: fzf-pick two refs from the commit graph, then drop the `git diff A B | diffnav` command on the prompt to edit/run.
+# --wrapped forwards extra args to git-diffnav, e.g. `dn HEAD~1` (pre-fill the base ref).
+def --wrapped dn [...rest] { commandline edit (git diffnav -p ...$rest | str trim) }
 alias caps = gsettings set org.gnome.desktop.input-sources xkb-options "['ctrl:nocaps']"
 alias caps_reset = gsettings reset org.gnome.desktop.input-sources xkb-options
 alias conf = cl ~/.config/
