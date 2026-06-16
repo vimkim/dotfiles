@@ -1,1 +1,4 @@
 .omc
+
+# zellij "ntr" runtime lock/heartbeat files (ephemeral, per-session)
+.zellij-ntr-*
