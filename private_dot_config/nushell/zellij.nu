@@ -27,9 +27,10 @@ def zellij-update-tabname-git [] {
       }
     }
 
-    # Vertical-tab sidebar (vtabs.kdl) is ~20 cols wide, so cap once here
-    # instead of truncating each component. str substring clamps short names.
-    let tab_name = ($tab_name | str substring 0..<20);
+    # Vertical-tab sidebar (vtabs.kdl) is 32 cols wide (~27 for the name after
+    # the marker + index prefix), so cap once here instead of truncating each
+    # component. str substring clamps short names.
+    let tab_name = ($tab_name | str substring 0..<27);
 
     # Look up tab ID by pane ID (focus-independent, race-free).
     let tab_id = try {

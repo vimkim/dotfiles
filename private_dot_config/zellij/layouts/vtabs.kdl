@@ -7,7 +7,7 @@
 layout {
     pane split_direction="vertical" {
         // Fixed-width sidebar on the left listing tabs. Left-click / scroll to switch.
-        pane size=20 borderless=true {
+        pane size=32 borderless=true {
             plugin location="file:~/.config/zellij/plugins/zellij-vertical-tabs.wasm" {
                 // Put the active marker FIRST so a long name can never push it
                 // past the 20-column edge. The plugin hard-cuts each line from the
@@ -19,9 +19,9 @@ layout {
                 format         "  {index}:{name}"
                 format_active  "#[fg=green,bold]{active} {index}:{name}"
 
-                // Reserve room for "* " (2) + "NN:" (~3) inside the 20-col pane so
+                // Reserve room for "* " (2) + "NN:" (~3) inside the 32-col pane so
                 // long names end in "..." instead of being hard-cut at the edge.
-                max_name_length 14
+                max_name_length 27
             }
         }
         // Main working area (your panes live here).
