@@ -1,0 +1,20 @@
+// Opt-in layout with a vertical TAB sidebar (cfal/zellij-vertical-tabs).
+//
+//   Try it:   zellij --layout vtabs
+//   Make default: set `default_layout "vtabs"` in config.kdl
+//
+// Note: this lists TABS vertically, not the panes inside a tab.
+layout {
+    pane split_direction="vertical" {
+        // Fixed-width sidebar on the left listing tabs. Left-click / scroll to switch.
+        pane size=20 borderless=true {
+            plugin location="file:~/.config/zellij/plugins/zellij-vertical-tabs.wasm"
+        }
+        // Main working area (your panes live here).
+        pane
+    }
+    // Bottom bar. Swap "zellij:compact-bar" for your zjstatus plugin block if preferred.
+    // pane size=1 borderless=true {
+    //     plugin location="zellij:compact-bar"
+    // }
+}
