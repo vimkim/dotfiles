@@ -1,0 +1,9 @@
+# Externally-downloaded zellij plugins.
+# Paths are relative to ~/.config/zellij/ (the target of this source dir).
+# chezmoi fetches these on `chezmoi apply`, so a fresh machine reproduces them
+# instead of being hand-downloaded.
+
+["plugins/zellij-vertical-tabs.wasm"]
+    type = "file"
+    url = "https://github.com/cfal/zellij-vertical-tabs/releases/download/v0.1.0/zellij-vertical-tabs.wasm"
+    refreshPeriod = "168h"  # re-check at most weekly
