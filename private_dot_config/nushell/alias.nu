@@ -406,6 +406,7 @@ alias bd = bm del
 alias bl = bm list
 
 alias za = do { SHELL=nu attach-or-new.sh }
+alias zv = do { SHELL=nu attach-or-new.sh vtabs }
 alias ze = zellij
 alias zs = zellij -s
 alias zshrc = nvim ~/.local/share/chezmoi/dot_zshrc

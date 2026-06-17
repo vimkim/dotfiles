@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Optional first arg: layout name passed to --layout when starting a new session.
+LAYOUT="$1"
+
 ZJ_SESSIONS=$(zellij list-sessions -s)
 
 if [ -z "${ZJ_SESSIONS}" ]; then
@@ -18,5 +21,10 @@ if [ "${NO_SESSIONS}" -ge 1 ]; then
     fi
     exec zellij attach "$chosen"
 else
-    exec zellij -s "$(hostname | cut -c1-4)"
+    SESSION_NAME="$(hostname | cut -c1-4)"
+    if [ -n "$LAYOUT" ]; then
+        exec zellij -s "$SESSION_NAME" --layout "$LAYOUT"
+    else
+        exec zellij -s "$SESSION_NAME"
+    fi
 fi
