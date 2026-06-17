@@ -9,22 +9,25 @@ layout {
         // Fixed-width sidebar on the left listing tabs. Left-click / scroll to switch.
         pane size=32 borderless=true {
             plugin location="file:~/.config/zellij/plugins/zellij-vertical-tabs.wasm" {
-                // Put the active marker FIRST so a long name can never push it
-                // past the 20-column edge. The plugin hard-cuts each line from the
-                // right to fit the pane width, so a trailing "*" is the first thing
-                // lost when the name is long. Leading "  " on inactive rows keeps
-                // names aligned with the "* " on the active row. The whole active
-                // label is drawn green+bold, so the current tab is unmistakable
-                // even if its name gets truncated.
+                // Only the ACTIVE tab is highlighted; inactive tabs use the
+                // terminal's default colors (no bg). This sidesteps the plugin's
+                // asymmetric `fill` (v0.1.0 honors it only on the selected row, so a
+                // bg on inactive rows would stop at the end of the title rather than
+                // spanning the rail). Active tab: Peach bg #fab387 with dark
+                // fg #1e1e2e (catppuccin-mocha Base) + `fill` to paint the full row.
+                // The Peach background alone marks the active tab, so we drop the
+                // `{active}` (`*`) marker; both rows keep a 2-space lead to stay aligned.
                 format         "  {index}:{name}"
-                format_active  "#[fg=green,bold]{active} {index}:{name}"
+                format_active  "#[bg=#fab387,fg=#1e1e2e,bold,fill]  {index}:{name}"
 
-                // Reserve room for "* " (2) + "NN:" (~3) inside the 32-col pane so
-                // long names end in "..." instead of being hard-cut at the edge.
+                // Reserve room for the 2-space lead (2) + "NN:" (~3) inside the 32-col
+                // pane so long names end in "..." instead of being hard-cut at the edge.
                 max_name_length 27
             }
         }
-        // Main working area (your panes live here).
+        // Main working area (your panes live here). Frameless (inherits global
+        // `pane_frames false`), so there is NO divider line — the sidebar's
+        // colored background is the only thing separating it from the work area.
         pane
     }
     // Bottom bar. Swap "zellij:compact-bar" for your zjstatus plugin block if preferred.
