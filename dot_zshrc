@@ -164,12 +164,32 @@ zellij_new_if_cannot_attach() {
     fi
 }
 
+# Spawn a NEW zellij session after fuzzy-picking a layout from
+# ~/.config/zellij/layouts via fzf. Optional first arg names the session;
+# omit it to let zellij auto-generate the session name.
+zellij_new() {
+    local layout_dir="$HOME/.config/zellij/layouts"
+    local chosen
+    chosen="$(find "$layout_dir" -maxdepth 1 -name '*.kdl' -exec basename {} .kdl \; 2>/dev/null \
+        | sort \
+        | fzf --height 60% --reverse --header 'Select layout for new zellij session')"
+    if [ -z "$chosen" ]; then
+        echo "No layout selected."
+        return
+    fi
+    if [ -n "$1" ]; then
+        zellij -s "$1" --layout "$chosen"
+    else
+        zellij --layout "$chosen"
+    fi
+}
+
 alias zl='zellij_new_if_cannot_attach'
 alias zell='zellij'
-alias za='source $MY_SCRIPTS/bin/attach-or-new.sh' # without source, <c-a>d will shutdown zellij
-alias zf='source $MY_SCRIPTS/bin/attach-or-new.sh'
-alias zs='zellij -s'
-alias zn='zellij -s'
+alias za='source $MY_SCRIPTS/bin/zellij-attach-or-new.sh' # without source, <c-a>d will shutdown zellij
+alias zf='source $MY_SCRIPTS/bin/zellij-attach-or-new.sh'
+alias zs='zellij_new'
+alias zn='zellij_new'
 
 # Auto-run zellij if not on SSH, VS Code, Docker, etc.
 zellij_autorun() {

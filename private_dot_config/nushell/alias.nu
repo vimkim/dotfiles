@@ -405,8 +405,8 @@ alias ba = bm add
 alias bd = bm del
 alias bl = bm list
 
-alias za = do { SHELL=nu attach-or-new.sh }
-alias zv = do { SHELL=nu attach-or-new.sh vtabs }
+alias za = do { SHELL=nu zellij-attach-or-new.sh }
+alias zv = do { SHELL=nu zellij-attach-or-new.sh vtabs }
 alias ze = zellij
-alias zs = zellij -s
+# zs / zn are defined in zellij.nu (fzf layout picker -> new session)
 alias zshrc = nvim ~/.local/share/chezmoi/dot_zshrc

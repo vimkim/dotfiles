@@ -165,7 +165,7 @@ if (which sccache | is-not-empty) {
 def start_zellij [] {
   if 'ZELLIJ' not-in ($env | columns) {
     if 'ZELLIJ_AUTO_ATTACH' in ($env | columns) and $env.ZELLIJ_AUTO_ATTACH == 'true' {
-      ~/.config/my-scripts/bin/attach-or-new.sh
+      ~/.config/my-scripts/bin/zellij-attach-or-new.sh
     } else {
       zellij
     }

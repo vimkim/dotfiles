@@ -50,3 +50,38 @@ def zellij-update-tabname-git [] {
     }
   }
 }
+
+# Spawn a NEW zellij session after fuzzy-picking a layout from
+# ~/.config/zellij/layouts via fzf. Optional positional arg names the session;
+# omit it to let zellij auto-generate the session name.
+def zellij-new [name?: string] {
+  let layout_dir = ($nu.home-dir | path join ".config" "zellij" "layouts")
+  let layouts = (glob ($layout_dir | path join "*.kdl") | path parse | get stem | sort)
+
+  if ($layouts | is-empty) {
+    print $"No layouts found in ($layout_dir)"
+    return
+  }
+
+  let chosen = (
+    $layouts
+    | str join (char nl)
+    | fzf --height 60% --reverse --header "Select layout for new zellij session"
+    | str trim
+  )
+
+  if ($chosen | is-empty) {
+    print "No layout selected."
+    return
+  }
+
+  if ($name | is-not-empty) {
+    zellij -s $name --layout $chosen
+  } else {
+    zellij --layout $chosen
+  }
+}
+
+# zs / zn: start a new zellij session, fuzzily selecting a layout with fzf.
+def zs [name?: string] { zellij-new $name }
+def zn [name?: string] { zellij-new $name }
