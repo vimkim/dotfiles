@@ -76,7 +76,10 @@ def zellij-new [name?: string] {
   }
 
   if ($name | is-not-empty) {
-    zellij -s $name --layout $chosen
+    # -n/--new-session-with-layout, NOT --layout: combined with -s/--session,
+    # --layout tries to add tabs to that (non-existent) session and aborts with
+    # "There is no active session!". -n always starts a fresh session.
+    zellij -s $name --new-session-with-layout $chosen
   } else {
     zellij --layout $chosen
   }

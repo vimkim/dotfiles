@@ -3,7 +3,7 @@
 # Optional first arg: layout name passed to --layout when starting a new session.
 LAYOUT="$1"
 
-ZJ_SESSIONS=$(zellij list-sessions -s)
+ZJ_SESSIONS=$(zellij list-sessions -s 2>/dev/null)
 
 if [ -z "${ZJ_SESSIONS}" ]; then
     NO_SESSIONS=0
@@ -39,7 +39,10 @@ else
     fi
 
     if [ -n "$LAYOUT" ]; then
-        exec zellij -s "$SESSION_NAME" --layout "$LAYOUT"
+        # Use -n/--new-session-with-layout, NOT --layout: with -s/--session,
+        # --layout means "add these tabs to that (existing) session" and aborts
+        # with "There is no active session!" since the session is brand new.
+        exec zellij -s "$SESSION_NAME" --new-session-with-layout "$LAYOUT"
     else
         exec zellij -s "$SESSION_NAME"
     fi
