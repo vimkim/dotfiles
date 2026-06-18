@@ -119,9 +119,19 @@ def --env --wrapped n [...args: string@"nu-complete just-recipes"] {
     }
 }
 alias j = just
-alias jj = just --choose
-alias nn = just --choose
-alias jc = just --choose
+
+# jj/nn/jc: fzf-pick a recipe, then paste `just <recipe>` onto the prompt
+# (instead of running it inside `just --choose`). Pressing Enter runs it AND
+# lets the atuin pre_execution hook record `just <recipe>`, so Ctrl-R can
+# recall the exact recipe later. Editable too — add args before Enter.
+def --env jj [] {
+    let recipe = (just-pick.nu -f ./justfile -d . | str trim)
+    if ($recipe | is-not-empty) {
+        commandline edit $"just ($recipe)"
+    }
+}
+alias nn = jj
+alias jc = jj
 alias je = nvim ./justfile
 alias ne = je
 alias ni = commandline edit (just.nu -f ./.just/justfile -d . | str trim)
