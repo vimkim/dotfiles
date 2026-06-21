@@ -7,7 +7,7 @@
 layout {
     pane split_direction="vertical" {
         // Fixed-width sidebar on the left listing tabs. Left-click / scroll to switch.
-        pane size=32 borderless=true {
+        pane size=25 borderless=true {
             plugin location="file:~/.config/zellij/plugins/zellij-vertical-tabs.wasm" {
                 // Only the ACTIVE tab is highlighted; inactive tabs use the
                 // terminal's default colors (no bg). This sidesteps the plugin's
@@ -16,13 +16,17 @@ layout {
                 // spanning the rail). Active tab: Peach bg #fab387 with dark
                 // fg #1e1e2e (catppuccin-mocha Base) + `fill` to paint the full row.
                 // The Peach background alone marks the active tab, so we drop the
-                // `{active}` (`*`) marker; both rows keep a 2-space lead to stay aligned.
-                format         "  {index}:{name}"
-                format_active  "#[bg=#fab387,fg=#1e1e2e,bold,fill]  {index}:{name}"
+                // `{active}` (`*`) marker. No leading pad — rows start flush at col 0.
+                format         "{index}:{name}"
+                format_active  "#[bg=#fab387,fg=#1e1e2e,bold,fill]{index}:{name}"
 
-                // Reserve room for the 2-space lead (2) + "NN:" (~3) inside the 32-col
-                // pane so long names end in "..." instead of being hard-cut at the edge.
-                max_name_length 27
+                // The plugin truncates names TWICE: a per-token pass that cuts at
+                // `max_name_length` and appends an "..." (default 20 when unset — so
+                // *removing* this key does NOT disable it), then a line-level pass
+                // that hard-cuts at the pane edge with NO ellipsis. We want only the
+                // clean edge cut, so we set max_name_length far wider than the 25-col
+                // sidebar can ever show: the "..." pass never fires, the edge cut does.
+                max_name_length 100
             }
         }
         // Main working area (your panes live here). Frameless (inherits global
