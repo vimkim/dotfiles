@@ -8,9 +8,8 @@
     url = "https://github.com/cfal/zellij-vertical-tabs/releases/download/v0.1.0/zellij-vertical-tabs.wasm"
     refreshPeriod = "168h"  # re-check at most weekly
 
-# Status-bar plugin used by every zjstatus layout (vtabs, mycompact, two-by-two,
-# two-by-two-claude, claude-vsplit). Pinned to v0.22.0 to match the config
-# syntax the layouts were written against.
+# Status-bar plugin used by the zjstatus layouts (vtabs, mycompact). Pinned to
+# v0.22.0 to match the config syntax the layouts were written against.
 ["plugins/zjstatus.wasm"]
     type = "file"
     url = "https://github.com/dj95/zjstatus/releases/download/v0.22.0/zjstatus.wasm"
