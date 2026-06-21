@@ -7,3 +7,11 @@
     type = "file"
     url = "https://github.com/cfal/zellij-vertical-tabs/releases/download/v0.1.0/zellij-vertical-tabs.wasm"
     refreshPeriod = "168h"  # re-check at most weekly
+
+# Status-bar plugin. Used by the vtabs layout's bottom mode bar (and available
+# to mycompact, which currently still loads ~/temp/zjstatus/zjstatus.wasm).
+# Pinned to v0.22.0 to match the config syntax the layouts were written against.
+["plugins/zjstatus.wasm"]
+    type = "file"
+    url = "https://github.com/dj95/zjstatus/releases/download/v0.22.0/zjstatus.wasm"
+    refreshPeriod = "168h"  # re-check at most weekly

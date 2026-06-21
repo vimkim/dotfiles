@@ -34,8 +34,55 @@ layout {
         // colored background is the only thing separating it from the work area.
         pane
     }
-    // Bottom bar. Swap "zellij:compact-bar" for your zjstatus plugin block if preferred.
-    // pane size=1 borderless=true {
-    //     plugin location="zellij:compact-bar"
-    // }
+    // Bottom status bar (full width). The vertical sidebar already lists tabs,
+    // so this zjstatus instance DROPS {tabs} and shows session + MODE on the
+    // left and a clock on the right. Mode is the whole point: with the
+    // tmux-prefix keybinds in config.kdl this is the "am I in Normal / tmux /
+    // scroll / …" indicator that the vertical-tabs plugin cannot render itself.
+    pane size=1 borderless=true {
+        // Managed by .chezmoiexternal.toml -> downloads to plugins/zjstatus.wasm
+        // (mycompact.kdl still points at the hand-downloaded ~/temp/zjstatus copy).
+        plugin location="file:~/.config/zellij/plugins/zjstatus.wasm" {
+            // -- Catppuccin Mocha (only the colors this bar references) --
+            color_crust    "#11111b"
+            color_surface0 "#1e1e2e"
+            color_surface1 "#45475a"
+            color_red      "#f38ba8"
+            color_maroon   "#eba0ac"
+            color_yellow   "#f9e2af"
+            color_green    "#a6e3a1"
+            color_teal     "#94e2d5"
+            color_flamingo "#f2cdcd"
+            color_pink     "#f5c2e7"
+            color_mauve    "#cba6f7"
+            color_sapphire "#74c7ec"
+
+            // One chip per zellij input mode (powerline-faded into surface0).
+            mode_normal        "#[bg=$green,fg=$crust,bold] N#[bg=$surface0,fg=$green]"
+            mode_tmux          "#[bg=$mauve,fg=$crust,bold] T#[bg=$surface0,fg=$mauve]"
+            mode_locked        "#[bg=$red,fg=$crust,bold] L#[bg=$surface0,fg=$red]"
+            mode_pane          "#[bg=$teal,fg=$crust,bold] PANE#[bg=$surface0,fg=$teal]"
+            mode_tab           "#[bg=$teal,fg=$crust,bold] TAB#[bg=$surface0,fg=$teal]"
+            mode_scroll        "#[bg=$flamingo,fg=$crust,bold] SCROLL#[bg=$surface0,fg=$flamingo]"
+            mode_enter_search  "#[bg=$flamingo,fg=$crust,bold] ENT-SEARCH#[bg=$surface0,fg=$flamingo]"
+            mode_search        "#[bg=$flamingo,fg=$crust,bold] SEARCH#[bg=$surface0,fg=$flamingo]"
+            mode_resize        "#[bg=$yellow,fg=$crust,bold] RESIZE#[bg=$surface0,fg=$yellow]"
+            mode_rename_tab    "#[bg=$yellow,fg=$crust,bold] RENAME-TAB#[bg=$surface0,fg=$yellow]"
+            mode_rename_pane   "#[bg=$yellow,fg=$crust,bold] RENAME-PANE#[bg=$surface0,fg=$yellow]"
+            mode_move          "#[bg=$yellow,fg=$crust,bold] MOVE#[bg=$surface0,fg=$yellow]"
+            mode_session       "#[bg=$pink,fg=$crust,bold] SESSION#[bg=$surface0,fg=$pink]"
+            mode_prompt        "#[bg=$pink,fg=$crust,bold] PROMPT#[bg=$surface0,fg=$pink]"
+
+            // left: session pill + mode chip ; right: clock. No {tabs} here.
+            format_left  "#[bg=$surface0,fg=$sapphire]#[bg=$sapphire,fg=$crust,bold] {session} #[bg=$surface0] {mode}#[bg=$surface0]"
+            format_right "#[bg=$surface0,fg=$maroon]#[bg=$maroon,fg=$crust]󰃭 #[bg=$surface1,fg=$maroon,bold] {datetime}#[bg=$surface0,fg=$surface1]"
+            format_space "#[bg=$surface0]"
+            format_hide_on_overlength "true"
+            format_precedence "lrc"
+
+            datetime        "{format}"
+            datetime_format "%Y-%m-%d 󰅐 %H:%M"
+            datetime_timezone "Asia/Seoul"
+        }
+    }
 }
