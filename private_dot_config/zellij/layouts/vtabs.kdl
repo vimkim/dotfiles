@@ -40,8 +40,8 @@ layout {
     // tmux-prefix keybinds in config.kdl this is the "am I in Normal / tmux /
     // scroll / …" indicator that the vertical-tabs plugin cannot render itself.
     pane size=1 borderless=true {
-        // Managed by .chezmoiexternal.toml -> downloads to plugins/zjstatus.wasm
-        // (mycompact.kdl still points at the hand-downloaded ~/temp/zjstatus copy).
+        // Managed by .chezmoiexternal.toml -> downloads to plugins/zjstatus.wasm.
+        // Every zjstatus layout now loads this single managed copy.
         plugin location="file:~/.config/zellij/plugins/zjstatus.wasm" {
             // -- Catppuccin Mocha (only the colors this bar references) --
             color_crust    "#11111b"
