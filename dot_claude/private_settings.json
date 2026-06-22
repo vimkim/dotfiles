@@ -8,18 +8,6 @@
       "Read",
       "WebSearch",
       "WebFetch",
-      "mcp__plugin_oh-my-claudecode_t__lsp_code_action_resolve",
-      "mcp__plugin_oh-my-claudecode_t__lsp_code_actions",
-      "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
-      "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics_directory",
-      "mcp__plugin_oh-my-claudecode_t__lsp_document_symbols",
-      "mcp__plugin_oh-my-claudecode_t__lsp_find_references",
-      "mcp__plugin_oh-my-claudecode_t__lsp_goto_definition",
-      "mcp__plugin_oh-my-claudecode_t__lsp_hover",
-      "mcp__plugin_oh-my-claudecode_t__lsp_prepare_rename",
-      "mcp__plugin_oh-my-claudecode_t__lsp_rename",
-      "mcp__plugin_oh-my-claudecode_t__lsp_servers",
-      "mcp__plugin_oh-my-claudecode_t__lsp_workspace_symbols",
       "Grep",
       "Glob",
       "Bash(ls:*)",
@@ -94,16 +82,6 @@
       "TaskOutput",
       "CronList",
       "LSP",
-      "mcp__plugin_oh-my-claudecode_t__notepad_read",
-      "mcp__plugin_oh-my-claudecode_t__notepad_stats",
-      "mcp__plugin_oh-my-claudecode_t__project_memory_read",
-      "mcp__plugin_oh-my-claudecode_t__state_read",
-      "mcp__plugin_oh-my-claudecode_t__state_get_status",
-      "mcp__plugin_oh-my-claudecode_t__state_list_active",
-      "mcp__plugin_oh-my-claudecode_t__session_search",
-      "mcp__plugin_oh-my-claudecode_t__trace_summary",
-      "mcp__plugin_oh-my-claudecode_t__trace_timeline",
-      "mcp__plugin_oh-my-claudecode_t__ast_grep_search",
       "Bash(cubrid-jira-search *)",
       "Bash(/home/vimkim/.claude/skills/cubrid-pr-review/scripts/check-prereqs.sh*)",
       "Bash(/home/vimkim/.claude/skills/cubrid-oos-context/scripts/validate-env.sh*)"
@@ -114,40 +92,29 @@
     ]
   },
   "model": "opus[1m]",
-  "statusLine": {
-    "type": "command",
-    "command": "sh ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hud/omc-hud-cache.sh ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hud/omc-hud.mjs"
-  },
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
-    "oh-my-claudecode@omc": true,
-    "rust-analyzer-lsp@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": false,
     "codex@openai-codex": false,
-    "andrej-karpathy-skills@karpathy-skills": true,
+    "andrej-karpathy-skills@karpathy-skills": false,
     "code-review@claude-plugins-official": false,
     "github@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": false,
     "context7@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": false,
+    "claude-code-setup@claude-plugins-official": false,
     "superpowers@claude-plugins-official": false,
-    "skill-creator@claude-plugins-official": true,
-    "feature-dev@claude-plugins-official": true,
-    "ralph-loop@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": false,
+    "feature-dev@claude-plugins-official": false,
+    "ralph-loop@claude-plugins-official": false,
     "commit-commands@claude-plugins-official": true,
     "pr-review-toolkit@claude-plugins-official": true,
     "serena@claude-plugins-official": true,
     "explanatory-output-style@claude-plugins-official": true,
-    "greptile@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true
+    "greptile@claude-plugins-official": false,
+    "frontend-design@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
-    "omc": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/Yeachan-Heo/oh-my-claudecode.git"
-      }
-    },
     "learn-with-interview-local": {
       "source": {
         "source": "directory",
@@ -169,6 +136,7 @@
   },
   "effortLevel": "xhigh",
   "skipDangerousModePermissionPrompt": true,
+  "theme": "dark",
   "remoteControlAtStartup": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true

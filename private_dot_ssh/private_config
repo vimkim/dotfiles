@@ -1,3 +1,11 @@
+# >>> ssh-keepalive-doctor >>>
+# managed by ssh-keepalive-doctor — keepalive defaults
+Host *
+    ServerAliveInterval 30
+    ServerAliveCountMax 6
+    TCPKeepAlive yes
+# <<< ssh-keepalive-doctor <<<
+
 # Global settings for all hosts
 Host *
     ServerAliveInterval 60
