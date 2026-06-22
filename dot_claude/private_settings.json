@@ -92,6 +92,10 @@
     ]
   },
   "model": "opus[1m]",
+  "statusLine": {
+    "type": "command",
+    "command": "bash ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/statusline.sh"
+  },
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
     "rust-analyzer-lsp@claude-plugins-official": false,
