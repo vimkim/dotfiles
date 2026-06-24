@@ -3,4 +3,7 @@ Description=Generate desktop notification with GitHub PR focus state
 
 [Service]
 Type=oneshot
+# systemd user services start with a minimal PATH (/usr/bin etc.) that omits
+# Homebrew, where gh and jq live. Make them findable.
+Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin
 ExecStart=%h/.config/my-scripts/bin/pr-digest.sh
