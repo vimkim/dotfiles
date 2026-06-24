@@ -1,6 +1,7 @@
 model = "gpt-5.5"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
+model_reasoning_effort = "xhigh"
 
 [projects."/home/vimkim/gh/cb/cubrid"]
 trust_level = "trusted"
@@ -15,7 +16,7 @@ trust_level = "trusted"
 trust_level = "trusted"
 
 [tui]
-status_line = ["model-with-reasoning", "pull-request-number", "context-remaining", "context-used", "five-hour-limit", "weekly-limit", "codex-version", "context-window-size", "used-tokens", "total-input-tokens", "total-output-tokens", "task-progress"]
+status_line = ["model-with-reasoning", "pull-request-number", "context-remaining", "context-used", "five-hour-limit", "weekly-limit", "codex-version", "context-window-size", "used-tokens", "total-input-tokens", "total-output-tokens", "task-progress", "approval-mode"]
 status_line_use_colors = true
 
 [tui.model_availability_nux]
