@@ -23,8 +23,9 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") [--repo OWNER/REPO] [--reviewer LOGIN] [--limit N] [--drafts]
 
-Lists open PRs in the repo authored by the configured CUBRID teammate list, and
-shows whether REVIEWER's latest review approved or requested changes.
+Lists open PRs in the repo authored by the configured CUBRID teammate list,
+approval stats across GitHub reviewers, and whether REVIEWER's latest review
+approved or requested changes.
 Draft PRs are hidden by default.
 
 Defaults:
@@ -82,7 +83,7 @@ prs_json=$(
     --repo "$REPO" \
     --state open \
     --limit "$LIMIT" \
-    --json number,title,url,author,isDraft,createdAt,latestReviews
+    --json number,title,url,author,isDraft,createdAt,latestReviews,reviewRequests
 )
 
 filtered_json=$(
@@ -109,13 +110,31 @@ printf 'Reviewer: %s\n\n' "$REVIEWER"
 if [[ "$INCLUDE_DRAFTS" != true ]]; then
   printf 'Drafts: hidden (use --drafts to include)\n\n'
 fi
-printf '%-7s %-13s %-10s %-19s %s\n' "PR" "AUTHOR" "OPENED" "MY REVIEW" "TITLE"
-printf '%-7s %-13s %-10s %-19s %s\n' "------" "------------" "----------" "------------------" "-----"
+printf '%-7s %-13s %-10s %-9s %-19s %s\n' "PR" "AUTHOR" "OPENED" "APPROVALS" "MY REVIEW" "TITLE"
+printf '%-7s %-13s %-10s %-9s %-19s %s\n' "------" "------------" "----------" "---------" "------------------" "-----"
 
 jq -r --arg reviewer "$REVIEWER" '
+  def latest_reviews_by_author:
+    [(.latestReviews // [])[] | select(.author.login != null)]
+    | sort_by(.author.login, .submittedAt)
+    | group_by(.author.login)
+    | map(last);
+
+  def request_logins:
+    [(.reviewRequests // [])[] | (.login? // .slug? // .name?) | select(. != null)];
+
+  def review_pool:
+    ((latest_reviews_by_author | map(.author.login)) + request_logins)
+    | unique;
+
+  def approval_stats:
+    latest_reviews_by_author as $reviews
+    | review_pool as $pool
+    | ($reviews | map(select(.state == "APPROVED") | .author.login) | unique) as $approved
+    | "\($approved | length)/\($pool | length)";
+
   def reviewer_latest:
-    [(.latestReviews // [])[] | select(.author.login == $reviewer)]
-    | sort_by(.submittedAt)
+    [latest_reviews_by_author[] | select(.author.login == $reviewer)]
     | last;
 
   def review_label:
@@ -139,13 +158,14 @@ jq -r --arg reviewer "$REVIEWER" '
       ("#" + (.number | tostring)),
       .author.login,
       (.createdAt[0:10]),
+      approval_stats,
       review_label,
       ((if .isDraft then "[DRAFT] " else "" end) + .title),
       .url
     ]
   | @tsv
 ' <<<"$filtered_json" |
-while IFS=$'\t' read -r number author opened review title url; do
-  printf '%-7s %-13s %-10s %-19s %s\n' "$number" "$author" "$opened" "$review" "$title"
-  printf '%-7s %-13s %-10s %-19s %s\n' "" "" "" "" "$url"
+while IFS=$'\t' read -r number author opened approvals review title url; do
+  printf '%-7s %-13s %-10s %-9s %-19s %s\n' "$number" "$author" "$opened" "$approvals" "$review" "$title"
+  printf '%-7s %-13s %-10s %-9s %-19s %s\n' "" "" "" "" "" "$url"
 done
