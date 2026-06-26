@@ -70,6 +70,7 @@ if $os_name == "Arch Linux" {
 }
 
 source ~/.config/nushell/alias.nu
+source ~/.config/nushell/dir-history.nu
 source ~/my-cubrid/aliases.nu
 source ~/.config/nushell/completions.nu
 source ~/.config/nushell/zellij.nu
