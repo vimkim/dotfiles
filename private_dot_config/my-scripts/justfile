@@ -46,6 +46,9 @@ rr-enable:
     echo 1 | sudo tee  /proc/sys/kernel/perf_event_paranoid
     sudo cpupower frequency-set -g performance
 
+cpupower-profile:
+    @~/.config/my-scripts/bin/cpupower-profile-fzf.sh
+
 cgdb-rust:
     cgdb -d rust-gdb -p (ps -l | where command =~ 'target/debug/.*' | get pid | first)
 
