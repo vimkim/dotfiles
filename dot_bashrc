@@ -1,12 +1,47 @@
 # .bashrc
 
-# Source global definitions
+path_prepend() {
+    local dir
+    for dir in "$@"; do
+        [ -d "$dir" ] || continue
+        case ":$PATH:" in
+        *":$dir:"*) ;;
+        *) PATH="$dir:$PATH" ;;
+        esac
+    done
+    export PATH
+}
+
+export EDITOR='nvim'
+export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+export HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"
+export HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"
+[ -z "${MANPATH-}" ] || export MANPATH=":${MANPATH#:}"
+export INFOPATH="$HOMEBREW_PREFIX/share/info:${INFOPATH:-}"
+
+path_prepend \
+    "/opt/nvim-linux64/bin" \
+    "$HOMEBREW_PREFIX/sbin" \
+    "$HOMEBREW_PREFIX/bin" \
+    "$HOME/.local/bin" \
+    "$HOME/.cargo/bin"
+
+# If not running interactively, don't do anything else.
+case $- in
+*i*) ;;
+*) return ;;
+esac
+
+# Agent-style `bash -i -c ...` shells get PATH/env, not prompt/history UI.
+if [[ -z ${BASH_FULL_INIT:-} && ( ! -t 0 || ! -t 1 ) ]]; then
+    return
+fi
+
+# Source global definitions for human Bash sessions.
 if [ -f /etc/bashrc ]; then
     . /etc/bashrc
 fi
 
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-if [ -e /home/vimkim/.nix-profile/etc/profile.d/nix.sh ]; then . /home/vimkim/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
 alias chez='chezmoi'
 alias chezd='cd ~/.local/share/chezmoi/'
 
@@ -33,25 +68,6 @@ alias chezd='cd ~/.local/share/chezmoi/'
 # export CUBRID_DATABASES=$CUBRID/databases
 # export PATH=$CUBRID/bin:$PATH
 # export LD_LIBRARY_PATH=$CUBRID/lib:$CUBRID/cci/lib:$LD_LIBRARY_PATH
-
-# DHKIM
-# -----
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
-
-export EDITOR='nvim'
-
-export PATH="$PATH:/opt/nvim-linux64/bin"
-
-export PATH="$HOME/.local/bin:$PATH"
-
-# If not running interactively, don't do anything
-case $- in
-*i*) ;;
-*) return ;;
-esac
 
 # Config profiles
 alias profile="$EDITOR ~/.bashrc"
@@ -197,8 +213,6 @@ alias dcl='docker compose logs'
 alias ws="webstorm64.exe"
 alias ii="explorer.exe"
 
-[ -f ~/.fzf.bash ] && source ~/.fzf.bash
-
 ## zoxide
 eval "$(zoxide init bash)"
 
@@ -294,8 +308,3 @@ eval "$(starship init bash)"
 eval "$(atuin init bash)"
 
 export USER=$(whoami)
-
-. "$HOME/.cargo/env"
-source -- ~/.local/share/blesh/ble.sh
-
-. "$HOME/.local/bin/env"
