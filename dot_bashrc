@@ -284,6 +284,12 @@ alias lz='lazygit'
 alias v='nvim'
 alias za='SHELL=nu zellij'
 
+case "$(tty 2>/dev/null)" in
+  /dev/tty[0-9]*)
+    export STARSHIP_CONFIG="$HOME/.config/starship-console.toml"
+    ;;
+esac
+
 eval "$(starship init bash)"
 eval "$(atuin init bash)"
 

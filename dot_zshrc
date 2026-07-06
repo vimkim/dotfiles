@@ -288,6 +288,12 @@ _cached_source zoxide 'zoxide init zsh'
 
 
 ## starship
+case "$(tty 2>/dev/null)" in
+  /dev/tty[0-9]*)
+    export STARSHIP_CONFIG="$HOME/.config/starship-console.toml"
+    ;;
+esac
+
 _cached_source starship 'starship init zsh'
 
 

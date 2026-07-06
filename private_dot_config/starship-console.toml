@@ -1,0 +1,64 @@
+add_newline = false
+
+format = """
+$username$hostname$directory$git_branch$git_status$cmd_duration$status$shell$character"""
+
+[username]
+show_always = true
+format = "[$user]($style)"
+
+[hostname]
+ssh_only = false
+format = "[@$hostname ]($style)"
+style = "bold green"
+
+[directory]
+format = "[$path ]($style)"
+style = "bold cyan"
+truncation_length = 3
+
+[git_branch]
+symbol = "git:"
+format = "[$symbol$branch ]($style)"
+style = "bold purple"
+
+[git_status]
+format = "[$all_status$ahead_behind ]($style)"
+style = "bold red"
+conflicted = "="
+ahead = "^${count}"
+behind = "v${count}"
+diverged = "^${ahead_count}v${behind_count}"
+untracked = "?"
+stashed = "\\$"
+modified = "!"
+staged = "+"
+renamed = "r"
+deleted = "x"
+
+[cmd_duration]
+format = "[$duration ]($style)"
+
+[status]
+disabled = false
+symbol = "!"
+format = "[$symbol$status ]($style)"
+
+[shell]
+disabled = false
+format = "[$indicator ]($style)"
+nu_indicator = "nu"
+bash_indicator = "bash"
+zsh_indicator = "zsh"
+fish_indicator = "fish"
+
+[character]
+success_symbol = "[>](bold green)"
+error_symbol = "[!](bold red)"
+
+[os]
+disabled = true
+
+[sudo]
+disabled = false
+symbol = "sudo "

@@ -183,6 +183,13 @@ def start_zellij [] {
 # Starship
 ###############################################################################
 mkdir ($nu.data-dir | path join "vendor/autoload")
+
+let tty_name = (tty | str trim)
+
+if ($tty_name | str starts-with "/dev/tty") {
+    $env.STARSHIP_CONFIG = $"($env.HOME)/.config/starship-console.toml"
+}
+
 starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")
 
 ###############################################################################
