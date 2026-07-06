@@ -30,7 +30,7 @@ def _dir_history_save [] {
   $in
   | collect
   | uniq
-  | take 60
+  | take 150
   | save --force $history_file
 }
 
