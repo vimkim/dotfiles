@@ -92,7 +92,7 @@ alias vimprofile="$EDITOR ~/.vimrc"
 
 # System aliases
 
-if [ -x "$(command -v eza)" ]; then
+if command -v eza >/dev/null 2>&1; then
     alias ls='eza -aF'
     alias l='eza -aF'
     alias la='eza -laF'
@@ -101,14 +101,16 @@ if [ -x "$(command -v eza)" ]; then
 else
     alias ls='ls -aF'
     alias l='ls -AF'
-    alias la=' -lAF'
+    alias la='ls -lAF'
     alias ll='ls -lAF'
     alias lsd='ls -lAF --color=auto --group-directories-first | grep --color=never "^d"'
 fi
 
 alias which="which -a"
 
-alias du='dust'
+if command -v dust >/dev/null 2>&1; then
+    alias du='dust'
+fi
 
 ## Safety Features
 alias cp='cp -i' # confirm before overwriting something
@@ -116,8 +118,8 @@ alias mv='mv -i' # confirm before overwriting something
 
 ## utility aliases
 mc() {
-    mkdir $@
-    cd $@
+    [ "$#" -eq 1 ] || return 2
+    mkdir -p -- "$1" && cd -- "$1"
 }
 
 ## Navigation aliases
@@ -126,21 +128,47 @@ function cl() {
 }
 alias cd='cl'
 alias c='cd'
-alias cz='DIR=$(zoxide query -l | fzf) && [[ -n $DIR ]] && cd "$DIR"'
-alias cx='DIR=$(fdfind --type d | fzf) && [[ -n $DIR ]] && cd "$DIR"'
-alias cf='cd "$(fdfind . --type f | fzf --height 40% --reverse | xargs -I {} dirname {})"'
 alias up='cd ..'                                            # Move up one directory
-alias back='cd -$OLDPWD'                                    # Return to the previous directory
+alias back='cd -'                                           # Return to the previous directory
 alias pr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root directory
 alias pcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
 alias gr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root directory
 alias gcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
 
+if command -v fd >/dev/null 2>&1; then
+    _fd_cmd=fd
+elif command -v fdfind >/dev/null 2>&1; then
+    _fd_cmd=fdfind
+fi
+
+if command -v fzf >/dev/null 2>&1; then
+    cz() {
+        command -v zoxide >/dev/null 2>&1 || return 127
+        local dir
+        dir=$(zoxide query -l | fzf) && [[ -n $dir ]] && cd "$dir"
+    }
+
+    if [[ -n ${_fd_cmd:-} ]]; then
+        cx() {
+            local dir
+            dir=$("$_fd_cmd" --type d | fzf) && [[ -n $dir ]] && cd "$dir"
+        }
+
+        cf() {
+            local file
+            file=$("$_fd_cmd" . --type f | fzf --height 40% --reverse) && [[ -n $file ]] && cd "$(dirname -- "$file")"
+        }
+    fi
+fi
+
 function gcx() {
     local gitRoot=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
     cd "$gitRoot" || return
 
-    local DIR=$(fdfind --type d . | fzf) && [[ -n $DIR ]] && cd "$DIR"
+    [[ -n ${_fd_cmd:-} ]] || return 127
+    command -v fzf >/dev/null 2>&1 || return 127
+    local dir
+    dir=$("$_fd_cmd" --type d . | fzf) && [[ -n $dir ]] && cd "$dir"
 }
 
 ## Networking and System Information
@@ -213,8 +241,9 @@ alias dcl='docker compose logs'
 alias ws="webstorm64.exe"
 alias ii="explorer.exe"
 
-## zoxide
-eval "$(zoxide init bash)"
+if command -v zoxide >/dev/null 2>&1; then
+    eval "$(zoxide init bash)"
+fi
 
 # bash-it
 
@@ -296,7 +325,11 @@ export SCM_CHECK=true
 alias c='cd'
 alias lz='lazygit'
 alias v='nvim'
-alias za='SHELL=nu zellij'
+if command -v nu >/dev/null 2>&1; then
+    alias za='SHELL=nu zellij'
+else
+    alias za='zellij'
+fi
 
 case "$(tty 2>/dev/null)" in
   /dev/tty[0-9]*)
@@ -304,7 +337,10 @@ case "$(tty 2>/dev/null)" in
     ;;
 esac
 
-eval "$(starship init bash)"
-eval "$(atuin init bash)"
+if command -v starship >/dev/null 2>&1; then
+    eval "$(starship init bash)"
+fi
 
-export USER=$(whoami)
+if command -v atuin >/dev/null 2>&1; then
+    eval "$(atuin init bash)"
+fi
