@@ -114,8 +114,8 @@ confirm() {
 
 need_clean_worktree() {
   git update-index -q --refresh
-  if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-    die "worktree has tracked uncommitted changes; commit or stash them first"
+  if [[ -n "$(git status --porcelain --untracked-files=no --ignore-submodules=all)" ]]; then
+    die "worktree has tracked uncommitted changes outside submodules; commit or stash them first"
   fi
 }
 
