@@ -35,64 +35,6 @@ def --env cl [
   ezam
 }
 
-def vc [query?: string] {
-  let file = (
-    eza -a -l --no-permissions --no-user --icons=always --sort modified --reverse --color=always --only-files --show-symlinks
-    | fzfm --ansi --query ($query | default "")
-    | str trim -l
-    | split row -r '\s+'
-    | get 5 -o
-    | default null
-  )
-
-  if $file == null {
-    print "No file selected."
-    return
-  }
-
-  ^$env.EDITOR $file
-}
-
-def --env cf [query?: string] {
-  let selected = (
-    ^fd --type f --type l --no-ignore --hidden --follow
-    | ^fzf --height 60% --reverse --query ($query | default "")
-  )
-
-  if $selected != null and ($selected | str trim) != "" {
-    cd ($selected | path dirname)
-  }
-}
-
-def __fd_file_path [query?: string] {
-  let result = (
-    ^fd --type f --type l --no-ignore --hidden --follow
-    | ^fzf --height 60% --reverse --query ($query | default "")
-    | complete
-  )
-
-  if $result.exit_code != 0 {
-    return
-  }
-
-  let selected = ($result.stdout | str trim | lines | first)
-
-  if $selected != null and ($selected | str trim) != "" {
-    $selected | path expand
-  }
-}
-
-def __fd_file_clip [query?: string] {
-  let selected = (__fd_file_path ($query | default ""))
-
-  if $selected != null and ($selected | str trim) != "" {
-    $selected | clip
-  }
-}
-
-alias fp = __fd_file_path
-alias fc = __fd_file_clip
-
 # Jump to the root directory of the current Git repository
 def --env __git_root [] {
   let root = (git rev-parse --show-toplevel | str trim)
