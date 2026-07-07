@@ -68,28 +68,31 @@ resolve_ref() {
 
 github_repo_from_url() {
   local url="$1"
-  local repo
+  local path owner repo
 
   url="${url%.git}"
   case "$url" in
     git@github.com:*)
-      repo="${url#git@github.com:}"
+      path="${url#git@github.com:}"
       ;;
     ssh://git@github.com/*)
-      repo="${url#ssh://git@github.com/}"
+      path="${url#ssh://git@github.com/}"
       ;;
     https://github.com/*)
-      repo="${url#https://github.com/}"
+      path="${url#https://github.com/}"
       ;;
     http://github.com/*)
-      repo="${url#http://github.com/}"
+      path="${url#http://github.com/}"
       ;;
     *)
       return 1
       ;;
   esac
 
-  printf '%s\n' "$repo"
+  IFS='/' read -r owner repo _ <<<"${path%/}"
+  [[ -n "$owner" && -n "$repo" ]] || return 1
+
+  printf '%s/%s\n' "$owner" "$repo"
 }
 
 remote_for_repo() {
@@ -178,18 +181,20 @@ fi
 
 PR_METADATA="$(
   gh pr view "${GH_PR_ARGS[@]}" \
-    --json baseRefName,headRefName,baseRefOid,headRefOid,baseRepository,headRepository,number \
-    --jq '[.baseRefName, .headRefName, .baseRefOid, .headRefOid, .baseRepository.nameWithOwner, (.headRepository.nameWithOwner // ""), (.number | tostring)] | @tsv'
+    --json baseRefName,headRefName,baseRefOid,headRefOid,headRepository,number,url \
+    --jq '[.baseRefName, .headRefName, .baseRefOid, .headRefOid, .url, (.headRepository.nameWithOwner // ""), (.number | tostring)] | @tsv'
 )" || die "failed to read PR metadata with gh"
 
-IFS=$'\t' read -r BASE_REF_NAME HEAD_REF_NAME BASE_REF_OID HEAD_REF_OID BASE_REPO HEAD_REPO PR_NUMBER <<<"$PR_METADATA"
+IFS=$'\t' read -r BASE_REF_NAME HEAD_REF_NAME BASE_REF_OID HEAD_REF_OID PR_URL HEAD_REPO PR_NUMBER <<<"$PR_METADATA"
 
 [[ -n "$BASE_REF_NAME" ]] || die "PR metadata did not include baseRefName"
 [[ -n "$HEAD_REF_NAME" ]] || die "PR metadata did not include headRefName"
 [[ -n "$BASE_REF_OID" ]] || die "PR metadata did not include baseRefOid"
 [[ -n "$HEAD_REF_OID" ]] || die "PR metadata did not include headRefOid"
-[[ -n "$BASE_REPO" ]] || die "PR metadata did not include baseRepository"
+[[ -n "$PR_URL" ]] || die "PR metadata did not include url"
 [[ -n "$PR_NUMBER" ]] || die "PR metadata did not include number"
+
+BASE_REPO="$(github_repo_from_url "$PR_URL")" || die "could not parse base repository from PR URL: $PR_URL"
 
 BASE_REMOTE="$(remote_for_repo "$BASE_REPO" || true)"
 if [[ -z "$BASE_REMOTE" ]] && git remote get-url origin >/dev/null 2>&1; then
