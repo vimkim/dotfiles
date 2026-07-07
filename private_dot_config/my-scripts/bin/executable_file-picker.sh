@@ -3,6 +3,7 @@ set -euo pipefail
 
 max_depth=""
 sep=$'\037'
+tmp_dir=""
 
 while (($# > 0)); do
   case "$1" in
@@ -48,25 +49,18 @@ abs_path() {
   esac
 }
 
-eza_line() {
-  local file=$1
-  local line
-
-  line="$(
-    eza -a -l --no-permissions --no-user --icons=always \
-      --color=always --show-symlinks -- "$file" 2>/dev/null \
-      | sed -n '1p'
-  )"
-
-  if [[ -n $line ]]; then
-    printf '%s\n' "$line"
-  else
-    printf '%s\n' "$file"
+cleanup() {
+  if [[ -n ${tmp_dir:-} ]]; then
+    rm -rf "$tmp_dir"
   fi
 }
 
-rows() {
-  local file abs display
+write_rows() {
+  local tmp_files=$1
+  local tmp_abs=$2
+  local tmp_display=$3
+  local tmp_rows=$4
+  local file
   local -a fd_args=(
     --type f
     --type l
@@ -80,13 +74,21 @@ rows() {
     fd_args+=(--max-depth "$max_depth")
   fi
 
-  fd "${fd_args[@]}" \
-  | while IFS= read -r file; do
-      [[ -n $file ]] || continue
-      abs=$(abs_path "$file")
-      display=$(eza_line "$file")
-      printf '%s%s%s\n' "$abs" "$sep" "$display"
-    done
+  fd "${fd_args[@]}" >"$tmp_files"
+  [[ -s $tmp_files ]] || return 0
+
+  while IFS= read -r file; do
+    [[ -n $file ]] || continue
+    abs_path "$file"
+  done <"$tmp_files" >"$tmp_abs"
+
+  if ! eza -a -l --no-permissions --no-user --icons=always \
+      --color=always --show-symlinks --sort=none --stdin \
+      <"$tmp_files" >"$tmp_display" 2>/dev/null; then
+    cp "$tmp_files" "$tmp_display"
+  fi
+
+  paste -d "$sep" "$tmp_abs" "$tmp_display" >"$tmp_rows"
 }
 
 main() {
@@ -94,11 +96,22 @@ main() {
   require fzf
   require eza
 
+  local tmp_files tmp_abs tmp_display tmp_rows
+  tmp_dir=$(mktemp -d)
+  trap cleanup EXIT
+  tmp_files=$tmp_dir/files
+  tmp_abs=$tmp_dir/abs
+  tmp_display=$tmp_dir/display
+  tmp_rows=$tmp_dir/rows
+
+  write_rows "$tmp_files" "$tmp_abs" "$tmp_display" "$tmp_rows"
+  [[ -s $tmp_rows ]] || exit 0
+
   local selected
   if ! selected="$(
-    rows \
-    | fzf --ansi --height 60% --reverse --query "$query" \
-        --delimiter "$sep" --with-nth 2 --accept-nth 1
+    fzf --ansi --height 60% --reverse --query "$query" \
+        --delimiter "$sep" --with-nth 2 --accept-nth 1 \
+        <"$tmp_rows"
   )"; then
     exit 0
   fi
