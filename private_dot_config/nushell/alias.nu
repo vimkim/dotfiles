@@ -257,6 +257,7 @@ alias gl = ~/.config/my-scripts/bin/git-log.sh
 alias gld = do { ~/.config/my-scripts/bin/git-log.sh develop }
 alias glh = do { ~/.config/my-scripts/bin/git-log.sh HEAD }
 alias glf = ~/.config/my-scripts/bin/git-log-find.sh
+alias glpr = ~/.config/my-scripts/bin/git-log-pr.sh
 alias gloga = with-env {GL_OPS: "--all"} { git-log.sh }
 alias gst = git status
 alias gsw = git switch
