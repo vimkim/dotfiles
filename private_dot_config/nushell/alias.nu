@@ -64,6 +64,35 @@ def --env cf [query?: string] {
   }
 }
 
+def __fd_file_path [query?: string] {
+  let result = (
+    ^fd --type f --type l --no-ignore --hidden --follow
+    | ^fzf --height 60% --reverse --query ($query | default "")
+    | complete
+  )
+
+  if $result.exit_code != 0 {
+    return
+  }
+
+  let selected = ($result.stdout | str trim | lines | first)
+
+  if $selected != null and ($selected | str trim) != "" {
+    $selected | path expand
+  }
+}
+
+def __fd_file_clip [query?: string] {
+  let selected = (__fd_file_path ($query | default ""))
+
+  if $selected != null and ($selected | str trim) != "" {
+    $selected | clip
+  }
+}
+
+alias fp = __fd_file_path
+alias fc = __fd_file_clip
+
 # Jump to the root directory of the current Git repository
 def --env __git_root [] {
   let root = (git rev-parse --show-toplevel | str trim)
