@@ -253,6 +253,7 @@ alias ghrr = gh search prs --review-requested=@me --state=open
 
 alias ghpr = do { gh pr view --json url -q .url }
 alias gfpa = git fetch --all --prune
+alias grbpr = ~/.config/my-scripts/bin/git-rebase-pr.sh
 alias gl = ~/.config/my-scripts/bin/git-log.sh
 alias gld = do { ~/.config/my-scripts/bin/git-log.sh develop }
 alias glh = do { ~/.config/my-scripts/bin/git-log.sh HEAD }
