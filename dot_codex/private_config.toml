@@ -27,3 +27,6 @@ enabled = true
 [agents]
 max_threads = 6
 max_depth = 2
+
+[notice]
+hide_rate_limit_model_nudge = true
