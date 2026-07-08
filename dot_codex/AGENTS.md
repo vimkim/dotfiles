@@ -9,3 +9,7 @@
 ## Clarification policy
 
 - If my request is ambiguous in any way, ask a concise clarifying question before acting instead of assuming defaults.
+
+## Task tracking
+
+- For substantive implementation, debugging, review, or research tasks, create a concise active goal from my request before doing long-running work. Keep the goal updated when the task meaning changes, so I can return later and quickly see what the agent was doing.

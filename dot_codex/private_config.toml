@@ -15,7 +15,11 @@ trust_level = "trusted"
 [projects."/home/vimkim/temp/zellij-new-tab-next-to-current"]
 trust_level = "trusted"
 
+[projects."/home/vimkim/gh/my-cubrid-docs"]
+trust_level = "trusted"
+
 [tui]
+alternate_screen = "always"
 status_line = ["model-with-reasoning", "pull-request-number", "context-remaining", "context-used", "five-hour-limit", "weekly-limit", "codex-version", "context-window-size", "used-tokens", "total-input-tokens", "total-output-tokens", "task-progress", "approval-mode"]
 status_line_use_colors = true
 
@@ -30,3 +34,6 @@ max_depth = 2
 
 [notice]
 hide_rate_limit_model_nudge = true
+
+[features]
+goals = true
