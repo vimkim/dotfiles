@@ -31,6 +31,13 @@ path add ~/.local/bin/
 path add /opt/bison-3.0.5/bin/
 path add ~/.cargo/bin/
 
+# In SSH sessions, keep X11 forwarding available while preventing browser-open
+# helpers from launching a local GUI browser.
+if (($env.SSH_CONNECTION? | is-not-empty) or ($env.SSH_CLIENT? | is-not-empty) or ($env.SSH_TTY? | is-not-empty)) {
+  $env.BROWSER = ($env.HOME | path join ".local/bin/no-browser")
+  $env.CLAUDE_CODE_ARTIFACT_AUTO_OPEN = "0"
+}
+
 if (sys host | get name | str downcase | str contains 'fedora') and ('/usr/lib64/ccache' | path exists) {
   path add /usr/lib64/ccache
   $env.LANG = 'en_US.utf8'

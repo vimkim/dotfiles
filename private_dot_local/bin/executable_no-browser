@@ -1,0 +1,27 @@
+#!/bin/sh
+
+cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}"
+log_file="$cache_dir/no-browser.log"
+
+mkdir -p "$cache_dir" 2>/dev/null || true
+
+if [ "$#" -gt 0 ]; then
+    target="$*"
+else
+    target="(no URL argument)"
+fi
+
+timestamp="$(date '+%Y-%m-%dT%H:%M:%S%z' 2>/dev/null || date)"
+printf '%s\t%s\n' "$timestamp" "$target" >> "$log_file" 2>/dev/null || true
+
+{
+    printf 'Blocked browser open'
+    if [ "$#" -gt 0 ]; then
+        printf ': %s' "$target"
+    fi
+    printf '\n'
+    printf 'Logged at %s\n' "$log_file"
+} >&2
+
+# Return success so browser libraries do not fall through to xdg-open/firefox.
+exit 0

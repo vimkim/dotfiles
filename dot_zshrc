@@ -42,6 +42,13 @@ add_to_path "$HOME/.mybin"
 # rust
 add_to_path "$HOME/.local/bin"
 
+# In SSH sessions, keep X11 forwarding available while preventing browser-open
+# helpers from launching a local GUI browser.
+if [[ -n "${SSH_CONNECTION:-}" || -n "${SSH_CLIENT:-}" || -n "${SSH_TTY:-}" ]]; then
+    export BROWSER="$HOME/.local/bin/no-browser"
+    export CLAUDE_CODE_ARTIFACT_AUTO_OPEN=0
+fi
+
 export MANPATH="/usr/local/man:$MANPATH"
 export MANWIDTH=999
 
