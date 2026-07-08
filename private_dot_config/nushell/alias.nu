@@ -49,6 +49,10 @@ def --env __git_root [] {
 alias gr = __git_root
 alias gcd = __git_root
 
+# CUBRID knowledge dirs
+alias jira = cd /home/vimkim/gh/my-cubrid-jira
+alias docs = cd /home/vimkim/gh/my-cubrid-docs
+
 ###############################################################################
 # clip
 ###############################################################################

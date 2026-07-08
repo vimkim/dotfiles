@@ -795,6 +795,10 @@ alias conf='confd'
 
 source $HOME/my-cubrid/aliases.sh
 
+## cubrid knowledge dirs
+alias jira='cd /home/vimkim/gh/my-cubrid-jira'
+alias docs='cd /home/vimkim/gh/my-cubrid-docs'
+
 alias rrkernel='sudo sysctl kernel.perf_event_paranoid=1'
 alias rrkerneloff='sudo sysctl kernel.perf_event_paranoid=0'
 alias rrzen='sudo $HOME/temp/rr/scripts/zen_workaround.py'
