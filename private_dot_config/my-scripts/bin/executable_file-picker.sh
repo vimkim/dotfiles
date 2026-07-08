@@ -74,7 +74,10 @@ write_rows() {
     fd_args+=(--max-depth "$max_depth")
   fi
 
-  fd "${fd_args[@]}" >"$tmp_files"
+  fd "${fd_args[@]}" -0 \
+    | xargs -0 -r stat -c '%Y	%n' \
+    | sort -rn \
+    | cut -f2- >"$tmp_files"
   [[ -s $tmp_files ]] || return 0
 
   while IFS= read -r file; do
@@ -109,7 +112,7 @@ main() {
 
   local selected
   if ! selected="$(
-    fzf --ansi --height 60% --reverse --query "$query" \
+    fzf --ansi --height 60% --reverse --no-sort --query "$query" \
         --delimiter "$sep" --with-nth 2 --accept-nth 1 \
         <"$tmp_rows"
   )"; then
