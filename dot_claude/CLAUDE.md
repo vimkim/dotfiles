@@ -1,4 +1,4 @@
-# Global Codex Guidance
+# Global Agent Guidance
 
 ## Important local CUBRID context
 
