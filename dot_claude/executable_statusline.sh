@@ -41,6 +41,32 @@ $(printf '%s' "$input" | "$JQ" -r '
   ] | map(tostring) | join("\u001f")')
 EOF
 
+# --- most recent user prompt (rendered on a second status line) ---
+# Lets you glance at what you last asked after a long-running or resumed session.
+# Prefers Claude Code's own `last-prompt` record; falls back to the last genuine
+# user message (excluding tool results, meta caveats, and slash-command echoes).
+TRANSCRIPT="$(printf '%s' "$input" | "$JQ" -r '.transcript_path // ""')"
+PROMPT=""
+if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
+  PROMPT="$("$JQ" -rRn --argjson max 140 '
+    reduce inputs as $line ({lp:null, um:null};
+      ($line | try fromjson catch null) as $o
+      | if ($o | type) != "object" then .
+        elif ($o.type=="last-prompt") and ($o.lastPrompt|type=="string") and (($o.lastPrompt|length)>0)
+          then .lp = $o.lastPrompt
+        elif ($o.type=="user")
+             and (($o.isMeta // false) | not)
+             and (($o.isSidechain // false) | not)
+             and ($o.message.content | type=="string")
+             and ($o.message.content | test("^<(command-|local-command-)") | not)
+          then .um = $o.message.content
+        else . end)
+    | (.lp // .um // "")
+    | gsub("\\s+"; " ") | sub("^ +"; "") | sub(" +$"; "")
+    | if (length > $max) then (.[0:($max-1)] + "…") else . end
+  ' "$TRANSCRIPT" 2>/dev/null)"
+fi
+
 # --- ANSI colors ---
 R=$'\033[0m'; DIM=$'\033[2m'; BOLD=$'\033[1m'
 GRN=$'\033[32m'; YEL=$'\033[33m'; RED=$'\033[31m'; CYA=$'\033[36m'
@@ -104,3 +130,6 @@ fi
 out+=" ${SEP} ${CYA}\$$(awk -v c="${COST:-0}" 'BEGIN{printf "%.2f", c}')${R}"
 
 printf '%s' "$out"
+
+# --- second line: what you last asked ---
+[ -n "$PROMPT" ] && printf '\n%s' "${DIM}❯${R} ${PROMPT}"
