@@ -91,7 +91,7 @@
       "/home/vimkim/gh"
     ]
   },
-  "model": "claude-fable-5[1m]",
+  "model": "opus[1m]",
   "statusLine": {
     "type": "command",
     "command": "bash ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/statusline.sh"
@@ -104,5 +104,6 @@
   "theme": "dark",
   "remoteControlAtStartup": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "autoMemoryEnabled": false
 }
