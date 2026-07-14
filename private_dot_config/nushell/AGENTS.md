@@ -19,6 +19,8 @@ source $optional_init
 Use the same pattern with `use $optional_module` for optional modules. Nushell
 treats a `null` target as a no-op. This was verified with Nushell 0.114.1.
 
-When running `chezmoi apply`, use `chezmoi apply --force --no-tty` because
-unrelated managed files may be unable to apply cleanly and would otherwise
-require a TTY.
+Never use `chezmoi apply --force`.
+
+When changing a managed file, apply only that file by passing its target path
+explicitly, for example: `chezmoi apply ~/.config/nushell/AGENTS.md`. Do not
+run a broad apply, because unrelated managed files may have local changes.
