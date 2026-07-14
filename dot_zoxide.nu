@@ -20,7 +20,11 @@ export-env {
   if not $__zoxide_hooked {
     $env.config.hooks.env_change.PWD = ($env.config.hooks.env_change.PWD | append {
       __zoxide_hook: true,
-      code: {|_, dir| zoxide add -- $dir}
+      code: {|_, dir|
+        if (which zoxide | is-not-empty) {
+          zoxide add -- $dir
+        }
+      }
     })
   }
 }
@@ -32,6 +36,10 @@ export-env {
 
 # Jump to a directory using only keywords.
 def --env --wrapped __zoxide_z [...rest: string] {
+  if (which zoxide | is-empty) {
+    return
+  }
+
   let path = match $rest {
     [] => {'~'},
     [ '-' ] => {'-'},
@@ -45,6 +53,10 @@ def --env --wrapped __zoxide_z [...rest: string] {
 
 # Jump to a directory using interactive search.
 def --env --wrapped __zoxide_zi [...rest:string] {
+  if (which zoxide | is-empty) {
+    return
+  }
+
   cd $'(zoxide query --interactive -- ...$rest | str trim -r -c "\n")'
 }
 

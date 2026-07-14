@@ -66,10 +66,36 @@ if ($env.WT_SESSION? | is-not-empty) {
 
 $env.SYSTEMD_EDITOR = 'nvim'
 
-source ~/.local/share/atuin/init.nu
-source ~/.zoxide.nu
-use ($nu.default-config-dir | path join mise.nu)
-source ($nu.default-config-dir | path join eza.nu)
+# `source` and `use` resolve their arguments while this file is parsed.  Select
+# either an existing file or `null` at parse time; both keywords treat `null`
+# as a no-op.
+const atuin_init = if ('~/.local/share/atuin/init.nu' | path expand | path exists) {
+  '~/.local/share/atuin/init.nu'
+} else {
+  null
+}
+source $atuin_init
+
+const zoxide_init = if ('~/.zoxide.nu' | path expand | path exists) {
+  '~/.zoxide.nu'
+} else {
+  null
+}
+source $zoxide_init
+
+const mise_module = if (($nu.default-config-dir | path join 'mise.nu') | path exists) {
+  ($nu.default-config-dir | path join 'mise.nu')
+} else {
+  null
+}
+use $mise_module
+
+const eza_init = if (($nu.default-config-dir | path join 'eza.nu') | path exists) {
+  ($nu.default-config-dir | path join 'eza.nu')
+} else {
+  null
+}
+source $eza_init
 
 let os_name = (sys host | get name)
 if $os_name == "Arch Linux" {
@@ -230,7 +256,9 @@ if (which wslpath | is-not-empty) {
 # Shell Startup Decoration
 ###############################################################################
 
-if ("CLAUDE" not-in $env) { fastfetch }
+if ("CLAUDE" not-in $env) and (which fastfetch | is-not-empty) {
+  fastfetch
+}
 
 # let host = (sys host | get hostname)
 # let shell = $env.SHELL
