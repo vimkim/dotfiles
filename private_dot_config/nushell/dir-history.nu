@@ -96,7 +96,7 @@ def _dir_history_delete [dirs: list<string>] {
 
   let answer = (
     input --numchar 1 $"Trash ($dirs | length) selected path\(s\)? [y/N] "
-    | str downcase
+    | str lowercase
     | str trim
   )
   print ""

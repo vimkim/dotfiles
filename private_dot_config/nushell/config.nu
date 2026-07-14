@@ -38,25 +38,25 @@ if (($env.SSH_CONNECTION? | is-not-empty) or ($env.SSH_CLIENT? | is-not-empty) o
   $env.CLAUDE_CODE_ARTIFACT_AUTO_OPEN = "0"
 }
 
-if (sys host | get name | str downcase | str contains 'fedora') and ('/usr/lib64/ccache' | path exists) {
+if (sys host | get name | str lowercase | str contains 'fedora') and ('/usr/lib64/ccache' | path exists) {
   path add /usr/lib64/ccache
   $env.LANG = 'en_US.utf8'
 }
 
-if (sys host | get name | str downcase | str contains 'rocky') {
+if (sys host | get name | str lowercase | str contains 'rocky') {
   $env.LANG = 'en_US.UTF-8'
   echo $env.LANG
 }
 
-if (sys host | get name | str downcase | str contains 'rocky') and ('/usr/lib64/ccache' | path exists) {
+if (sys host | get name | str lowercase | str contains 'rocky') and ('/usr/lib64/ccache' | path exists) {
   # path add /usr/lib64/ccache
 }
 
-if (sys host | get name | str downcase | str contains 'arch') and ('/usr/lib/ccache/bin' | path exists) {
+if (sys host | get name | str lowercase | str contains 'arch') and ('/usr/lib/ccache/bin' | path exists) {
   # path add /usr/lib/ccache/bin
 }
 
-if (sys host | get name | str downcase | str contains 'rocky') and (sys host | get os_version | str contains '8') {
+if (sys host | get name | str lowercase | str contains 'rocky') and (sys host | get os_version | str contains '8') {
   $env.NIX_SSL_CERT_FILE = '/etc/ssl/certs/ca-bundle.crt'
 }
 
