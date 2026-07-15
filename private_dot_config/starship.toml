@@ -36,6 +36,17 @@ style = "bold dimmed yellow"
 format = "CUBDB: [$env_value]($style) "
 style = "bold dimmed yellow"
 
+# Show JAVA_HOME only when the CUBRID env var is set (env_var can't be
+# made conditional, so use a custom module gated by `when`).
+[custom.java_home]
+description = "Show JAVA_HOME when the CUBRID env var is set"
+command = 'echo "$JAVA_HOME"'
+when = 'test -n "$CUBRID" && test -n "$JAVA_HOME"'
+# Force a POSIX shell: the interactive shell is Nushell, which rejects `&&`.
+shell = ["bash", "--noprofile", "--norc"]
+format = "JAVA: [$output]($style) "
+style = "bold dimmed yellow"
+
 [custom.gcc]
 description = "Show GCC version"
 command = "echo gcc$(gcc --version | head -n 1 | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n 1)"
