@@ -186,7 +186,6 @@ alias ai = claude --dangerously-skip-permissions
 alias battery = do { upower -e | fzf --preview='upower -i {}' }
 alias c = cl
 alias cla = claude
-alias cc = claude
 alias cyo = claude --dangerously-skip-permissions
 alias cds = claude --dangerously-skip-permissions
 alias crc = crc.sh
