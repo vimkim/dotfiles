@@ -2,6 +2,7 @@
 set -euo pipefail
 
 max_depth=""
+no_ignore=false
 sep=$'\037'
 tmp_dir=""
 
@@ -17,6 +18,10 @@ while (($# > 0)); do
       ;;
     --max-depth=*)
       max_depth=${1#*=}
+      shift
+      ;;
+    --no-ignore)
+      no_ignore=true
       shift
       ;;
     --)
@@ -72,6 +77,9 @@ write_rows() {
 
   if [[ -n $max_depth ]]; then
     fd_args+=(--max-depth "$max_depth")
+  fi
+  if [[ $no_ignore == true ]]; then
+    fd_args+=(--no-ignore)
   fi
 
   fd "${fd_args[@]}" -0 \

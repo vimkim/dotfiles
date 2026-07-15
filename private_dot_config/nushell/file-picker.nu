@@ -7,7 +7,7 @@ def __pick_file_path [query?: string] {
 }
 
 def __pick_current_file_path [query?: string] {
-  let selected = (^file-picker.sh --max-depth 1 -- ($query | default "") | str trim)
+  let selected = (^file-picker.sh --max-depth 1 --no-ignore -- ($query | default "") | str trim)
 
   if $selected != "" {
     $selected
