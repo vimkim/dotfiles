@@ -1,7 +1,7 @@
 model = "gpt-5.6-sol"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
-model_reasoning_effort = "xhigh"
+model_reasoning_effort = "high"
 
 [projects."/home/vimkim/gh/cb/cubrid"]
 trust_level = "trusted"
@@ -16,6 +16,24 @@ trust_level = "trusted"
 trust_level = "trusted"
 
 [projects."/home/vimkim/gh/my-cubrid-docs"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/my-cubrid"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/temp/cubrid-dev2-server-failures"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/gh/my-cubrid-skills"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/temp/cubrid-dev2-server-cpu"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/temp/optdebug-mode"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/temp/cubrid-oos-presentation"]
 trust_level = "trusted"
 
 [tui]
