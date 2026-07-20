@@ -93,25 +93,27 @@ chezmoi init --apply vimkim
 
 ### Prerequisites for config.nu
 
-The nushell config expects a couple of tools to be around. Starship is the
-only hard requirement (the prompt is initialized unconditionally), and atuin
-and carapace are used for history and completions:
+None of these are hard requirements — config.nu quietly skips every tool that
+is not installed. Recommended for the interactive experience (prompt, history,
+completions; without carapace, Tab-completion for external commands does not
+work):
 
 ```bash
 brew install starship atuin carapace
 ```
 
-The rest are optional — config.nu quietly skips them when they are not
-installed:
+Optional tools used by aliases and helper commands (e.g. eza for `l`,
+fzf/fd/ripgrep for the pickers, lazygit for `lz`, delta as the git/lazygit
+pager):
 
 ```bash
-brew install zoxide eza mise direnv fzf fd ripgrep
+brew install eza fzf fd ripgrep lazygit delta
 ```
 
 Misc dependencies:
 
 ```bash
-brew install fastfetch
+brew install mise direnv zoxide fastfetch diffnav gh
 ```
 
 ## Optional Step: Install oh-my-zsh
