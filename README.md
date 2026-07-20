@@ -24,7 +24,8 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
 
 > On macOS, use `eval "$(/opt/homebrew/bin/brew shellenv bash)"` instead.
 
-### Alternative: Nix Package Manager
+<details>
+<summary>Alternative: Nix Package Manager</summary>
 
 ```bash
 sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install)
@@ -44,13 +45,16 @@ sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --no-daem
 
 Note: nix-command and flakes are automatically enabled with chezmoi apply.
 
+</details>
+
 ## Step 2: Install Zsh
 
 ```bash
 brew install zsh
 ```
 
-### Alternatives
+<details>
+<summary>Alternatives (Arch, RHEL, Ubuntu)</summary>
 
 #### Arch
 
@@ -70,6 +74,8 @@ sudo dnf install zsh
 sudo apt install zsh
 ```
 
+</details>
+
 ## Step 3: Install chezmoi and nushell, then apply dotfiles
 
 ```bash
@@ -78,11 +84,14 @@ brew install chezmoi nushell
 
 > Note: the package is `nushell`, not `nu`.
 
-### Alternative: with Nix
+<details>
+<summary>Alternative: with Nix</summary>
 
 ```bash
 nix --extra-experimental-features nix-command --extra-experimental-features flakes profile install nixpkgs#chezmoi
 ```
+
+</details>
 
 Then apply:
 
@@ -102,6 +111,9 @@ work):
 brew install starship atuin carapace
 ```
 
+<details>
+<summary>Optional tools</summary>
+
 Optional tools used by aliases and helper commands (e.g. eza for `l`,
 fzf/fd/ripgrep for the pickers, lazygit for `lz`, delta as the git/lazygit
 pager):
@@ -116,7 +128,10 @@ Misc dependencies:
 brew install mise direnv zoxide fastfetch diffnav gh
 ```
 
-## Optional Step: Install oh-my-zsh
+</details>
+
+<details>
+<summary>Optional Step: Install oh-my-zsh</summary>
 
 I now use nushell instead, by the way.
 
@@ -125,13 +140,18 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 mv .zshrc.pre-oh-my-zsh .zshrc
 ```
 
-## Optional Step: Other nix packages
+</details>
+
+<details>
+<summary>Optional Step: Other nix packages</summary>
 
 Only if you installed Nix. This might take some time and disk spaces.
 
 ```bash
 my-nix-install.sh
 ```
+
+</details>
 
 ## Step 4: Install nvim dotfiles
 
