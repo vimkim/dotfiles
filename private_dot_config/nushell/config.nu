@@ -280,7 +280,9 @@ if ("CLAUDE" not-in $env) and (which fastfetch | is-not-empty) {
 # ║   SHLVL → ($env.SHLVL)
 # ╚══════════════════════════════╝"
 
-if ("CLAUDE" not-in $env) { zellij ls }
+if ("CLAUDE" not-in $env) and (which zellij | is-not-empty) {
+  ^zellij ls
+}
 
 ulimit -c unlimited
 
