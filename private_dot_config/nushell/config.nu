@@ -103,6 +103,7 @@ if $os_name == "Arch Linux" {
 }
 
 source ~/.config/nushell/alias.nu
+source ~/.config/nushell/clip.nu
 source ~/.config/nushell/file-picker.nu
 source ~/.config/nushell/dir-history.nu
 const my_cubrid_aliases = if ('~/my-cubrid/aliases.nu' | path expand | path exists) {

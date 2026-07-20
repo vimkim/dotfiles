@@ -54,28 +54,6 @@ alias jira = cd /home/vimkim/gh/my-cubrid-jira
 alias docs = cd /home/vimkim/gh/my-cubrid-docs
 
 ###############################################################################
-# clip
-###############################################################################
-
-def clip [] {
-  if ($nu.os-info.name == "linux") {
-    if (which wl-copy | is-empty) and (which xclip | is-empty) {
-      print "Error: neither 'xclip' nor 'wl-copy' is installed"
-    } else {
-      $in | xclip -selection clipboard
-    }
-  } else if (open /proc/version | str contains "microsoft") {
-    $in | clip.exe
-  } else if ($nu.os-info.name == "windows") {
-    $in | clip.exe
-  } else if ($nu.os-info.name == "macos") {
-    $in | pbcopy
-  } else {
-    print "Unsupported OS"
-  }
-}
-
-###############################################################################
 # Just
 ###############################################################################
 
