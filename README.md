@@ -94,6 +94,24 @@ Then apply:
 chezmoi init --apply vimkim
 ```
 
+### Updating on an existing machine
+
+`chezmoi init --apply` only clones when the source directory does not exist
+yet; it does not pull remote updates. To sync a patch made on another machine,
+either pull-and-apply in one step:
+
+```bash
+chezmoi update
+```
+
+or, when the machine might have local edits worth checking first:
+
+```bash
+chezmoi git pull -- --autostash --rebase   # just pull the source repo
+chezmoi diff                               # see what apply would change
+chezmoi apply                              # apply when happy
+```
+
 ### Prerequisites for config.nu
 
 None of these are hard requirements — config.nu quietly skips every tool that
