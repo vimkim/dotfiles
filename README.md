@@ -47,14 +47,16 @@ Note: nix-command and flakes are automatically enabled with chezmoi apply.
 
 </details>
 
-## Step 2: Install Zsh
+## Step 2: Install zsh, chezmoi, and nushell, then apply dotfiles
 
 ```bash
-brew install zsh
+brew install zsh chezmoi nushell
 ```
 
+> Note: the package is `nushell`, not `nu`.
+
 <details>
-<summary>Alternatives (Arch, RHEL, Ubuntu)</summary>
+<summary>Alternative: zsh via system package manager</summary>
 
 #### Arch
 
@@ -76,16 +78,8 @@ sudo apt install zsh
 
 </details>
 
-## Step 3: Install chezmoi and nushell, then apply dotfiles
-
-```bash
-brew install chezmoi nushell
-```
-
-> Note: the package is `nushell`, not `nu`.
-
 <details>
-<summary>Alternative: with Nix</summary>
+<summary>Alternative: chezmoi via Nix</summary>
 
 ```bash
 nix --extra-experimental-features nix-command --extra-experimental-features flakes profile install nixpkgs#chezmoi
@@ -153,14 +147,14 @@ my-nix-install.sh
 
 </details>
 
-## Step 4: Install nvim dotfiles
+## Step 3: Install nvim dotfiles
 
 ```bash
 cd $HOME/.config
 git clone https://github.com/vimkim/nvim
 ```
 
-## Step 5: X11 Forwarding
+## Step 4: X11 Forwarding
 
 ```bash
 sudo dnf install xauth
