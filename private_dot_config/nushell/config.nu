@@ -114,9 +114,12 @@ source $my_cubrid_aliases
 source ~/.config/nushell/completions.nu
 source ~/.config/nushell/zellij.nu
 
-if ($"($env.HOME)/.cargo/env.nu" | path exists) {
-    source "~/.cargo/env.nu"
+const cargo_env = if ('~/.cargo/env.nu' | path expand | path exists) {
+  '~/.cargo/env.nu'
+} else {
+  null
 }
+source $cargo_env
 
 # wezterm fix: https://github.com/nushell/nushell/issues/5585
 # no need for wezterm nightly build after 2025
