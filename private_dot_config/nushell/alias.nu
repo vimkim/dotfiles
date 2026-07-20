@@ -64,7 +64,7 @@ def "nu-complete just-recipes" [] {
 }
 
 # n: no args → fzf + paste to edit line; with args → execute just directly
-def --env --wrapped n [...args: string@"nu-complete just-recipes"] {
+def --env --wrapped ji [...args: string@"nu-complete just-recipes"] {
     if ($args | is-empty) {
         commandline edit (just.nu -f ./justfile -d . | str trim)
     } else {
@@ -83,6 +83,7 @@ def --env jj [] {
         commandline edit $"just ($recipe)"
     }
 }
+alias n = jj
 alias nn = jj
 alias jc = jj
 alias je = nvim ./justfile
