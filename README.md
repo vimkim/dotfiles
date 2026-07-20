@@ -108,6 +108,12 @@ installed:
 brew install zoxide eza mise direnv fzf fd ripgrep
 ```
 
+Misc dependencies:
+
+```bash
+brew install fastfetch
+```
+
 ## Optional Step: Install oh-my-zsh
 
 I now use nushell instead, by the way.
@@ -117,7 +123,7 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 mv .zshrc.pre-oh-my-zsh .zshrc
 ```
 
-## Step 4: Other nix packages
+## Optional Step: Other nix packages
 
 Only if you installed Nix. This might take some time and disk spaces.
 
@@ -125,14 +131,14 @@ Only if you installed Nix. This might take some time and disk spaces.
 my-nix-install.sh
 ```
 
-## Step 5: Install nvim dotfiles
+## Step 4: Install nvim dotfiles
 
 ```bash
 cd $HOME/.config
 git clone https://github.com/vimkim/nvim
 ```
 
-## Step 6: X11 Forwarding
+## Step 5: X11 Forwarding
 
 ```bash
 sudo dnf install xauth
