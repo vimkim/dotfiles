@@ -123,7 +123,6 @@ alias n9 = just n9
 
 alias nb = just nb
 alias nbr = just build-run
-alias nc = just nc
 alias nd = just nd
 alias ns = just ns
 alias np = just np
