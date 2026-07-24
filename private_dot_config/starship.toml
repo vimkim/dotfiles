@@ -59,6 +59,18 @@ detect_files = ['CMakeLists.txt']
 description = "Show Clang version"
 style = "green"
 
+[custom.github_pr]
+description = "Show the current branch's open GitHub PR number (cached)"
+command = '"$HOME/.config/my-scripts/bin/starship-github-pr.sh"'
+# Starship renders the module even when $output is empty, so `when` must do
+# the "is there a PR" check itself (the script is just two cheap file reads
+# once the cache is warm).
+when = '[ -n "$("$HOME/.config/my-scripts/bin/starship-github-pr.sh")" ]'
+# Force a POSIX shell, same as java_home above.
+shell = ["bash", "--noprofile", "--norc"]
+format = "[PR #$output]($style) "
+style = "bold dimmed cyan"
+
 [kubernetes]
 disabled = false
 
