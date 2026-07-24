@@ -121,6 +121,9 @@ const cargo_env = if ('~/.cargo/env.nu' | path expand | path exists) {
   null
 }
 source $cargo_env
+if (which cargo | is-empty) {
+  print --stderr "warning: cargo is not available; install Rust and Cargo with rustup: https://rustup.rs"
+}
 
 # wezterm fix: https://github.com/nushell/nushell/issues/5585
 # no need for wezterm nightly build after 2025
