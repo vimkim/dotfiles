@@ -2,18 +2,17 @@
 
 proj_type=$(detect-project.sh)
 
-if [[ $proj_type == "rust" ]]; then
-    just.nu -f ~/.config/my-scripts/rust.just -d .
-elif [[ $proj_type == "go" ]]; then
-    just.nu -f ~/.config/my-scripts/go.just -d .
-elif [[ $proj_type == "python" ]]; then
-    just.nu -f ~/.config/my-scripts/python.just -d .
-elif [[ $proj_type == "cmake" ]]; then
-    just.nu -f ~/.config/my-scripts/cmake.just -d .
-elif [[ $proj_type == "cpp" ]]; then
-    just.nu -f ~/.config/my-scripts/cpp.just -d .
-elif [[ $proj_type == "c" ]]; then
-    just.nu -f ~/.config/my-scripts/c.just -d .
-else
-    echo "Unsupported project type: $proj_type"
+case "$proj_type" in
+    rust|go|python|cmake|cpp|c)
+        justfile="$HOME/.config/my-scripts/$proj_type.just"
+        ;;
+    *)
+        echo "Unsupported project type: $proj_type" >&2
+        exit 1
+        ;;
+esac
+
+recipe=$(just-pick-and-print.nu -f "$justfile" -d . | tr -d '\n')
+if [[ -n $recipe ]]; then
+    printf 'just -f %q -d . %q\n' "$justfile" "$recipe"
 fi

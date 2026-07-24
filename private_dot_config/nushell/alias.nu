@@ -63,10 +63,13 @@ def "nu-complete just-recipes" [] {
     just -f ./justfile -d . --summary | split row ' ' | where { $in != "" }
 }
 
-# n: no args → fzf + paste to edit line; with args → execute just directly
+# ji: no args → fzf + paste `just <recipe>`; with args → execute just directly
 def --env --wrapped ji [...args: string@"nu-complete just-recipes"] {
     if ($args | is-empty) {
-        commandline edit (just.nu -f ./justfile -d . | str trim)
+        let recipe = (just-pick-and-print.nu -f ./justfile -d . | str trim)
+        if ($recipe | is-not-empty) {
+            commandline edit $"just ($recipe)"
+        }
     } else {
         just -f ./justfile -d . ...$args
     }
@@ -78,7 +81,7 @@ alias j = just
 # lets the atuin pre_execution hook record `just <recipe>`, so Ctrl-R can
 # recall the exact recipe later. Editable too — add args before Enter.
 def --env jj [] {
-    let recipe = (just-pick.nu -f ./justfile -d . | str trim)
+    let recipe = (just-pick-and-print.nu -f ./justfile -d . | str trim)
     if ($recipe | is-not-empty) {
         commandline edit $"just ($recipe)"
     }
@@ -88,9 +91,21 @@ alias nn = jj
 alias jc = jj
 alias je = nvim ./justfile
 alias ne = je
-alias ni = commandline edit (just.nu -f ./.just/justfile -d . | str trim)
+def --env ni [] {
+    let justfile = "./.just/justfile"
+    let recipe = (just-pick-and-print.nu -f $justfile -d . | str trim)
+    if ($recipe | is-not-empty) {
+        commandline edit $"just -f ($justfile) -d . ($recipe)"
+    }
+}
 alias nie = nvim ./.just/justfile
-alias na = commandline edit (just.nu -f ~/.config/my-scripts/justfile -d . | str trim)
+def --env na [] {
+    let justfile = ($nu.home-path | path join ".config/my-scripts/justfile")
+    let recipe = (just-pick-and-print.nu -f $justfile -d . | str trim)
+    if ($recipe | is-not-empty) {
+        commandline edit $"just -f ($justfile) -d . ($recipe)"
+    }
+}
 alias nae = nvim ~/.config/my-scripts/justfile
 alias nae = do { nvim $"($env.HOME)/.local/share/chezmoi/private_dot_config/my-scripts/justfile" }
 

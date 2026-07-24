@@ -1,17 +1,16 @@
 #!/usr/bin/env nu
 
-# just-pick.nu — fzf-pick a recipe and print its NAME to stdout.
+# just-pick-and-print.nu — fzf-pick a recipe and print its name to stdout.
 #
-# Sibling of just.nu, but with a different job: just.nu pastes a recipe's
-# *dry-run expansion*; this prints the bare recipe name (e.g. `build`) so the
-# caller can build a clean `just build` to drop on the prompt. Keeping the
-# invocation form out of here lets each alias decide how to wrap the name.
+# Unlike just-deprecated.nu, this does not expand the recipe's dry-run command.
+# It prints the bare recipe name (e.g. `build`) so the caller can construct an
+# editable `just build` command and let shell history record it.
 def main [
     --justfile (-f): path
     --justdir  (-d): path
 ] {
     def usage [] {
-        print -e "Usage: just-pick.nu -f <justfile> -d <justdir>"
+        print -e "Usage: just-pick-and-print.nu -f <justfile> -d <justdir>"
         exit 1
     }
 
@@ -21,11 +20,11 @@ def main [
     }
 
     if not ($justfile | path exists) {
-        print -e $"just-pick.nu error: file not found: ($justfile)"
+        print -e $"just-pick-and-print.nu error: file not found: ($justfile)"
         exit 1
     }
     if not ($justdir | path exists) {
-        print -e $"just-pick.nu error: directory not found: ($justdir)"
+        print -e $"just-pick-and-print.nu error: directory not found: ($justdir)"
         exit 1
     }
 

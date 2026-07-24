@@ -1,12 +1,15 @@
 #!/usr/bin/env nu
 
+# DEPRECATED: this picker prints a recipe's expanded dry-run command.
+# Prefer just-pick-and-print.nu, which prints the selected recipe name so the
+# caller can paste an explicit `just <recipe>` command onto the shell prompt.
 def main [
     --justfile (-f): path
     --justdir  (-d): path
 ] {
     # usage helper
     def usage [] {
-        print -e "Usage: ./just.nu -f <justfile> -d <justdir>"
+        print -e "Usage: just-deprecated.nu -f <justfile> -d <justdir>"
         exit 1
     }
 
@@ -19,11 +22,11 @@ def main [
 
     # Sanity checks
     if not ($justfile | path exists) {
-        print -e $"just.nu error: file not found: ($justfile)"
+        print -e $"just-deprecated.nu error: file not found: ($justfile)"
         exit 1
     }
     if not ($justdir | path exists) {
-        print -e $"just.nu error: directory not found: ($justdir)"
+        print -e $"just-deprecated.nu error: directory not found: ($justdir)"
         exit 1
     }
 
