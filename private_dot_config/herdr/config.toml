@@ -4,6 +4,10 @@ onboarding = false
 pane_history = false
 
 [keys]
+workspace_picker = "alt+w"
+previous_workspace = "alt+left"
+next_workspace = "alt+right"
+switch_workspace = "alt+1..9"
 new_tab = "alt+n"
 previous_tab = "alt+["
 next_tab = "alt+]"
