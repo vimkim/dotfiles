@@ -149,10 +149,10 @@ if command -v fzf >/dev/null 2>&1; then
     }
 
     if [[ -n ${_fd_cmd:-} ]]; then
-        cx() {
-            local dir
-            dir=$("$_fd_cmd" --type d | fzf) && [[ -n $dir ]] && cd "$dir"
-        }
+        # cx() {
+        #     local dir
+        #     dir=$("$_fd_cmd" --type d | fzf) && [[ -n $dir ]] && cd "$dir"
+        # }
 
         cf() {
             local file
@@ -160,6 +160,11 @@ if command -v fzf >/dev/null 2>&1; then
         }
     fi
 fi
+
+alias ai='claude --dangerously-skip-permissions'
+alias aip='ai "read prompt.md and execute"'
+alias cx='codex'
+alias cxp='codex "read prompt.md and execute"'
 
 function gcx() {
     local gitRoot=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
@@ -217,6 +222,7 @@ alias gfz="git fuzzy"
 
 # Deveplopment and Programming aliases
 
+alias ncb='just cb'
 alias nv='nvim'
 alias v='nvim'
 

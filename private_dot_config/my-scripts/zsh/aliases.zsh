@@ -306,10 +306,15 @@ function cd_fzf() {
 }
 
 # Aliases for specific navigation
-alias cx='FD_OPS=(-H --type d --type l) cd_fzf .'          # Navigate to directories
+# alias cx='FD_OPS=(-H --type d --type l) cd_fzf .'          # Navigate to directories
 alias cxx='FD_OPS=(-H -I --type d --type l) cd_fzf .'          # Navigate to directories
 alias cxh='cd_fzf "$HOME" d'   # Navigate to directories under $HOME
 alias cxg='cd_fzf "$(relative_gitdir)" d'  # Navigate to directories under Git root
+
+alias ai='claude --dangerously-skip-permissions'
+alias aip='ai "read prompt.md and execute"'
+alias cx='codex'
+alias cxp='codex "read prompt.md and execute"'
 
 alias cf='FD_OPS=(-H -I --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
 alias cff='FD_OPS=(-H -I --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
@@ -883,6 +888,7 @@ alias jus='print -z "$(just.sh -j ./.user.justfile -d .)"'
 alias ja='print -z "$(just.sh -j $HOME/.config/my-scripts/justfile -d .)"'
 alias jc='ja'
 alias jg='ja'
+alias ncb='just cb'
 alias jge='nvim $MY_SCRIPTS/justfile'
 alias jae='nvim $MY_SCRIPTS/justfile'
 
