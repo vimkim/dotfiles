@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+
+"""Move the active Herdr workspace one position up or down."""
+
+import json
+import os
+import socket
+import sys
+
+
+def fail(message: str) -> None:
+    print(f"herdr-move-workspace: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def request(connection, request_id: str, method: str, params: dict) -> dict:
+    payload = {"id": request_id, "method": method, "params": params}
+    connection.write(json.dumps(payload, separators=(",", ":")).encode() + b"\n")
+    connection.flush()
+
+    response_line = connection.readline()
+    if not response_line:
+        fail(f"Herdr closed the connection while handling {method}")
+
+    response = json.loads(response_line)
+    if "error" in response:
+        error = response["error"]
+        fail(error.get("message", str(error)))
+    return response["result"]
+
+
+def main() -> None:
+    if len(sys.argv) != 2 or sys.argv[1] not in {"up", "down"}:
+        fail("usage: herdr-move-workspace up|down")
+
+    socket_path = os.environ.get("HERDR_SOCKET_PATH")
+    workspace_id = os.environ.get("HERDR_ACTIVE_WORKSPACE_ID")
+    if not socket_path:
+        fail("HERDR_SOCKET_PATH is not set")
+    if not workspace_id:
+        fail("HERDR_ACTIVE_WORKSPACE_ID is not set")
+
+    direction = -1 if sys.argv[1] == "up" else 1
+
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        client.connect(socket_path)
+        with client.makefile("rwb") as connection:
+            snapshot_result = request(
+                connection, "move-workspace-snapshot", "session.snapshot", {}
+            )
+            workspaces = snapshot_result["snapshot"]["workspaces"]
+
+            current_index = next(
+                (
+                    index
+                    for index, workspace in enumerate(workspaces)
+                    if workspace["workspace_id"] == workspace_id
+                ),
+                None,
+            )
+            if current_index is None:
+                fail(f"active workspace {workspace_id!r} was not found")
+
+            target_index = current_index + direction
+            if not 0 <= target_index < len(workspaces):
+                return
+
+            request(
+                connection,
+                "move-workspace",
+                "workspace.move",
+                {"workspace_id": workspace_id, "insert_index": target_index},
+            )
+
+
+if __name__ == "__main__":
+    main()

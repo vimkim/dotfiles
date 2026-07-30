@@ -25,6 +25,18 @@ focus_pane_right = ["alt+l", "alt+right"]
 split_vertical = "alt+v"
 zoom = "alt+f"
 
+[[keys.command]]
+key = "alt+comma"
+type = "shell"
+command = "$HOME/.local/bin/herdr-move-workspace up"
+description = "move workspace up"
+
+[[keys.command]]
+key = "alt+."
+type = "shell"
+command = "$HOME/.local/bin/herdr-move-workspace down"
+description = "move workspace down"
+
 [ui]
 prompt_new_tab_name = false
 
