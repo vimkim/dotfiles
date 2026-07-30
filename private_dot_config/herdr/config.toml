@@ -3,6 +3,20 @@ onboarding = false
 [experimental]
 pane_history = false
 
+[keys]
+new_tab = "alt+n"
+previous_tab = "alt+["
+next_tab = "alt+]"
+switch_tab = "alt+shift+1..9"
+edit_scrollback = "alt+e"
+copy_mode = "alt+s"
+focus_pane_left = "alt+h"
+focus_pane_down = "alt+j"
+focus_pane_up = "alt+k"
+focus_pane_right = "alt+l"
+split_vertical = "alt+v"
+zoom = "alt+f"
+
 [theme]
 name = "catppuccin"
 
