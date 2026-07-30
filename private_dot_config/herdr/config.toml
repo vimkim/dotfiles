@@ -4,6 +4,7 @@ onboarding = false
 pane_history = false
 
 [keys]
+prefix = "ctrl+a"
 workspace_picker = "alt+w"
 previous_workspace = "alt+up"
 next_workspace = "alt+down"
