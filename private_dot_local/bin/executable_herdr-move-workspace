@@ -13,12 +13,17 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
-def request(connection, request_id: str, method: str, params: dict) -> dict:
+def request(socket_path: str, request_id: str, method: str, params: dict) -> dict:
     payload = {"id": request_id, "method": method, "params": params}
-    connection.write(json.dumps(payload, separators=(",", ":")).encode() + b"\n")
-    connection.flush()
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        client.connect(socket_path)
+        with client.makefile("rwb") as connection:
+            connection.write(
+                json.dumps(payload, separators=(",", ":")).encode() + b"\n"
+            )
+            connection.flush()
+            response_line = connection.readline()
 
-    response_line = connection.readline()
     if not response_line:
         fail(f"Herdr closed the connection while handling {method}")
 
@@ -40,37 +45,37 @@ def main() -> None:
     if not workspace_id:
         fail("HERDR_ACTIVE_WORKSPACE_ID is not set")
 
-    direction = -1 if sys.argv[1] == "up" else 1
+    snapshot_result = request(
+        socket_path, "move-workspace-snapshot", "session.snapshot", {}
+    )
+    workspaces = snapshot_result["snapshot"]["workspaces"]
 
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
-        client.connect(socket_path)
-        with client.makefile("rwb") as connection:
-            snapshot_result = request(
-                connection, "move-workspace-snapshot", "session.snapshot", {}
-            )
-            workspaces = snapshot_result["snapshot"]["workspaces"]
+    current_index = next(
+        (
+            index
+            for index, workspace in enumerate(workspaces)
+            if workspace["workspace_id"] == workspace_id
+        ),
+        None,
+    )
+    if current_index is None:
+        fail(f"active workspace {workspace_id!r} was not found")
 
-            current_index = next(
-                (
-                    index
-                    for index, workspace in enumerate(workspaces)
-                    if workspace["workspace_id"] == workspace_id
-                ),
-                None,
-            )
-            if current_index is None:
-                fail(f"active workspace {workspace_id!r} was not found")
+    if sys.argv[1] == "up":
+        if current_index == 0:
+            return
+        insert_index = current_index - 1
+    else:
+        if current_index == len(workspaces) - 1:
+            return
+        insert_index = current_index + 2
 
-            target_index = current_index + direction
-            if not 0 <= target_index < len(workspaces):
-                return
-
-            request(
-                connection,
-                "move-workspace",
-                "workspace.move",
-                {"workspace_id": workspace_id, "insert_index": target_index},
-            )
+    request(
+        socket_path,
+        "move-workspace",
+        "workspace.move",
+        {"workspace_id": workspace_id, "insert_index": insert_index},
+    )
 
 
 if __name__ == "__main__":

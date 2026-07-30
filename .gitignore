@@ -4,3 +4,6 @@
 .zellij-ntr-*
 
 /.ropeproject/
+
+__pycache__/
+*.pyc
