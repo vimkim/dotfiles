@@ -8,13 +8,14 @@ prefix = "ctrl+a"
 workspace_picker = "alt+w"
 previous_workspace = "alt+up"
 next_workspace = "alt+down"
-switch_workspace = "alt+1..9"
+new_workspace = "alt+n"
+switch_workspace = "alt+shift+1..9"
 previous_agent = "alt+shift+up"
 next_agent = "alt+shift+down"
-new_tab = "alt+n"
+new_tab = "alt+shift+n"
 previous_tab = "alt+["
 next_tab = "alt+]"
-switch_tab = "alt+shift+1..9"
+switch_tab = "alt+1..9"
 edit_scrollback = "alt+e"
 copy_mode = "alt+s"
 focus_pane_left = ["alt+h", "alt+left"]
@@ -23,6 +24,9 @@ focus_pane_up = "alt+k"
 focus_pane_right = ["alt+l", "alt+right"]
 split_vertical = "alt+v"
 zoom = "alt+f"
+
+[ui]
+prompt_new_tab_name = false
 
 [theme]
 name = "catppuccin"
