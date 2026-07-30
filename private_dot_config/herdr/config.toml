@@ -1,0 +1,10 @@
+onboarding = false
+
+[experimental]
+pane_history = false
+
+[theme]
+name = "catppuccin"
+
+[theme.custom]
+overlay0 = "#cad3f5"
