@@ -7,6 +7,17 @@
 - `just` / `justfile` commands in local CUBRID worktrees are personal convenience tooling only. Do not present them as CUBRID organization workflow, reviewer instructions, PR verification commands, or public project documentation. For CUBRID-org-facing text, use standard build/test concepts such as CMake, ctest, or the project-provided scripts instead.
 - For your own local rebuilds while fixing CUBRID code, run `just build` and `just build-test` instead of invoking CMake directly (direct CMake often fails); these are ccache-backed and finish almost instantly.
 
+## CUBRID source indentation
+
+- When working inside a CUBRID source repository, preserve the existing indentation exactly. Do not introduce meaningless indentation-only changes. If indentation changes without a semantic reason, report it because it may be a GNU indent bug.
+- CUBRID compiles most source files as C++, except for a few parser- and flex/bison-related files. However, legacy `.c` and `.h` files are formatted with GNU indent, so any C++-specific syntax in those files must be wrapped exactly as follows:
+
+```c
+/* *INDENT-OFF* */
+C++ syntax code
+/* *INDENT-ON* */
+```
+
 ## Clarification policy
 
 - If my request is ambiguous in any way, ask a concise clarifying question before acting instead of assuming defaults.
