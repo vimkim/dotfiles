@@ -5,19 +5,21 @@ pane_history = false
 
 [keys]
 workspace_picker = "alt+w"
-previous_workspace = "alt+left"
-next_workspace = "alt+right"
+previous_workspace = "alt+up"
+next_workspace = "alt+down"
 switch_workspace = "alt+1..9"
+previous_agent = "alt+shift+up"
+next_agent = "alt+shift+down"
 new_tab = "alt+n"
 previous_tab = "alt+["
 next_tab = "alt+]"
 switch_tab = "alt+shift+1..9"
 edit_scrollback = "alt+e"
 copy_mode = "alt+s"
-focus_pane_left = "alt+h"
+focus_pane_left = ["alt+h", "alt+left"]
 focus_pane_down = "alt+j"
 focus_pane_up = "alt+k"
-focus_pane_right = "alt+l"
+focus_pane_right = ["alt+l", "alt+right"]
 split_vertical = "alt+v"
 zoom = "alt+f"
 
