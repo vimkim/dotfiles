@@ -6,9 +6,9 @@ pane_history = false
 [keys]
 prefix = "ctrl+a"
 workspace_picker = "alt+w"
-previous_workspace = "alt+up"
-next_workspace = "alt+down"
-new_workspace = "alt+n"
+previous_workspace = ["alt+p", "alt+up"]
+next_workspace = ["alt+n", "alt+down"]
+new_workspace = "alt+c"
 switch_workspace = ["alt+shift+1..9", "prefix+shift+1..9"]
 previous_agent = "alt+shift+up"
 next_agent = "alt+shift+down"
