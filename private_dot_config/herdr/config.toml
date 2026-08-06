@@ -39,6 +39,10 @@ description = "move workspace down"
 
 [ui]
 prompt_new_tab_name = false
+agent_panel_sort = "priority"
+
+[ui.sidebar.spaces]
+rows = [["state_icon", "workspace"], ["branch", "$git_dirty", "git_status"]]
 
 [theme]
 name = "catppuccin"

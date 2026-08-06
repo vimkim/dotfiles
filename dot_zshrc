@@ -135,6 +135,46 @@ add_to_path "$MY_SCRIPTS/bin"
 # --- Non-interactive shells stop here ---
 [[ $- != *i* ]] && return
 
+# Herdr only reports Git ahead/behind state by default. Publish a custom
+# workspace token when this workspace's repository has local changes.
+if [[ -n ${HERDR_WORKSPACE_ID:-} ]] && (( $+commands[git] && $+commands[herdr] )); then
+    typeset -g _herdr_git_root=""
+    typeset -g _herdr_git_dirty_state="unknown"
+
+    _herdr_update_git_dirty() {
+        local git_output
+        local dirty_state
+
+        # Remember the first repository discovered in this workspace so the
+        # indicator continues to describe it after changing directories.
+        if [[ -z $_herdr_git_root ]]; then
+            _herdr_git_root=$(command git -C "$PWD" rev-parse --show-toplevel 2>/dev/null) || return
+        fi
+
+        git_output=$(command git -C "$_herdr_git_root" status \
+            --porcelain=v1 --untracked-files=normal 2>/dev/null) || return
+        if [[ -n $git_output ]]; then
+            dirty_state="dirty"
+        else
+            dirty_state="clean"
+        fi
+
+        [[ $dirty_state == $_herdr_git_dirty_state ]] && return
+
+        if [[ $dirty_state == "dirty" ]]; then
+            command herdr workspace report-metadata "$HERDR_WORKSPACE_ID" \
+                --source user:git-dirty --token 'git_dirty=*' >/dev/null 2>&1 || return
+        else
+            command herdr workspace report-metadata "$HERDR_WORKSPACE_ID" \
+                --source user:git-dirty --clear-token git_dirty >/dev/null 2>&1 || return
+        fi
+
+        _herdr_git_dirty_state=$dirty_state
+    }
+
+    precmd_functions+=(_herdr_update_git_dirty)
+fi
+
 export ZSH_COMPDUMP="$HOME/.cache/.zcompdump-$HOST"
 autoload -U +X compinit
 compinit -C -d "$ZSH_COMPDUMP"
