@@ -100,7 +100,7 @@ def --env ni [] {
 }
 alias nie = nvim ./.just/justfile
 def --env na [] {
-    let justfile = ($nu.home-path | path join ".config/my-scripts/justfile")
+    let justfile = ($nu.home-dir | path join ".config/my-scripts/justfile")
     let recipe = (just-pick-and-print.nu -f $justfile -d . | str trim)
     if ($recipe | is-not-empty) {
         commandline edit $"just -f ($justfile) -d . ($recipe)"

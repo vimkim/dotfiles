@@ -58,6 +58,9 @@ cgdb-rust-fzf:
 mdserve:
     ~/.config/my-scripts/bin/mdserve-fzf.sh
 
+copyparty:
+    copyparty -q
+
 firewall-rocky:
     sudo firewall-cmd --add-port=3000/tcp --permanent
     sudo firewall-cmd --reload
