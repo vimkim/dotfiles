@@ -1,5 +1,7 @@
 alias r := rust
 
+mod pm2
+
 _default:
     @just --choose -f {{ justfile() }} -d  {{ invocation_directory() }}
 
@@ -58,7 +60,7 @@ cgdb-rust-fzf:
 mdserve:
     ~/.config/my-scripts/bin/mdserve-fzf.sh
 
-copyparty:
+copyparty-manual:
     copyparty -q
 
 firewall-rocky:
