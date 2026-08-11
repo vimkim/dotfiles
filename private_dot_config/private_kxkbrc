@@ -1,0 +1,6 @@
+[Layout]
+LayoutList=us
+Options=ctrl:nocaps
+ResetOldOptions=true
+Use=true
+VariantList=colemak
