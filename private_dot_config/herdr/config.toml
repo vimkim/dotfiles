@@ -1,5 +1,8 @@
 onboarding = false
 
+[terminal]
+default_shell = "herdr-shell"
+
 [experimental]
 pane_history = false
 

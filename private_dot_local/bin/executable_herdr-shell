@@ -1,0 +1,10 @@
+#!/bin/sh
+
+for shell_name in nu zsh bash; do
+    if shell_path=$(command -v "$shell_name" 2>/dev/null); then
+        exec "$shell_path" "$@"
+    fi
+done
+
+printf '%s\n' 'herdr-shell: none of nu, zsh, or bash was found on PATH' >&2
+exit 127
