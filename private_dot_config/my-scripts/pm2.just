@@ -43,3 +43,10 @@ startup:
 # Restore the last process list saved by `pm2 save`.
 resurrect:
     pm2 resurrect
+
+# Install the self-hosted Markdown renderers and replace the copyparty PM2 definitions.
+copyparty-renderers:
+    ~/.config/my-scripts/bin/copyparty-render-install.sh
+    -pm2 delete copyparty copyparty-docs copyparty-develop
+    pm2 start ~/.config/copyparty/ecosystem.config.cjs
+    pm2 save
