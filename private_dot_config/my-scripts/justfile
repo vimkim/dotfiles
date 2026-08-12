@@ -2,6 +2,7 @@ alias r := rust
 
 mod pm2
 mod firewall-cmd
+mod tuned-adm
 
 _default:
     @just --choose -f {{ justfile() }} -d  {{ invocation_directory() }}
