@@ -1,126 +1,204 @@
 #!/usr/bin/env python3
-import subprocess
+"""Interactively find listening ports with ss and fzf."""
+
+from __future__ import annotations
+
+import argparse
 import re
-from colorama import init, Fore, Style
+import shutil
+import subprocess
+import sys
+from collections.abc import Sequence
+from dataclasses import dataclass
 
-# Initialize colorama
-init()
+
+PROCESS_RE = re.compile(r'\("(?P<program>[^"]+)",pid=(?P<pid>\d+)')
 
 
-def run_ss_command():
-    """Execute ss command and return its output"""
+@dataclass(frozen=True)
+class SocketEntry:
+    protocol: str
+    state: str
+    local_address: str
+    port: int
+    pid: str = "-"
+    program: str = "-"
+
+
+def parse_local_endpoint(endpoint: str) -> tuple[str, int] | None:
+    """Split an ss local endpoint into its address and numeric port."""
     try:
-        result = subprocess.run(
-            ["ss", "-tulpn"], capture_output=True, text=True, check=True
-        )
-        return result.stdout
-    except subprocess.CalledProcessError as e:
-        print(f"{Fore.RED}Error running ss command: {e}{Style.RESET_ALL}")
-        exit(1)
-    except FileNotFoundError:
-        print(
-            f"{Fore.RED}Error: ss command not found. Please install iproute2 package.{Style.RESET_ALL}"
-        )
-        exit(1)
-
-
-def parse_ss_line(line):
-    """Parse a single line of ss output"""
-    parts = line.strip().split()
-    if len(parts) < 5 or parts[0] == "Netid":  # Skip header and invalid lines
+        address, port_text = endpoint.rsplit(":", 1)
+        port = int(port_text)
+    except (ValueError, TypeError):
         return None
 
-    protocol = parts[0]
+    if not 0 <= port <= 65535:
+        return None
 
-    # Extract local address and port
-    local_addr = parts[4]
-    local_port = local_addr.split(":")[-1]
+    if address.startswith("[") and address.endswith("]"):
+        address = address[1:-1]
 
-    # Extract peer address and port
-    peer_addr = parts[5]
+    return address, port
 
-    # Extract process info if it exists
-    process = " ".join(parts[6:]) if len(parts) > 6 else ""
+
+def parse_processes(process_text: str) -> tuple[str, str]:
+    """Extract unique PIDs and program names from ss process metadata."""
+    matches = PROCESS_RE.findall(process_text)
+    if not matches:
+        return "-", "-"
+
+    programs = list(dict.fromkeys(program for program, _ in matches))
+    pids = list(dict.fromkeys(pid for _, pid in matches))
+    return ",".join(pids), ",".join(programs)
+
+
+def parse_ss_line(line: str) -> SocketEntry | None:
+    """Parse one line produced by ``ss -H -lntup``."""
+    parts = line.split(maxsplit=6)
+    if len(parts) < 6:
+        return None
+
+    protocol, state, _, _, local_endpoint, _ = parts[:6]
+    endpoint = parse_local_endpoint(local_endpoint)
+    if endpoint is None:
+        return None
+
+    address, port = endpoint
+    pid, program = parse_processes(parts[6] if len(parts) == 7 else "")
+    return SocketEntry(
+        protocol=protocol,
+        state=state,
+        local_address=address,
+        port=port,
+        pid=pid,
+        program=program,
+    )
+
+
+def collect_entries(*, tcp: bool, udp: bool) -> list[SocketEntry]:
+    """Collect listening TCP and bound UDP sockets from ss."""
+    command = ["ss", "-H", "-l", "-n", "-p"]
+    if tcp:
+        command.append("-t")
+    if udp:
+        command.append("-u")
 
     try:
-        port_num = int(local_port)
-    except ValueError:
-        if local_port == "*":
-            port_num = 0
-        else:
-            return None
-
-    return {
-        "protocol": protocol,
-        "state": parts[1],
-        "local_addr": local_addr,
-        "peer_addr": peer_addr,
-        "port": port_num,
-        "process": process,
-    }
-
-
-def colorize_port(port):
-    """Apply color to port number based on its range"""
-    if port < 1024:
-        return f"{Fore.RED}{port}{Style.RESET_ALL}"  # System ports in red
-    elif port < 49152:
-        return f"{Fore.YELLOW}{port}{Style.RESET_ALL}"  # Registered ports in yellow
-    else:
-        return f"{Fore.GREEN}{port}{Style.RESET_ALL}"  # Dynamic ports in green
-
-
-def colorize_state(state):
-    """Apply color to connection state"""
-    if state == "LISTEN":
-        return f"{Fore.CYAN}{state}{Style.RESET_ALL}"
-    elif state == "UNCONN":
-        return f"{Fore.BLUE}{state}{Style.RESET_ALL}"
-    else:
-        return state
-
-
-def main():
-    # Get ss output
-    ss_output = run_ss_command()
-
-    # Parse and store valid entries
-    entries = []
-    for line in ss_output.split("\n"):
-        parsed = parse_ss_line(line)
-        if parsed:
-            entries.append(parsed)
-
-    # Sort by port number
-    sorted_entries = sorted(entries, key=lambda x: x["port"])
-
-    # Print header
-    print(
-        f"\n{Fore.WHITE}{Style.BRIGHT}{'Protocol':<8} {'State':<10} {'Port':<10} "
-        f"{'Local Address':<30} {'Peer Address':<20} Process{Style.RESET_ALL}"
-    )
-    print("-" * 90)
-
-    # Print sorted entries
-    for entry in sorted_entries:
-        print(
-            f"{Fore.MAGENTA}{entry['protocol']:<8}{Style.RESET_ALL} "
-            f"{colorize_state(entry['state']):<10} "
-            f"{colorize_port(entry['port']):<10} "
-            f"{entry['local_addr']:<30} "
-            f"{entry['peer_addr']:<20} "
-            f"{Fore.GREEN}{entry['process']}{Style.RESET_ALL}"
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=True,
         )
+    except FileNotFoundError as error:
+        raise RuntimeError("ss is not installed; install the iproute2 package") from error
+    except subprocess.CalledProcessError as error:
+        detail = error.stderr.strip() or f"exit status {error.returncode}"
+        raise RuntimeError(f"ss failed: {detail}") from error
 
-    print(f"\n{Fore.WHITE}{Style.BRIGHT}Color Legend:{Style.RESET_ALL}")
-    print(f"{Fore.RED}Red Ports:{Style.RESET_ALL} System ports (0-1023)")
-    print(f"{Fore.YELLOW}Yellow Ports:{Style.RESET_ALL} Registered ports (1024-49151)")
-    print(
-        f"{Fore.GREEN}Green Ports:{Style.RESET_ALL} Dynamic/Private ports (49152-65535)"
+    entries = filter(None, (parse_ss_line(line) for line in result.stdout.splitlines()))
+    return sorted(
+        entries,
+        key=lambda entry: (
+            entry.port,
+            entry.protocol,
+            entry.local_address,
+            entry.program,
+            entry.pid,
+        ),
     )
-    print(f"{Fore.CYAN}Cyan State:{Style.RESET_ALL} LISTEN state")
-    print(f"{Fore.BLUE}Blue State:{Style.RESET_ALL} UNCONN state")
+
+
+def format_entry(entry: SocketEntry) -> str:
+    return (
+        f"{entry.port:>5}  "
+        f"{entry.protocol:<5}  "
+        f"{entry.state:<8}  "
+        f"{entry.local_address:<24.24}  "
+        f"{entry.pid:<10.10}  "
+        f"{entry.program}"
+    )
+
+
+def build_fzf_command(query: str) -> list[str]:
+    command = [
+        "fzf",
+        "--no-sort",
+        "--layout=reverse",
+        "--border",
+        "--cycle",
+        "--exit-0",
+        "--info=inline",
+        "--prompt=ports> ",
+        "--header= PORT  PROTO  STATE     LOCAL ADDRESS             PID         APPLICATION",
+    ]
+    if query:
+        command.extend(["--query", query])
+    return command
+
+
+def select_entry(entries: Sequence[SocketEntry], query: str) -> SocketEntry | None:
+    """Run fzf and return the entry matching its selected display row."""
+    if shutil.which("fzf") is None:
+        raise RuntimeError("fzf is not installed")
+
+    rows = [format_entry(entry) for entry in entries]
+    result = subprocess.run(
+        build_fzf_command(query),
+        input="\n".join(rows) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode in (1, 130) or not result.stdout.strip():
+        return None
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"exit status {result.returncode}"
+        raise RuntimeError(f"fzf failed: {detail}")
+
+    selected_row = result.stdout.rstrip("\n")
+    try:
+        return entries[rows.index(selected_row)]
+    except ValueError as error:
+        raise RuntimeError("fzf returned an unknown selection") from error
+
+
+def parse_args(argv: Sequence[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Fuzzily find listening TCP and bound UDP ports.",
+    )
+    protocols = parser.add_argument_group("protocol filters")
+    protocols.add_argument("-t", "--tcp", action="store_true", help="show only TCP")
+    protocols.add_argument("-u", "--udp", action="store_true", help="show only UDP")
+    parser.add_argument(
+        "query",
+        nargs="*",
+        help="initial fuzzy-search query",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    tcp = args.tcp or not args.udp
+    udp = args.udp or not args.tcp
+
+    try:
+        entries = collect_entries(tcp=tcp, udp=udp)
+        if not entries:
+            print("No listening TCP or bound UDP ports found.", file=sys.stderr)
+            return 0
+
+        selected = select_entry(entries, " ".join(args.query))
+    except RuntimeError as error:
+        print(f"ports: {error}", file=sys.stderr)
+        return 1
+
+    if selected is not None:
+        print(selected.port)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
