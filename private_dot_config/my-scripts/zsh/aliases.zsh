@@ -809,8 +809,14 @@ alias rrkerneloff='sudo sysctl kernel.perf_event_paranoid=0'
 alias rrzen='sudo $HOME/temp/rr/scripts/zen_workaround.py'
 
 clip() {
-    if grep -qi microsoft /proc/version; then
+    if [[ -n ${SSH_CONNECTION:-} ]]; then
+        printf '\e]52;c;'
+        base64 | tr -d '\n'
+        printf '\a'
+    elif grep -qi microsoft /proc/version; then
         clip.exe "$@"
+    elif [[ -n ${WAYLAND_DISPLAY:-} ]] && command -v wl-copy >/dev/null 2>&1; then
+        wl-copy "$@"
     else
         xclip -selection clipboard "$@"
     fi

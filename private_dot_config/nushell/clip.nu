@@ -11,7 +11,10 @@ def clip [] {
     false
   }
 
-  if $is_wsl {
+  if ($env.SSH_CONNECTION? | is-not-empty) {
+    let payload = ($input | into string | encode base64)
+    print --no-newline $"\u{1b}]52;c;($payload)\u{7}"
+  } else if $is_wsl {
     if (which clip.exe | is-empty) {
       error make "Error: 'clip.exe' is not installed"
     }
