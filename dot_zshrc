@@ -307,20 +307,6 @@ plugins=(dirpersist gitfast gh rust)
 
 export CHEZ_EDITOR='chezmoi edit --watch'
 
-clip() {
-    if [[ -n ${SSH_CONNECTION:-} ]]; then
-        printf '\e]52;c;'
-        base64 | tr -d '\n'
-        printf '\a'
-    elif grep -qi microsoft /proc/version; then
-        clip.exe "$@"
-    elif [[ -n ${WAYLAND_DISPLAY:-} ]] && command -v wl-copy >/dev/null 2>&1; then
-        wl-copy "$@"
-    else
-        xclip -selection clipboard "$@"
-    fi
-}
-
 # fzf
 # https://github.com/junegunn/fzf
 # git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
