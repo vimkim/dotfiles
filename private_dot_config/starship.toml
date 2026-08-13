@@ -6,6 +6,14 @@ threshold = 3
 [shell]
 disabled = false
 
+[custom.cpu_temperature]
+description = "Show the CPU package temperature"
+command = "sensors coretemp-isa-0000 2>/dev/null | awk '/Package id 0:/ { sub(/^\\+/, \"\", $4); sub(/\\.0°C$/, \"°C\", $4); print $4; exit }'"
+when = "command -v sensors >/dev/null 2>&1"
+shell = ["bash", "--noprofile", "--norc"]
+format = "[CPU $output]($style) "
+style = "bold yellow"
+
 [directory]
 fish_style_pwd_dir_length = 5
 
