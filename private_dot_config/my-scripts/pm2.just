@@ -47,6 +47,6 @@ resurrect:
 # Install the self-hosted Markdown renderers and replace the copyparty PM2 definitions.
 copyparty-renderers:
     ~/.config/my-scripts/bin/copyparty-render-install.sh
-    -pm2 delete copyparty copyparty-docs copyparty-develop
+    -pm2 delete copyparty copyparty-docs copyparty-develop copyparty-learnings
     pm2 start ~/.config/copyparty/ecosystem.config.cjs
     pm2 save

@@ -22,6 +22,15 @@ module.exports = {
             interpreter: "none",
             autorestart: true,
             merge_logs: true
+        },
+        {
+            name: "copyparty-learnings",
+            script: path.join(userHome, ".config/my-scripts/bin/copyparty-pm2.sh"),
+            args: ["-p", "8888"],
+            cwd: path.join(userHome, "gh/my-learnings"),
+            interpreter: "none",
+            autorestart: true,
+            merge_logs: true
         }
     ]
 };
