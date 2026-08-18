@@ -6,6 +6,14 @@ const userHome = os.homedir();
 module.exports = {
     apps: [
         {
+            name: "copyparty-index",
+            script: path.join(userHome, ".config/my-scripts/bin/copyparty-index-pm2.sh"),
+            cwd: path.join(userHome, ".config/copyparty/index"),
+            interpreter: "none",
+            autorestart: true,
+            merge_logs: true
+        },
+        {
             name: "copyparty-docs",
             script: path.join(userHome, ".config/my-scripts/bin/copyparty-pm2.sh"),
             args: ["-p", "3923"],

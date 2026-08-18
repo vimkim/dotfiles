@@ -65,6 +65,12 @@ mdserve:
 copyparty-manual:
     copyparty -q
 
+# Start or refresh the Copyparty landing page at http://localhost:8080.
+copyparty-index:
+    -pm2 delete copyparty-index
+    pm2 start ~/.config/copyparty/ecosystem.config.cjs --only copyparty-index
+    pm2 save
+
 netscanner:
     sudo $"(which netscanner | get path | first)"
 
