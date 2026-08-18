@@ -13,9 +13,6 @@ previous_workspace = ["alt+p", "alt+up"]
 next_workspace = ["alt+n", "alt+down"]
 new_workspace = "alt+c"
 switch_workspace = ["alt+shift+1..9", "prefix+shift+1..9"]
-previous_agent = "alt+shift+up"
-next_agent = "alt+shift+down"
-new_tab = "alt+shift+n"
 previous_tab = "alt+["
 next_tab = "alt+]"
 switch_tab = "alt+1..9"
@@ -29,13 +26,13 @@ split_vertical = "alt+v"
 zoom = "alt+f"
 
 [[keys.command]]
-key = "alt+comma"
+key = ["alt+comma", "alt+shift+p", "alt+shift+up"]
 type = "shell"
 command = "$HOME/.local/bin/herdr-move-workspace up"
 description = "move workspace up"
 
 [[keys.command]]
-key = "alt+."
+key = ["alt+.", "alt+shift+n", "alt+shift+down"]
 type = "shell"
 command = "$HOME/.local/bin/herdr-move-workspace down"
 description = "move workspace down"
