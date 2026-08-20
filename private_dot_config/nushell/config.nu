@@ -153,12 +153,41 @@ use std/config *
 
 $env.DIRENV_FROZEN = "0"
 
-def --env direnv-freeze [] {
+def --env direnv-freeze [directory?: path] {
   if (which direnv | is-empty) { return }
-  direnv export json | from json | default {} | load-env
+
+  let target = if $directory == null {
+    $env.PWD
+  } else {
+    $directory | path expand
+  }
+
+  let direnv_exports = do {
+    cd $target
+    direnv export json
+  }
+
+  $direnv_exports | from json | default {} | load-env
   $env.PATH = do (env-conversions).path.from_string $env.PATH
   $env.DIRENV_FROZEN = "1"
-  print "direnv: frozen — pre_prompt hook will skip until thaw"
+  print $"direnv: frozen from ($target) — pre_prompt hook will skip until thaw"
+}
+
+# Keep this in Nushell: a just recipe cannot export its environment to its parent.
+alias direnv-freeze-cubrid-select = do --env {
+  let selection = (
+    glob ($nu.home-dir | path join "gh/cb/*")
+    | where { |entry| ($entry | path type) == dir }
+    | sort
+    | str join (char nl)
+    | fzf --height 60% --reverse
+    | complete
+  )
+  let selected = ($selection.stdout | str trim)
+
+  if ($selected | is-not-empty) {
+    direnv-freeze $selected
+  }
 }
 
 def --env direnv-thaw [] {
