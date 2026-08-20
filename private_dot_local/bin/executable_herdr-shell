@@ -1,5 +1,34 @@
 #!/bin/sh
 
+# The persistent Herdr server can outlive the graphical login that launched it,
+# so panes may inherit no display environment even though KDE has published the
+# current values to the systemd user manager. Fill only missing values so SSH
+# forwarding and explicitly selected displays keep taking precedence.
+if command -v systemctl >/dev/null 2>&1; then
+    herdr_user_environment=$(systemctl --user show-environment 2>/dev/null) \
+        || herdr_user_environment=
+
+    for herdr_environment_name in \
+        DISPLAY \
+        WAYLAND_DISPLAY \
+        XAUTHORITY \
+        XDG_RUNTIME_DIR \
+        XDG_SESSION_TYPE
+    do
+        if ! printenv "$herdr_environment_name" >/dev/null 2>&1; then
+            herdr_environment_value=$(
+                printf '%s\n' "$herdr_user_environment" \
+                    | sed -n "s/^${herdr_environment_name}=//p"
+            )
+            if [ -n "$herdr_environment_value" ]; then
+                export "$herdr_environment_name=$herdr_environment_value"
+            fi
+        fi
+    done
+
+    unset herdr_user_environment herdr_environment_name herdr_environment_value
+fi
+
 for shell_name in nu zsh bash; do
     if shell_path=$(command -v "$shell_name" 2>/dev/null); then
         exec "$shell_path" "$@"
