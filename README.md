@@ -145,6 +145,12 @@ The terminal configuration uses Maple Mono. On Fedora, follow
 
 </details>
 
+### WezTerm on Fedora KDE through Herdr
+
+The display-environment, XKB layout, and `dead_hamza` packaging diagnosis is
+recorded in [WezTerm on Fedora KDE through Herdr](docs/wezterm-fedora.md),
+including verification and rollback commands.
+
 ### Optional: Install the Colemak programmer layout
 
 The KDE Wayland configuration includes a standalone Colemak layout with
