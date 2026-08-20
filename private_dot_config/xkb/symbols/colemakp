@@ -1,7 +1,7 @@
-// User-local US keyboard variants.
+// User-local Colemak layout for programming symbols.
 
-partial alphanumeric_keys
-xkb_symbols "colemakp" {
+default partial alphanumeric_keys
+xkb_symbols "basic" {
     include "us(colemak)"
 
     name[Group1] = "English (Colemak for programmers)";

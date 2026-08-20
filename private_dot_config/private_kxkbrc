@@ -1,6 +1,6 @@
 [Layout]
-LayoutList=us
+LayoutList=colemakp
 Options=ctrl:nocaps
 ResetOldOptions=true
 Use=true
-VariantList=colemakp
+VariantList=

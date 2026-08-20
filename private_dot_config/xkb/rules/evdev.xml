@@ -1,20 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xkbConfigRegistry SYSTEM "xkb.dtd">
 <xkbConfigRegistry version="1.1">
+  <modelList/>
   <layoutList>
     <layout>
       <configItem>
-        <name>us</name>
+        <name>colemakp</name>
+        <shortDescription>cmp</shortDescription>
+        <description>English (Colemak for programmers)</description>
+        <languageList>
+          <iso639Id>eng</iso639Id>
+        </languageList>
       </configItem>
-      <variantList>
-        <variant>
-          <configItem>
-            <name>colemakp</name>
-            <shortDescription>cmp</shortDescription>
-            <description>English (Colemak for programmers)</description>
-          </configItem>
-        </variant>
-      </variantList>
     </layout>
   </layoutList>
+  <optionList/>
 </xkbConfigRegistry>
