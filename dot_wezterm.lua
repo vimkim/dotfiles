@@ -46,7 +46,6 @@ local xdg_config_home = os.getenv("HOME")
 -- 	},
 -- }
 
-config.window_decorations = "RESIZE"
 config.enable_tab_bar = true
 config.hide_tab_bar_if_only_one_tab = true
 
