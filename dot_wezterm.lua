@@ -10,9 +10,9 @@ config.color_scheme = "Catppuccin Macchiato"
 
 -- config.font = wezterm.font("JetBrainsMonoNL Nerd Font Propo", { weight = "Bold" })
 -- config.font = wezterm.font("NotoSansM Nerd Font Propo", { weight = "Bold" })
--- config.font = wezterm.font("Maple Mono", { weight = "Bold" })
+-- config.font = wezterm.font("Maple Mono NF CN", { weight = "Bold" })
 config.font = wezterm.font_with_fallback({
-	{ family = "Maple Mono", weight = "Bold" },
+	{ family = "Maple Mono NF CN", weight = "Bold" },
 	{ family = "NanumGothicCoding", weight = "Bold" },
 	-- { family = "Noto Serif CJK KR", weight = "DemiBold" },
 	{ family = "NanumBarunpen", weight = "Bold" },
