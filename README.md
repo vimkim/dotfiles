@@ -145,6 +145,13 @@ The terminal configuration uses Maple Mono. On Fedora, follow
 
 </details>
 
+### Optional: Install the Colemak programmer layout
+
+The KDE Wayland configuration includes a standalone Colemak layout with
+programming symbols on the unshifted number row. Follow
+[Installing the Colemak Programmer Layout](docs/colemakp.md) to validate and
+apply it without shadowing the system US XKB symbols file.
+
 <details>
 <summary>Optional Step: Install oh-my-zsh</summary>
 

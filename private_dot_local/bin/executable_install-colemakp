@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly legacy_us_sha256="084ea94892840ff31b2738231542aa4ce8440d983f04e77ca64a8b2370bccba4"
+
+usage() {
+    cat <<'EOF'
+Usage: install-colemakp [--dry-run]
+
+Validate and apply the standalone colemakp XKB layout from this chezmoi
+repository. A known legacy ~/.config/xkb/symbols/us file is moved aside so it
+cannot shadow the system US layout. An unknown file at that path is never
+modified.
+EOF
+}
+
+dry_run=false
+case "${1-}" in
+    "") ;;
+    --dry-run) dry_run=true ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac
+
+if [[ $# -gt 1 ]]; then
+    usage >&2
+    exit 2
+fi
+
+for command_name in chezmoi sha256sum; do
+    if ! command -v "${command_name}" >/dev/null 2>&1; then
+        echo "required command not found: ${command_name}" >&2
+        exit 1
+    fi
+done
+
+source_root="$(chezmoi source-path)"
+layout_source="${source_root}/private_dot_config/xkb/symbols/colemakp"
+registry_source="${source_root}/private_dot_config/xkb/rules/evdev.xml"
+kde_source="${source_root}/private_dot_config/private_kxkbrc"
+
+for source_file in "${layout_source}" "${registry_source}" "${kde_source}"; do
+    if [[ ! -f "${source_file}" ]]; then
+        echo "required chezmoi source file is missing: ${source_file}" >&2
+        exit 1
+    fi
+done
+
+layout_target="$(chezmoi target-path "${layout_source}")"
+registry_target="$(chezmoi target-path "${registry_source}")"
+kde_target="$(chezmoi target-path "${kde_source}")"
+legacy_us_target="$(dirname "${layout_target}")/us"
+
+echo "Validating the colemakp keymap..."
+if command -v xkbcli >/dev/null 2>&1; then
+    xkbcli compile-keymap \
+        --include "${source_root}/private_dot_config/xkb" \
+        --include-defaults \
+        --layout colemakp \
+        --test >/dev/null
+elif command -v xkbcomp >/dev/null 2>&1; then
+    keymap='xkb_keymap { xkb_keycodes { include "evdev+aliases(qwerty)" }; xkb_types { include "complete" }; xkb_compatibility { include "complete" }; xkb_symbols { include "pc+colemakp+inet(evdev)" }; xkb_geometry { include "pc(pc105)" }; };'
+    printf '%s\n' "${keymap}" \
+        | xkbcomp -w0 -I"${source_root}/private_dot_config/xkb" -xkb - - \
+            >/dev/null
+else
+    echo "cannot validate the layout: install xkbcli or xkbcomp first" >&2
+    exit 1
+fi
+
+legacy_backup=""
+if [[ -e "${legacy_us_target}" || -L "${legacy_us_target}" ]]; then
+    if [[ ! -f "${legacy_us_target}" || -L "${legacy_us_target}" ]]; then
+        echo "refusing to modify unexpected path: ${legacy_us_target}" >&2
+        exit 1
+    fi
+
+    actual_sha256="$(sha256sum "${legacy_us_target}" | awk '{print $1}')"
+    if [[ "${actual_sha256}" != "${legacy_us_sha256}" ]]; then
+        echo "refusing to replace a customized XKB file: ${legacy_us_target}" >&2
+        echo "move or merge that file manually, then run this command again" >&2
+        exit 1
+    fi
+
+    legacy_backup="${legacy_us_target}.pre-standalone-colemakp"
+    if [[ -e "${legacy_backup}" || -L "${legacy_backup}" ]]; then
+        echo "refusing to overwrite existing backup: ${legacy_backup}" >&2
+        exit 1
+    fi
+fi
+
+apply_targets=("${layout_target}" "${registry_target}" "${kde_target}")
+
+if [[ "${dry_run}" == true ]]; then
+    if [[ -n "${legacy_backup}" ]]; then
+        echo "Would move ${legacy_us_target} to ${legacy_backup}"
+    fi
+    chezmoi apply --dry-run --verbose "${apply_targets[@]}"
+    echo "Dry run complete; no files were changed."
+    exit 0
+fi
+
+if [[ -n "${legacy_backup}" ]]; then
+    mv -- "${legacy_us_target}" "${legacy_backup}"
+fi
+
+if ! chezmoi apply "${apply_targets[@]}"; then
+    if [[ -n "${legacy_backup}" && ! -e "${legacy_us_target}" ]]; then
+        mv -- "${legacy_backup}" "${legacy_us_target}"
+        echo "restored legacy XKB file after apply failed" >&2
+    fi
+    exit 1
+fi
+
+if [[ -e "${legacy_us_target}" || -L "${legacy_us_target}" ]]; then
+    echo "installation failed: shadowing file still exists: ${legacy_us_target}" >&2
+    exit 1
+fi
+
+if [[ ! -f "${layout_target}" ]]; then
+    echo "installation failed: layout was not created: ${layout_target}" >&2
+    exit 1
+fi
+
+echo "Installed standalone colemakp layout: ${layout_target}"
+if [[ -n "${legacy_backup}" ]]; then
+    echo "Preserved the legacy layout as: ${legacy_backup}"
+fi
+echo "Log out and back in to make Plasma reload the XKB registry and keymap."
