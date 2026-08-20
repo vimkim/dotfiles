@@ -1,0 +1,25 @@
+// User-local US keyboard variants.
+
+partial alphanumeric_keys
+xkb_symbols "colemakp" {
+    include "us(colemak)"
+
+    name[Group1] = "English (Colemak for programmers)";
+
+    // Keep symbols unshifted and numbers shifted.
+    key <TLDE> { [   asciitilde,        grave,      dead_tilde,       asciitilde ] };
+    key <AE01> { [       exclam,            1,      exclamdown,      onesuperior ] };
+    key <AE02> { [           at,            2,       masculine,      twosuperior ] };
+    key <AE03> { [   numbersign,            3,     ordfeminine,    threesuperior ] };
+    key <AE04> { [       dollar,            4,            cent,         sterling ] };
+    key <AE05> { [      percent,            5,        EuroSign,              yen ] };
+    key <AE06> { [  asciicircum,            6,         hstroke,          Hstroke ] };
+    key <AE07> { [    ampersand,            7,             eth,              ETH ] };
+    key <AE08> { [     asterisk,            8,           thorn,            THORN ] };
+    key <AE09> { [    parenleft,            9,  leftsinglequotemark,  leftdoublequotemark ] };
+    key <AE10> { [   parenright,            0, rightsinglequotemark,  rightdoublequotemark ] };
+
+    // Keep braces unshifted and brackets shifted.
+    key <AD11> { [    braceleft,  bracketleft,   guillemotleft,        0x1002039 ] };
+    key <AD12> { [   braceright, bracketright,  guillemotright,        0x100203a ] };
+};
