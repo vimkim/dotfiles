@@ -1,4 +1,5 @@
 README.md
+docs/**
 CLAUDE.md
 AGENTS.md
 nushell-clip-defect.md

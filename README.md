@@ -140,6 +140,9 @@ Misc dependencies:
 brew install mise direnv zoxide fastfetch diffnav gh
 ```
 
+The terminal configuration uses Maple Mono. On Fedora, follow
+[Installing Maple Mono Nerd Font](docs/maple-mono-nerd-font.md).
+
 </details>
 
 <details>
