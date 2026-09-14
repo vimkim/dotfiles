@@ -1,0 +1,2 @@
+#!/bin/sh
+exec gh pr view --json url --jq '.url'
