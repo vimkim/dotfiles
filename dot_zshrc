@@ -3,6 +3,8 @@
 
 # zmodload zsh/zprof
 
+export TMPDIR="$HOME/tmp"
+
 # set -v
 
 # LOCALE

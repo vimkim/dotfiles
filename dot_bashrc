@@ -1,5 +1,7 @@
 # .bashrc
 
+export TMPDIR="$HOME/tmp"
+
 path_prepend() {
     local dir
     for dir in "$@"; do
