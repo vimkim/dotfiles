@@ -9,8 +9,8 @@ pane_history = false
 [keys]
 prefix = "ctrl+a"
 workspace_picker = "alt+w"
-previous_workspace = "alt+p"
-next_workspace = "alt+n"
+previous_workspace = ["alt+p", "alt+left"]
+next_workspace = ["alt+n", "alt+right"]
 new_workspace = "alt+c"
 switch_workspace = ["alt+shift+1..9", "prefix+shift+1..9"]
 previous_tab = "alt+["
@@ -18,10 +18,10 @@ next_tab = "alt+]"
 switch_tab = "alt+1..9"
 edit_scrollback = "alt+e"
 copy_mode = "alt+s"
-focus_pane_left = ["alt+h", "alt+left"]
+focus_pane_left = "alt+h"
 focus_pane_down = "alt+j"
 focus_pane_up = "alt+k"
-focus_pane_right = ["alt+l", "alt+right"]
+focus_pane_right = "alt+l"
 split_vertical = "alt+v"
 zoom = "alt+f"
 
