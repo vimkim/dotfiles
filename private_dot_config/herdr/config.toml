@@ -9,8 +9,8 @@ pane_history = false
 [keys]
 prefix = "ctrl+a"
 workspace_picker = "alt+w"
-previous_workspace = ["alt+p", "alt+up"]
-next_workspace = ["alt+n", "alt+down"]
+previous_workspace = "alt+p"
+next_workspace = "alt+n"
 new_workspace = "alt+c"
 switch_workspace = ["alt+shift+1..9", "prefix+shift+1..9"]
 previous_tab = "alt+["
