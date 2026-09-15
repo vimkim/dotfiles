@@ -23,14 +23,31 @@ add_to_path() {
 }
 
 # Startup cache - avoids re-running slow init commands on every shell
-# Run `zsh-cache-refresh` after updating tools to regenerate
+# Automatically refresh when tools move or change; use `zsh-cache-refresh` to force it
 _zsh_cache_dir="$HOME/.cache/zsh-init"
 [[ -d "$_zsh_cache_dir" ]] || mkdir -p "$_zsh_cache_dir"
 _cached_source() {
     local cache="$_zsh_cache_dir/$1.zsh"
-    if [[ ! -s "$cache" ]]; then
-        eval "$2" > "$cache" 2>/dev/null
-        [[ -s "$cache" ]] || return 1
+    local -a init_words
+    init_words=(${(z)2})
+    local executable key cached_key temporary
+    executable=$(whence -p -- "$init_words[1]") || return 1
+    [[ -x "$executable" ]] || return 1
+    key="# zsh-init: $2 | $executable | ${executable:A}"
+    [[ -r "$cache" ]] && IFS= read -r cached_key < "$cache"
+    if [[ "$cached_key" != "$key" || "$executable" -nt "$cache" ]]; then
+        temporary=$(mktemp "${cache}.XXXXXX") || return 1
+        if (setopt pipefail; eval "$2") > "$temporary" 2>/dev/null && [[ -s "$temporary" ]]; then
+            # Publish only complete, successful output, with its executable identity.
+            { print -r -- "$key"; cat "$temporary"; } > "${temporary}.ready" &&
+                command mv -f "${temporary}.ready" "$cache"
+            local result=$?
+            command rm -f "$temporary" "${temporary}.ready"
+            (( result == 0 )) || return 1
+        else
+            command rm -f "$temporary"
+            return 1
+        fi
     fi
     source "$cache"
 }
