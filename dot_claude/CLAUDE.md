@@ -1,5 +1,9 @@
 # Global Agent Guidance
 
+## Daily/weekly schedule
+
+- My daily and weekly work plans live in `/home/vimkim/temp/todays-schedule` (control sheets + raw prompts) and the `work-tracker` ledger. When I ask what to do today/next, what I planned, or hand over a plan — from any directory — follow the `daily-schedule` skill.
+
 ## Important local CUBRID context
 
 - `/home/vimkim/gh/my-cubrid-docs` is an important local knowledge base for CUBRID design notes, architecture context, and project documentation. Check it before relying on web search for CUBRID-specific context.
