@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
-# Claude Code status line — native, dependency-light (needs jq).
-# Shows: model · context-window usage · 5-hour limit · weekly (7-day) limit · session cost.
-# Reads the session JSON on stdin (schema: https://code.claude.com/docs/en/statusline).
+# Claude Code status line — built entirely from Claude Code's own session
+# JSON (schema: https://code.claude.com/docs/en/statusline), not from the
+# user's Starship prompt. Login shell is nushell, so this is a plain bash
+# script with an explicit shebang, invoked as `bash statusline.sh`.
 #
-# rate_limits.* only appear for Claude.ai Pro/Max accounts, and only after the first
-# API response of a session — so those segments are hidden until the data exists.
+# Shows: model name, current directory + git branch (+ GitHub PR number),
+# context window usage, 5h/7d rate-limit remaining, and (on a second line)
+# the last prompt.
+#
+# Kept fast/non-blocking: single jq pass over stdin, only cheap read-only
+# git metadata calls (no status/diff), and --no-optional-locks so it never
+# contends with other git processes running in the same worktree.
 
 set -uo pipefail
+
+input="$(cat)"
 
 # --- locate jq robustly (statusline runs with a minimal PATH on some setups) ---
 JQ="$(command -v jq 2>/dev/null)"
@@ -15,25 +23,90 @@ for cand in /home/linuxbrew/.linuxbrew/bin/jq /usr/bin/jq /usr/local/bin/jq /opt
   [ -x "$cand" ] && JQ="$cand"
 done
 
-input="$(cat)"
+# --- working directory for this session (drives directory/git/custom modules) ---
+cwd="$PWD"
+if [ -n "$JQ" ]; then
+  extracted="$(printf '%s' "$input" | "$JQ" -r '.workspace.current_dir // .cwd // empty')"
+  [ -n "$extracted" ] && cwd="$extracted"
+fi
 
-# Fall back to a bare line if jq is unavailable, so the bar never breaks.
+# --- directory (full path, ~ shortened) + git branch for that directory ---
+dir_display="$cwd"
+case "$dir_display" in
+  "$HOME") dir_display="~" ;;
+  "$HOME"/*) dir_display="~${dir_display#"$HOME"}" ;;
+esac
+
+git_branch=""
+if command -v git >/dev/null 2>&1; then
+  # Cheap metadata reads only (symbolic-ref/rev-parse) — no status/diff — and
+  # time-boxed so a stalled/networked filesystem can never block the prompt.
+  gtimeout() { if command -v timeout >/dev/null 2>&1; then timeout 0.3 "$@"; else "$@"; fi; }
+  git_branch="$(gtimeout git -C "$cwd" --no-optional-locks symbolic-ref --quiet --short HEAD 2>/dev/null)"
+  if [ -z "$git_branch" ]; then
+    short_sha="$(gtimeout git -C "$cwd" --no-optional-locks rev-parse --short HEAD 2>/dev/null)"
+    [ -n "$short_sha" ] && git_branch="detached@${short_sha}"
+  fi
+fi
+
+# --- GitHub PR number for the current branch ---
+# `gh pr view` hits the network, far too slow to run per render, so the value
+# is served from a per-repo+branch cache and refreshed by a detached background
+# fetch at most once per TTL. The timestamp is bumped synchronously before
+# spawning so overlapping renders can't stampede duplicate fetches.
+pr_number=""
+case "$git_branch" in
+  "" | detached@*) : ;;
+  *)
+    if command -v gh >/dev/null 2>&1; then
+      repo_top="$(gtimeout git -C "$cwd" --no-optional-locks rev-parse --show-toplevel 2>/dev/null)"
+      if [ -n "$repo_top" ]; then
+        cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/claude-statusline"
+        cache_file="$cache_dir/pr-$(printf '%s|%s' "$repo_top" "$git_branch" | cksum | tr ' \t' '__')"
+        now="$(date +%s)"
+        cached_at=""; cached_pr=""
+        [ -f "$cache_file" ] && IFS=' ' read -r cached_at cached_pr < "$cache_file" 2>/dev/null
+        pr_number="${cached_pr:-}"
+        if [ $(( now - ${cached_at:-0} )) -ge 600 ]; then
+          mkdir -p "$cache_dir" 2>/dev/null
+          printf '%s %s\n' "$now" "$pr_number" > "$cache_file" 2>/dev/null
+          (
+            if command -v timeout >/dev/null 2>&1; then
+              pr="$(cd "$repo_top" && timeout 10 gh pr view "$git_branch" --json number -q .number 2>/dev/null)"
+            else
+              pr="$(cd "$repo_top" && gh pr view "$git_branch" --json number -q .number 2>/dev/null)"
+            fi
+            printf '%s %s\n' "$(date +%s)" "$pr" > "$cache_file"
+          ) >/dev/null 2>&1 &
+          disown 2>/dev/null || true
+        fi
+      fi
+    fi
+    ;;
+esac
+
 if [ -z "$JQ" ]; then
-  printf '%s' "$(printf '%s' "$input" | grep -o '"display_name"[^,]*' | head -1 | sed 's/.*: *"//;s/"//')"
+  # No jq on PATH — bare fallback so the bar never breaks.
+  fallback="$dir_display"
+  if [ -n "$git_branch" ]; then
+    fallback+=" ($git_branch"
+    [ -n "$pr_number" ] && fallback+=" #$pr_number"
+    fallback+=")"
+  fi
+  printf '%s' "$fallback"
   exit 0
 fi
 
 # Extract everything in one jq pass, joined by the ASCII Unit Separator (\x1f).
 # A non-whitespace delimiter keeps empty fields in place — IFS-whitespace (tab) would
 # collapse adjacent empties and shift every column. Numeric fields floor to int, else "".
-IFS=$'\x1f' read -r MODEL CTX_PCT IN_TOK CTX_SIZE COST FH_PCT FH_RESET WK_PCT WK_RESET <<EOF
+IFS=$'\x1f' read -r MODEL CTX_PCT IN_TOK CTX_SIZE FH_PCT FH_RESET WK_PCT WK_RESET <<EOF
 $(printf '%s' "$input" | "$JQ" -r '
   def num: if type=="number" then floor else "" end;
   [ (.model.display_name // "?"),
     (.context_window.used_percentage      // "" | num),
     (.context_window.total_input_tokens   // "" | num),
     (.context_window.context_window_size  // "" | num),
-    (.cost.total_cost_usd // 0),
     (.rate_limits.five_hour.used_percentage // "" | num),
     (.rate_limits.five_hour.resets_at       // ""),
     (.rate_limits.seven_day.used_percentage // "" | num),
@@ -99,6 +172,13 @@ until_short() {
 
 out="${BOLD}${MODEL}${R}"
 
+# --- directory + git branch (+ PR number) ---
+dir_seg="${CYA}${dir_display}${R}"
+branch_disp="$git_branch"
+[ -n "$pr_number" ] && branch_disp+=" #${pr_number}"
+[ -n "$branch_disp" ] && dir_seg+=" ${DIM}(${branch_disp})${R}"
+out+=" ${SEP} ${dir_seg}"
+
 # --- context window ---
 if [ -n "$CTX_PCT" ]; then
   c=$(pct_color "$CTX_PCT")
@@ -112,22 +192,19 @@ if [ -n "$CTX_PCT" ]; then
   out+=" ${SEP} ${seg}"
 fi
 
-# --- 5-hour rolling limit ---
+# --- 5-hour rolling limit (shown as % remaining; colored by % used) ---
 if [ -n "$FH_PCT" ]; then
-  c=$(pct_color "$FH_PCT"); seg="${c}5h ${FH_PCT}%${R}"
+  c=$(pct_color "$FH_PCT"); seg="${c}5h $((100 - FH_PCT))%${R}"
   [ -n "$FH_RESET" ] && seg+=" ${DIM}·$(until_short "$FH_RESET" hour)${R}"
   out+=" ${SEP} ${seg}"
 fi
 
-# --- weekly (7-day) limit ---
+# --- weekly (7-day) limit (shown as % remaining; colored by % used) ---
 if [ -n "$WK_PCT" ]; then
-  c=$(pct_color "$WK_PCT"); seg="${c}7d ${WK_PCT}%${R}"
+  c=$(pct_color "$WK_PCT"); seg="${c}7d $((100 - WK_PCT))%${R}"
   [ -n "$WK_RESET" ] && seg+=" ${DIM}·$(until_short "$WK_RESET" day)${R}"
   out+=" ${SEP} ${seg}"
 fi
-
-# --- session cost ---
-out+=" ${SEP} ${CYA}\$$(awk -v c="${COST:-0}" 'BEGIN{printf "%.2f", c}')${R}"
 
 printf '%s' "$out"
 
