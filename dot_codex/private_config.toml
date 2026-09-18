@@ -1,7 +1,7 @@
-model = "gpt-5.6-sol"
+model = "gpt-6-astra"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 [projects."/home/vimkim/gh/cb/cubrid"]
 trust_level = "trusted"
@@ -36,14 +36,54 @@ trust_level = "trusted"
 [projects."/home/vimkim/temp/cubrid-oos-presentation"]
 trust_level = "trusted"
 
+[projects."/home/vimkim/gh/codex-view"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/gh/cubrid-instance-manager"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/temp/cubrid-pgbuf-lru-simulator"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/gh/cubrid-conf-tui"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/temp/exponential-return"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/temp/todays-schedule"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/tmp/ssd"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/tmp/ssh-healthcheck"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/tmp/lvm"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/tmp/xfs-ext4"]
+trust_level = "trusted"
+
+[projects."/home/vimkim/.codex"]
+trust_level = "trusted"
+
+[projects."/mnt/nvme"]
+trust_level = "trusted"
+
+[projects."/mnt/nvme/data-6"]
+trust_level = "trusted"
+
 [tui]
 alternate_screen = "always"
-status_line = ["model-with-reasoning", "pull-request-number", "context-remaining", "context-used", "five-hour-limit", "weekly-limit", "codex-version", "context-window-size", "used-tokens", "total-input-tokens", "total-output-tokens", "task-progress", "approval-mode"]
+status_line = ["model-with-reasoning", "pull-request-number", "context-used", "five-hour-limit", "weekly-limit", "task-progress", "approval-mode", "current-dir", "git-branch"]
 status_line_use_colors = true
 
 [tui.model_availability_nux]
 "gpt-5.5" = 4
 "gpt-5.6-sol" = 1
+gpt-6-astra = 4
 
 [plugins."github@openai-curated"]
 enabled = true
@@ -56,3 +96,9 @@ hide_rate_limit_model_nudge = true
 
 [features]
 goals = true
+
+[hooks.state]
+
+[hooks.state."/home/vimkim/.codex/hooks.json:session_start:0:0"]
+trusted_hash = "sha256:e3d5d47365dbce123bb3efa95a623a5da682e36e304ae25c8cee781b691e97df"
+enabled = true
