@@ -1,5 +1,9 @@
 # Global Agent Guideline
 
+## Daily/weekly schedule
+
+- My daily and weekly work plans live in `/home/vimkim/temp/todays-schedule` (control sheets + raw prompts) and the `work-tracker` ledger. When I ask what to do today/next, what I planned, or hand over a plan — from any directory — follow the `daily-schedule` skill.
+
 ## Important local CUBRID context
 
 - `/home/vimkim/my-cubrid` is an important local personal directory containing many helpful utilities and scripts for developing CUBRID.
@@ -84,4 +88,3 @@ When using cpp STL data structures like std::vector, there is no other way to de
 ## Task tracking
 
 - Use worktracker CLI for tracking my works.
-
