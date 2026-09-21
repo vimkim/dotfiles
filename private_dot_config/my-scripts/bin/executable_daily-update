@@ -73,6 +73,34 @@ resolve_tool() {
     command -v "$name" 2>/dev/null
 }
 
+# Print the Homebrew package kind when the resolved Codex executable belongs
+# to an installed Homebrew codex package. Checking both the real executable
+# path and Homebrew's package database avoids switching an unrelated codex on
+# PATH to a Homebrew update merely because Homebrew is also installed.
+codex_homebrew_kind() {
+    local codex_bin="$1" brew_bin brew_prefix real_bin installed
+    brew_bin="$(command -v brew 2>/dev/null)" || return 1
+    brew_prefix="$("$brew_bin" --prefix 2>/dev/null)" || return 1
+    real_bin="$(readlink -f "$codex_bin" 2>/dev/null)" || return 1
+    case "$real_bin" in
+    "$brew_prefix"/*) ;;
+    *) return 1 ;;
+    esac
+
+    installed="$("$brew_bin" list --cask --versions codex 2>/dev/null)" || true
+    if [ -n "$installed" ]; then
+        printf 'cask\n'
+        return 0
+    fi
+
+    installed="$("$brew_bin" list --formula --versions codex 2>/dev/null)" || true
+    if [ -n "$installed" ]; then
+        printf 'formula\n'
+        return 0
+    fi
+    return 1
+}
+
 # --- cheap version probes --------------------------------------------------
 # Every probe is a stat or a readlink. None of them execute the tool being
 # reported on, because this runs on every shell start.
@@ -307,10 +335,20 @@ run_step() {
     fi
 }
 
+run_codex_upgrade() {
+    local bin kind
+    if bin="$(resolve_tool codex)" && [ -n "$bin" ] &&
+        kind="$(codex_homebrew_kind "$bin")"; then
+        run_step codex brew upgrade "--$kind" codex
+    else
+        run_step codex codex update
+    fi
+}
+
 run_upgrades() {
     mkdir -p "$(dirname "$STAMP")"
 
-    run_step codex codex update
+    run_codex_upgrade
     run_step claude claude update
     # Skills for Claude Code and Codex are the same install: ~/.claude/skills
     # symlinks into ~/.agents/skills, which this lock-file-backed CLI owns.
@@ -398,7 +436,8 @@ usage:
   daily-update --help     this text
 
 The reminder prints on every interactive shell until a run stamps the day.
-Upgrades always target ~/.local/bin first, whatever the calling shell's PATH.
+Upgrades target ~/.local/bin first, whatever the calling shell's PATH. If the
+resolved Codex belongs to Homebrew, it is upgraded through Homebrew instead.
 
 A skill counts as stale only when the lock file claims it and it was deleted
 from its source repository, or its installed directory or symlink is broken.
