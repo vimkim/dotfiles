@@ -177,8 +177,9 @@ Because `~/.claude/skills/*` symlinks into `~/.agents/skills`, the single
 
 `skills update` never removes anything, and the CLI has no prune command, so a
 skill deleted from its source repository stays installed and active forever.
-Each run therefore reports what has gone stale and points at `--prune`, and the
-startup reminder repeats the count from cache so it is not missed.
+Each run therefore reports what has gone stale and points at `--prune`. The
+startup reminder then names those skills, reading them from cache so it stays
+offline and fast; past eight names it summarises the remainder as a count.
 
 A skill is stale only if the lock file claims it *and* one of these holds:
 

@@ -18,6 +18,9 @@ set -uo pipefail
 STAMP="${XDG_CACHE_HOME:-$HOME/.cache}/daily-update.stamp"
 STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/daily-update"
 STALE_CACHE="$STATE_DIR/stale.tsv"
+# How many stale skill names the startup reminder spells out before summarising
+# the rest as a count. Keeps a bad day from filling the screen on every shell.
+STALE_NAMES_SHOWN=8
 TODAY="$(date +%F)"
 
 # Skill layout on this host: ~/.agents/skills is the one real store, the skills
@@ -231,9 +234,27 @@ status_rows() {
     fi
 
     # Read the last run's finding from cache rather than hitting the network:
-    # this function runs on every shell start.
+    # this function runs on every shell start. Names, not just a count, so the
+    # reminder says what would be deleted without needing a second command.
     if [ -s "$STALE_CACHE" ]; then
-        printf 'stale    %s skill(s) — daily-update --prune\n' "$(grep -c . "$STALE_CACHE")"
+        local count names line first
+        count="$(grep -c . "$STALE_CACHE")"
+        names="$(cut -f1 "$STALE_CACHE" | head -n "$STALE_NAMES_SHOWN" |
+            awk 'NF{printf "%s%s", sep, $0; sep=", "} END{printf "\n"}')"
+        if [ "$count" -gt "$STALE_NAMES_SHOWN" ]; then
+            names="$names, and $((count - STALE_NAMES_SHOWN)) more"
+        fi
+        first=1
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            if [ "$first" = 1 ]; then
+                printf 'stale    %s\n' "$line"
+                first=0
+            else
+                printf '         %s\n' "$line"
+            fi
+        done < <(printf '%s\n' "$names" | fold -s -w 52 | sed 's/[[:space:]]*$//')
+        printf '         delete with daily-update --prune\n'
     fi
 }
 
