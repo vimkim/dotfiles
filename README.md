@@ -145,6 +145,38 @@ The terminal configuration uses Maple Mono. On Fedora, follow
 
 </details>
 
+### Daily AI-toolchain upkeep
+
+`daily-update` (in `~/.config/my-scripts/bin`) upgrades Codex, Claude Code, and
+the globally installed agent skills in one go:
+
+```bash
+daily-update            # run everything, then mark today done
+daily-update --status   # show current versions and whether today is done
+daily-update --reset    # clear today's mark so the reminder comes back
+```
+
+Both `config.nu` and `.zshrc` call `daily-update --remind` at the end of
+interactive startup. That prints a pending block on *every* new shell and keeps
+printing until `daily-update` actually runs; the run writes today's date to
+`~/.cache/daily-update.stamp`, which silences the reminder for the rest of the
+calendar day. Seeing the reminder never dismisses it, which is the difference
+from the PR digest above.
+
+The stamp records that a run happened, not that every step succeeded. A failed
+step is listed at the end of the run and left for a deliberate re-run, so a
+network blip cannot trap the reminder in a loop.
+
+Skills come from the `skills` CLI and are tracked in `~/.agents/.skill-lock.json`.
+Because `~/.claude/skills/*` symlinks into `~/.agents/skills`, the single
+`skills update --global` covers both Claude Code and Codex.
+
+Upgrades always resolve `~/.local/bin` first rather than trusting the calling
+shell's PATH, because the two disagree on this host: zsh finds a mise-managed
+npm `codex` and a stale root-owned `/usr/bin/claude` (npm global, 2.0.25) that
+the nushell login shell never sees. Without the pin, running `daily-update`
+from zsh would upgrade a different install than the one you actually use.
+
 ### WezTerm on Fedora KDE through Herdr
 
 The display-environment, XKB layout, and `dead_hamza` packaging diagnosis is

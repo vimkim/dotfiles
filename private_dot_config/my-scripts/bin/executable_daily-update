@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+# Daily AI-toolchain upkeep: codex, claude, and the globally installed skills.
+#
+# Reminder semantics:
+#   --remind  prints the pending block on EVERY interactive shell start, for as
+#             long as today's upkeep is outstanding, and prints nothing once it
+#             has been done today. Shell rc files call this.
+#   (no args) runs the three upgrades, then stamps ~/.cache/daily-update.stamp
+#             with today's date, which silences --remind for the rest of that
+#             calendar day.
+#
+# The stamp records that the run happened, not that every step succeeded: one
+# run silences the reminder as promised, and any failed step is reported loudly
+# at the end of the run so the re-run stays a deliberate choice.
+
+set -uo pipefail
+
+STAMP="${XDG_CACHE_HOME:-$HOME/.cache}/daily-update.stamp"
+TODAY="$(date +%F)"
+
+if [ -t 1 ]; then
+    BOLD=$'\033[1m'
+    DIM=$'\033[2m'
+    ACCENT=$'\033[1;33m'
+    RED=$'\033[1;31m'
+    GREEN=$'\033[1;32m'
+    RESET=$'\033[0m'
+else
+    BOLD="" DIM="" ACCENT="" RED="" GREEN="" RESET=""
+fi
+
+# --- state -----------------------------------------------------------------
+
+stamped_day() {
+    [ -r "$STAMP" ] || return 1
+    tr -d '[:space:]' <"$STAMP"
+}
+
+is_pending() {
+    local day
+    day="$(stamped_day)" || return 0
+    [ "$day" != "$TODAY" ]
+}
+
+# --- tool resolution -------------------------------------------------------
+# PATH order differs per shell on this box: zsh finds a mise-managed npm codex
+# and a stale root-owned /usr/bin/claude, while the nushell login shell finds
+# the self-updating standalone installs under ~/.local/bin. Always prefer
+# ~/.local/bin so a run upgrades the same install the login shell executes, no
+# matter which shell the run was started from.
+
+resolve_tool() {
+    local name="$1" local_bin="$HOME/.local/bin/$1"
+    if [ -x "$local_bin" ]; then
+        printf '%s\n' "$local_bin"
+        return 0
+    fi
+    command -v "$name" 2>/dev/null
+}
+
+# --- cheap version probes --------------------------------------------------
+# Every probe is a stat or a readlink. None of them execute the tool being
+# reported on, because this runs on every shell start.
+
+codex_current() {
+    local link="$HOME/.codex/packages/standalone/current"
+    [ -e "$link" ] || return 1
+    basename "$(readlink -f "$link")" | cut -d- -f1
+}
+
+codex_staged() {
+    local file="$HOME/.codex/packages/standalone/auto-update-version"
+    [ -r "$file" ] || return 1
+    cut -d- -f1 <"$file"
+}
+
+# The native installer points ~/.local/bin/claude at a version-named file, so
+# the symlink target carries the version. Other install methods do not; report
+# nothing rather than paying for `claude --version` on every prompt.
+claude_current() {
+    local bin target
+    bin="$(resolve_tool claude)" && [ -n "$bin" ] || return 1
+    target="$(basename "$(readlink -f "$bin")")"
+    case "$target" in
+    [0-9]*) printf '%s\n' "$target" ;;
+    *) return 1 ;;
+    esac
+}
+
+skills_age_days() {
+    local lock="$HOME/.agents/.skill-lock.json" mtime now
+    [ -r "$lock" ] || return 1
+    mtime="$(stat -c %Y "$lock" 2>/dev/null || stat -f %m "$lock" 2>/dev/null)" || return 1
+    now="$(date +%s)"
+    echo $(((now - mtime) / 86400))
+}
+
+status_rows() {
+    local cur staged version age
+    if cur="$(codex_current)"; then
+        staged="$(codex_staged || true)"
+        if [ -n "$staged" ] && [ "$staged" != "$cur" ]; then
+            printf 'codex    %s  →  %s staged\n' "$cur" "$staged"
+        else
+            printf 'codex    %s\n' "$cur"
+        fi
+    fi
+
+    if version="$(claude_current)"; then
+        printf 'claude   %s\n' "$version"
+    fi
+
+    if age="$(skills_age_days)"; then
+        case "$age" in
+        0) printf 'skills   synced today\n' ;;
+        1) printf 'skills   synced 1 day ago\n' ;;
+        *) printf 'skills   synced %s days ago\n' "$age" ;;
+        esac
+    fi
+}
+
+print_pending() {
+    local line
+    printf '\n%s┌─ daily upkeep pending ──────────────────────%s\n' "$ACCENT" "$RESET"
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        printf '%s│%s  %s\n' "$ACCENT" "$RESET" "$line"
+    done < <(status_rows)
+    printf '%s└─%s run %sdaily-update%s to upgrade and silence this for today\n\n' \
+        "$ACCENT" "$RESET" "$BOLD" "$RESET"
+}
+
+print_status() {
+    local line day
+    if is_pending; then
+        print_pending
+        return 0
+    fi
+    day="$(stamped_day)"
+    printf '\n%s┌─ daily upkeep done %s ──────────────────%s\n' "$GREEN" "$day" "$RESET"
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        printf '%s│%s  %s\n' "$GREEN" "$RESET" "$line"
+    done < <(status_rows)
+    printf '%s└─%s %snext reminder: tomorrow%s\n\n' "$GREEN" "$RESET" "$DIM" "$RESET"
+}
+
+# --- the run ---------------------------------------------------------------
+
+FAILED=()
+SKIPPED=()
+
+run_step() {
+    local label="$1" tool="$2" bin
+    shift 2
+    printf '\n%s── %s ──%s\n' "$BOLD" "$label" "$RESET"
+    if ! bin="$(resolve_tool "$tool")" || [ -z "$bin" ]; then
+        printf '   %s not installed; skipped\n' "$tool"
+        SKIPPED+=("$label")
+        return 0
+    fi
+    printf '   %s%s %s%s\n' "$DIM" "$bin" "$*" "$RESET"
+    if "$bin" "$@"; then
+        printf '   %s%s: ok%s\n' "$GREEN" "$label" "$RESET"
+    else
+        printf '   %s%s: FAILED (exit %d)%s\n' "$RED" "$label" "$?" "$RESET"
+        FAILED+=("$label")
+    fi
+}
+
+run_upgrades() {
+    mkdir -p "$(dirname "$STAMP")"
+
+    run_step codex codex update
+    run_step claude claude update
+    # Skills for Claude Code and Codex are the same install: ~/.claude/skills
+    # symlinks into ~/.agents/skills, which this lock-file-backed CLI owns.
+    run_step skills npx --yes skills@latest update --global --yes
+
+    printf '%s\n' "$TODAY" >"$STAMP"
+
+    printf '\n'
+    if [ ${#SKIPPED[@]} -gt 0 ]; then
+        printf '%sskipped:%s %s\n' "$DIM" "$RESET" "${SKIPPED[*]}"
+    fi
+    if [ ${#FAILED[@]} -gt 0 ]; then
+        printf '%sfailed:%s %s — rerun %sdaily-update%s when convenient.\n' \
+            "$RED" "$RESET" "${FAILED[*]}" "$BOLD" "$RESET"
+    fi
+    printf 'stamped %s; the startup reminder is silent until tomorrow.\n' "$TODAY"
+}
+
+usage() {
+    cat <<'EOF'
+daily-update — daily upkeep for codex, claude, and the global agent skills
+
+usage:
+  daily-update            run every upgrade, then stamp today as done
+  daily-update --remind   print the pending block, or nothing if done today
+  daily-update --status   print current state either way
+  daily-update --reset    clear today's stamp so the reminder returns
+  daily-update --help     this text
+
+The reminder prints on every interactive shell until a run stamps the day.
+Upgrades always target ~/.local/bin first, whatever the calling shell's PATH.
+EOF
+    printf 'Stamp file: %s\n' "$STAMP"
+}
+
+case "${1:---run}" in
+--run) run_upgrades ;;
+--remind)
+    # Must exit 0 even when silent: nushell turns a non-zero external exit
+    # inside a startup file into a parse-time-visible error.
+    if is_pending; then print_pending; fi
+    ;;
+--status) print_status ;;
+--reset)
+    rm -f "$STAMP"
+    printf 'daily-update: stamp cleared; the reminder returns on the next shell.\n'
+    ;;
+-h | --help | help) usage ;;
+*)
+    printf 'daily-update: unknown option %s\n\n' "$1" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

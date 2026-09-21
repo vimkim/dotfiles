@@ -359,3 +359,14 @@ if $nu.is-interactive {
     }
   }
 }
+
+###############################################################################
+# Daily toolchain upkeep — codex, claude, and the global agent skills.
+# Unlike the PR digest above, this reminder is not acknowledged by being seen:
+# it reprints on every interactive shell until `daily-update` actually runs,
+# and that run stamps the day silent. The probe is stats and readlinks only.
+###############################################################################
+
+if $nu.is-interactive and ("CLAUDE" not-in $env) and (which daily-update | is-not-empty) {
+  ^daily-update --remind
+}

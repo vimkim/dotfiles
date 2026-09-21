@@ -484,4 +484,11 @@ if [ "$PWD" = "$HOME" ] && [ -z "$ZELLIJ" ]; then
     fi
 fi
 
+# Daily toolchain upkeep reminder (codex, claude, global agent skills).
+# Reprints on every interactive shell until `daily-update` runs; that run
+# stamps the day and silences it. Self-guards, so no condition is needed here.
+if command -v daily-update > /dev/null 2>&1; then
+    daily-update --remind
+fi
+
 # zprof
