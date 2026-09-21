@@ -22,7 +22,7 @@ fi
 }
 
 # Write a tiny standalone preview helper
-tmp_preview="$(mktemp)"
+tmp_preview="$(mktemp "${TMPDIR:-/tmp}/pdfzf-preview.XXXXXX")"
 cat >"$tmp_preview" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail

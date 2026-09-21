@@ -18,7 +18,7 @@ if git diff --staged --quiet; then
   exit 1
 fi
 
-msg_file="$(mktemp -t lazygit-ai-commit.XXXXXX)"
+msg_file="$(mktemp "${TMPDIR:-/tmp}/lazygit-ai-commit.XXXXXX")"
 trap 'rm -f "$msg_file"' EXIT
 
 git diff --staged | claude -p 'Write a Conventional Commits message for the staged diff. Format: type(scope): subject — e.g. docs(cbrd-26668): summarize the change. Output ONLY the raw commit message: no markdown, no code fences, no explanation. Keep the subject under 72 chars; add a short body only if it genuinely adds value.' \

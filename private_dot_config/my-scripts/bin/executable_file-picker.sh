@@ -108,7 +108,7 @@ main() {
   require eza
 
   local tmp_files tmp_abs tmp_display tmp_rows
-  tmp_dir=$(mktemp -d)
+  tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/file-picker.XXXXXXXX")
   trap cleanup EXIT
   tmp_files=$tmp_dir/files
   tmp_abs=$tmp_dir/abs

@@ -118,7 +118,8 @@ def open_in_editor(filepath, line_number):
 
 
 def main():
-    with tempfile.TemporaryDirectory() as temp_dir:
+    temp_root = os.environ.get("TMPDIR") or None
+    with tempfile.TemporaryDirectory(prefix="fuzzydiff-", dir=temp_root) as temp_dir:
         # Read from a file if provided, otherwise from standard input.
         if len(sys.argv) >= 2:
             try:

@@ -75,7 +75,7 @@ if [[ -n "$CUSTOM_REPO" ]]; then
   fi
   mkdir -p "$REPO_DIR"
 else
-  REPO_DIR="$(mktemp -d -t diffdirs-XXXXXXXX)"
+  REPO_DIR="$(mktemp -d "${TMPDIR:-/tmp}/diffdirs-XXXXXXXX")"
 fi
 
 # Init repo
