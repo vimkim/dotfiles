@@ -132,6 +132,7 @@ keybinds clear-defaults=true {
                 direction "right"
             }
         }
+        bind "Alt c" { NewTab; SwitchToMode "normal"; }
         bind "Alt d" { TogglePaneEmbedOrFloating; }
         bind "Alt e" { EditScrollback; SwitchToMode "normal"; }
         bind "Alt f" { ToggleFocusFullscreen; }
@@ -140,12 +141,8 @@ keybinds clear-defaults=true {
         bind "Alt j" { MoveFocus "down"; }
         bind "Alt k" { MoveFocus "up"; }
         bind "Alt l" { MoveFocusOrTab "right"; }
-        bind "Alt n" {
-            MessagePlugin "file:~/.config/zellij/plugins/zellij-new-tab-next-to-current.wasm" {
-                name "new-tab-right"
-                floating false
-            }
-        }
+        bind "Alt n" { GoToNextTab; }
+        bind "Alt p" { GoToPreviousTab; }
         bind "Alt t" { ToggleFloatingPanes; SwitchFocus; }
         bind "Alt v" { NewPane "right"; SwitchToMode "normal"; }
         bind "Alt w" {
