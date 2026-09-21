@@ -151,8 +151,10 @@ The terminal configuration uses Maple Mono. On Fedora, follow
 the globally installed agent skills in one go:
 
 ```bash
-daily-update            # run everything, then mark today done
+daily-update            # run everything, report stale skills, mark today done
 daily-update --status   # show current versions and whether today is done
+daily-update --stale    # list stale skills, changing nothing
+daily-update --prune    # delete the stale skills that --stale listed
 daily-update --reset    # clear today's mark so the reminder comes back
 ```
 
@@ -170,6 +172,32 @@ network blip cannot trap the reminder in a loop.
 Skills come from the `skills` CLI and are tracked in `~/.agents/.skill-lock.json`.
 Because `~/.claude/skills/*` symlinks into `~/.agents/skills`, the single
 `skills update --global` covers both Claude Code and Codex.
+
+#### Pruning stale skills
+
+`skills update` never removes anything, and the CLI has no prune command, so a
+skill deleted from its source repository stays installed and active forever.
+Each run therefore reports what has gone stale and points at `--prune`, and the
+startup reminder repeats the count from cache so it is not missed.
+
+A skill is stale only if the lock file claims it *and* one of these holds:
+
+- it no longer exists in its source repository,
+- its directory under `~/.agents/skills` is gone, or
+- its `~/.claude/skills` symlink is broken.
+
+Everything else is left alone. This matters because the lock file records only
+GitHub-sourced installs: the whole `my-cubrid-skills` collection is installed
+from a local path and never appears in it, so treating the lock as an allowlist
+would delete every personal skill. Names present in `~/gh/my-cubrid-skills` are
+additionally protected even if a source repo later publishes the same name.
+
+Two failure modes are guarded explicitly. A `gh` failure is never read as "the
+repository is empty", and because `gh api` prints its 404 body to stdout, the
+upstream list is accepted only when the command succeeds *and* every line looks
+like a bare directory name. `--prune` moves what it removes into
+`~/.cache/daily-update/trash/<timestamp>/`, with a copy of the lock file, rather
+than deleting outright.
 
 Upgrades always resolve `~/.local/bin` first rather than trusting the calling
 shell's PATH, because the two disagree on this host: zsh finds a mise-managed

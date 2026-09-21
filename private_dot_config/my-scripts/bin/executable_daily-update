@@ -16,7 +16,19 @@
 set -uo pipefail
 
 STAMP="${XDG_CACHE_HOME:-$HOME/.cache}/daily-update.stamp"
+STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/daily-update"
+STALE_CACHE="$STATE_DIR/stale.tsv"
 TODAY="$(date +%F)"
+
+# Skill layout on this host: ~/.agents/skills is the one real store, the skills
+# CLI records only its GitHub-sourced installs in .skill-lock.json, and
+# ~/.claude/skills holds a symlink per skill. ~/.codex/skills is unrelated and
+# is never touched. The personal collection is installed from a local path, so
+# it never appears in the lock file.
+SKILLS_STORE="$HOME/.agents/skills"
+SKILLS_LOCK="$HOME/.agents/.skill-lock.json"
+CLAUDE_SKILLS="$HOME/.claude/skills"
+PERSONAL_REPO="$HOME/gh/my-cubrid-skills"
 
 if [ -t 1 ]; then
     BOLD=$'\033[1m'
@@ -95,6 +107,106 @@ skills_age_days() {
     echo $(((now - mtime) / 86400))
 }
 
+# --- stale skill detection -------------------------------------------------
+# Three things count as stale, and all three are confined to skills the lock
+# file claims. Anything absent from the lock is somebody else's: the personal
+# collection installed from a local path, and hand-made skills. Deleting by
+# "not in the lock file" would wipe every one of them, which is exactly why the
+# CLI ships no prune of its own.
+
+# Names owned by the personal collection. Belt and braces: the lock rule alone
+# already protects them, but a future upstream repo could publish a colliding
+# name and the local copy must win.
+personal_skill_names() {
+    local dir
+    [ -d "$PERSONAL_REPO" ] || return 0
+    find "$PERSONAL_REPO" -maxdepth 2 -name SKILL.md -printf '%h\n' 2>/dev/null |
+        while IFS= read -r dir; do basename "$dir"; done
+}
+
+# Emits one "<name>\t<reason>" row per stale skill, most meaningful reason
+# first, one row per name.
+detect_stale() {
+    [ -r "$SKILLS_LOCK" ] || return 0
+    command -v jq >/dev/null 2>&1 || return 0
+
+    {
+        # 1. Present in the lock and still installed, but gone from its source
+        #    repository. Needs the network; silently skipped without gh so the
+        #    local checks still run offline.
+        if command -v gh >/dev/null 2>&1; then
+            local source raw upstream installed name
+            while IFS= read -r source; do
+                [ -n "$source" ] || continue
+
+                # Capture without a pipe: piping into sort would mask gh's exit
+                # status, and on a 404 gh prints the error JSON body to stdout,
+                # which would otherwise read as "upstream has no skills" and
+                # condemn every installed skill from that source.
+                raw="$(gh api "repos/$source/git/trees/HEAD?recursive=1" \
+                    --jq '.tree[] | select(.path|endswith("/SKILL.md")) | .path | split("/")[-2]' \
+                    2>/dev/null)" || continue
+
+                upstream="$(printf '%s\n' "$raw" | sort -u)"
+                # An unreachable or unexpected response must never be read as
+                # "everything deleted". Every line has to look like a directory
+                # name before a single deletion is proposed.
+                [ -n "$upstream" ] || continue
+                printf '%s\n' "$upstream" | grep -qvE '^[A-Za-z0-9._-]+$' && continue
+                installed="$(jq -r --arg s "$source" \
+                    '.skills | to_entries[] | select(.value.source==$s) | .key' \
+                    "$SKILLS_LOCK" | sort -u)"
+                while IFS= read -r name; do
+                    [ -n "$name" ] || continue
+                    [ -d "$SKILLS_STORE/$name" ] || continue
+                    printf '%s\tdeleted from %s upstream\n' "$name" "$source"
+                done < <(comm -23 <(printf '%s\n' "$installed") <(printf '%s\n' "$upstream"))
+            done < <(jq -r '.skills | to_entries[] | select(.value.sourceType=="github") | .value.source' \
+                "$SKILLS_LOCK" | sort -u)
+        fi
+
+        # 2. Lock entry whose installed directory is gone.
+        local name
+        while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            [ -d "$SKILLS_STORE/$name" ] || printf '%s\tlock entry, no installed directory\n' "$name"
+        done < <(jq -r '.skills | keys[]' "$SKILLS_LOCK")
+
+        # 3. Dangling symlink left behind in the Claude Code skills directory.
+        if [ -d "$CLAUDE_SKILLS" ]; then
+            while IFS= read -r name; do
+                [ -n "$name" ] || continue
+                printf '%s\tbroken symlink in ~/.claude/skills\n' "$name"
+            done < <(find "$CLAUDE_SKILLS" -maxdepth 1 -xtype l -printf '%f\n' 2>/dev/null)
+        fi
+    } | awk -F'\t' '!seen[$1]++' | {
+        # Drop any row whose name belongs to the personal collection.
+        local protected name reason
+        protected="$(personal_skill_names | sort -u)"
+        while IFS=$'\t' read -r name reason; do
+            [ -n "$name" ] || continue
+            printf '%s\n' "$protected" | grep -qxF -- "$name" && continue
+            printf '%s\t%s\n' "$name" "$reason"
+        done
+    }
+}
+
+report_stale() {
+    local rows="$1" name reason count
+    count="$(printf '%s' "$rows" | grep -c . || true)"
+    printf '\n%s── stale skills ──%s\n' "$BOLD" "$RESET"
+    if [ -z "$rows" ]; then
+        printf '   none\n'
+        return 0
+    fi
+    while IFS=$'\t' read -r name reason; do
+        [ -n "$name" ] || continue
+        printf '   %s%s%s  %s(%s)%s\n' "$ACCENT" "$name" "$RESET" "$DIM" "$reason" "$RESET"
+    done <<<"$rows"
+    printf '\n   %s of these can be deleted with %sdaily-update --prune%s\n' \
+        "$count" "$BOLD" "$RESET"
+}
+
 status_rows() {
     local cur staged version age
     if cur="$(codex_current)"; then
@@ -116,6 +228,12 @@ status_rows() {
         1) printf 'skills   synced 1 day ago\n' ;;
         *) printf 'skills   synced %s days ago\n' "$age" ;;
         esac
+    fi
+
+    # Read the last run's finding from cache rather than hitting the network:
+    # this function runs on every shell start.
+    if [ -s "$STALE_CACHE" ]; then
+        printf 'stale    %s skill(s) — daily-update --prune\n' "$(grep -c . "$STALE_CACHE")"
     fi
 }
 
@@ -177,6 +295,14 @@ run_upgrades() {
     # symlinks into ~/.agents/skills, which this lock-file-backed CLI owns.
     run_step skills npx --yes skills@latest update --global --yes
 
+    # Detect after updating, so an upstream deletion that landed in this very
+    # run is reported the same day. The result is cached for the reminder.
+    local rows
+    rows="$(detect_stale)"
+    mkdir -p "$STATE_DIR"
+    printf '%s' "$rows" >"$STALE_CACHE"
+    report_stale "$rows"
+
     printf '%s\n' "$TODAY" >"$STAMP"
 
     printf '\n'
@@ -190,21 +316,77 @@ run_upgrades() {
     printf 'stamped %s; the startup reminder is silent until tomorrow.\n' "$TODAY"
 }
 
+prune_stale() {
+    local rows trash name reason tmp count=0
+
+    rows="$(detect_stale)"
+    if [ -z "$rows" ]; then
+        printf 'No stale skills to prune.\n'
+        mkdir -p "$STATE_DIR"
+        : >"$STALE_CACHE"
+        return 0
+    fi
+
+    # Removal is a move into a dated trash directory, never an rm, and the lock
+    # file is copied beside it first. Everything here is recoverable by hand.
+    trash="$STATE_DIR/trash/$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$trash"
+    [ -r "$SKILLS_LOCK" ] && cp -p "$SKILLS_LOCK" "$trash/.skill-lock.json.bak"
+
+    while IFS=$'\t' read -r name reason; do
+        [ -n "$name" ] || continue
+
+        if [ -d "$SKILLS_STORE/$name" ] && [ ! -L "$SKILLS_STORE/$name" ]; then
+            mv "$SKILLS_STORE/$name" "$trash/$name"
+        fi
+
+        # Only ever unlink a symlink here; a real directory would mean this
+        # name is not what the lock file thinks it is.
+        if [ -L "$CLAUDE_SKILLS/$name" ]; then
+            rm -f "$CLAUDE_SKILLS/$name"
+        fi
+
+        if [ -w "$SKILLS_LOCK" ] && command -v jq >/dev/null 2>&1; then
+            tmp="$(mktemp "$STATE_DIR/lock.XXXXXX")"
+            if jq --arg n "$name" 'del(.skills[$n])' "$SKILLS_LOCK" >"$tmp"; then
+                mv "$tmp" "$SKILLS_LOCK"
+            else
+                rm -f "$tmp"
+            fi
+        fi
+
+        printf '   %sremoved%s %s %s(%s)%s\n' "$RED" "$RESET" "$name" "$DIM" "$reason" "$RESET"
+        count=$((count + 1))
+    done <<<"$rows"
+
+    : >"$STALE_CACHE"
+    printf '\npruned %d skill(s); recoverable copies kept in %s\n' "$count" "$trash"
+}
+
 usage() {
     cat <<'EOF'
 daily-update — daily upkeep for codex, claude, and the global agent skills
 
 usage:
-  daily-update            run every upgrade, then stamp today as done
+  daily-update            run every upgrade, report stale skills, stamp the day
   daily-update --remind   print the pending block, or nothing if done today
   daily-update --status   print current state either way
+  daily-update --stale    list stale skills without changing anything
+  daily-update --prune    delete the stale skills listed by --stale
   daily-update --reset    clear today's stamp so the reminder returns
   daily-update --help     this text
 
 The reminder prints on every interactive shell until a run stamps the day.
 Upgrades always target ~/.local/bin first, whatever the calling shell's PATH.
+
+A skill counts as stale only when the lock file claims it and it was deleted
+from its source repository, or its installed directory or symlink is broken.
+Skills absent from the lock file, which includes the whole personal
+collection, are never listed and never removed. --prune moves what it removes
+into a dated trash directory rather than deleting it.
 EOF
-    printf 'Stamp file: %s\n' "$STAMP"
+    printf 'Stamp file:  %s\n' "$STAMP"
+    printf 'State dir:   %s\n' "$STATE_DIR"
 }
 
 case "${1:---run}" in
@@ -215,6 +397,13 @@ case "${1:---run}" in
     if is_pending; then print_pending; fi
     ;;
 --status) print_status ;;
+--stale)
+    stale_rows="$(detect_stale)"
+    mkdir -p "$STATE_DIR"
+    printf '%s' "$stale_rows" >"$STALE_CACHE"
+    report_stale "$stale_rows"
+    ;;
+--prune) prune_stale ;;
 --reset)
     rm -f "$STAMP"
     printf 'daily-update: stamp cleared; the reminder returns on the next shell.\n'
