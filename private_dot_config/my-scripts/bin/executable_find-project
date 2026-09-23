@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+
+# Find a directory by name beneath a small set of project roots. Successful
+# output is deliberately just one absolute path so callers can compose it with
+# commands such as: cd "$(find-project cubrid)"
+
+set -uo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: find-project [-d DEPTH | --depth DEPTH] [INITIAL QUERY...]
+       find-project --help
+
+Interactively select a directory and print its absolute path. Directories are
+searched from one level below each root through DEPTH levels (default: 3).
+Hidden and ignored directories are excluded, and symlinks are not followed.
+
+The default search roots are:
+  ~/gh
+  ~/temp
+  ~/tmp
+
+Set FIND_PROJECT_ROOTS to a colon-separated list to replace the defaults.
+Entries must be absolute paths or start with ~/.
+
+Options:
+  -d, --depth DEPTH  Search through this many levels (positive integer)
+  -h, --help         Show this help
+
+Examples:
+  find-project
+  find-project cubrid
+  find-project --depth 5 rust parser
+  cd "$(find-project cubrid)"
+EOF
+}
+
+die() {
+    printf 'find-project: %s\n' "$*" >&2
+    exit 2
+}
+
+depth=3
+query_parts=()
+
+while (($# > 0)); do
+    case "$1" in
+    -d | --depth)
+        (($# >= 2)) || die "$1 requires a value"
+        depth="$2"
+        shift 2
+        ;;
+    --depth=*)
+        depth="${1#*=}"
+        shift
+        ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    --)
+        shift
+        query_parts+=("$@")
+        break
+        ;;
+    -*)
+        die "unknown option: $1"
+        ;;
+    *)
+        query_parts+=("$1")
+        shift
+        ;;
+    esac
+done
+
+if [[ ! "$depth" =~ ^[0-9]+$ ]] || ((10#$depth == 0)); then
+    die "depth must be a positive integer: $depth"
+fi
+
+for required_command in fd fzf; do
+    command -v "$required_command" >/dev/null 2>&1 ||
+        die "required command not found: $required_command"
+done
+
+explicit_roots=false
+if [[ ${FIND_PROJECT_ROOTS+x} ]]; then
+    explicit_roots=true
+    [[ -n "$FIND_PROJECT_ROOTS" ]] || die "FIND_PROJECT_ROOTS is empty"
+    [[ "$FIND_PROJECT_ROOTS" != :* && "$FIND_PROJECT_ROOTS" != *: && "$FIND_PROJECT_ROOTS" != *::* ]] ||
+        die "FIND_PROJECT_ROOTS contains an empty entry"
+    IFS=: read -r -a configured_roots <<<"$FIND_PROJECT_ROOTS"
+else
+    configured_roots=("$HOME/gh" "$HOME/temp" "$HOME/tmp")
+fi
+
+declare -a search_roots=()
+declare -A seen_roots=()
+
+for configured_root in "${configured_roots[@]}"; do
+    if [[ "${configured_root:0:1}" == \~ && "${configured_root:1:1}" == / ]]; then
+        configured_root="$HOME/${configured_root:2}"
+    fi
+
+    [[ "$configured_root" == /* ]] ||
+        die "search root must be absolute or start with ~/: $configured_root"
+
+    if [[ ! -d "$configured_root" ]]; then
+        if $explicit_roots; then
+            die "search root is not a directory: $configured_root"
+        fi
+        continue
+    fi
+
+    # Resolve aliases such as '..' and symlinked roots without requiring an
+    # external canonicalization tool. Project discovery itself never follows
+    # directory symlinks.
+    canonical_root="$(cd -P -- "$configured_root" 2>/dev/null && pwd -P)" || {
+        if $explicit_roots; then
+            die "cannot access search root: $configured_root"
+        fi
+        continue
+    }
+
+    if [[ ! ${seen_roots["$canonical_root"]+present} ]]; then
+        seen_roots["$canonical_root"]=1
+        search_roots+=("$canonical_root")
+    fi
+done
+
+((${#search_roots[@]} > 0)) || die "no usable search roots"
+
+declare -a choices=()
+declare -A seen_candidates=()
+
+for search_root in "${search_roots[@]}"; do
+    root_label="${search_root##*/}"
+    [[ -n "$root_label" ]] || root_label=/
+
+    while IFS= read -r candidate; do
+        candidate="${candidate%/}"
+        [[ -n "$candidate" ]] || continue
+        [[ ! ${seen_candidates["$candidate"]+present} ]] || continue
+        seen_candidates["$candidate"]=1
+
+        relative_path="${candidate#"$search_root"/}"
+        directory_name="${candidate##*/}"
+        if [[ "$search_root" == / ]]; then
+            context="/$relative_path"
+        else
+            context="$root_label/$relative_path"
+        fi
+        choices+=("$directory_name"$'\t'"$context"$'\t'"$candidate")
+    done < <(
+        fd --type d --min-depth 1 --max-depth "$depth" \
+            --absolute-path . "$search_root"
+    )
+done
+
+((${#choices[@]} > 0)) || {
+    printf 'find-project: no directories found within depth %s\n' "$depth" >&2
+    exit 1
+}
+
+query="${query_parts[*]}"
+selection="$({ printf '%s\n' "${choices[@]}"; } | fzf \
+    --delimiter=$'\t' \
+    --with-nth=1,2 \
+    --nth=1 \
+    --query="$query" \
+    --prompt='project> ')"
+fzf_status=$?
+
+((fzf_status == 0)) || exit "$fzf_status"
+selected_path="${selection##*$'\t'}"
+[[ -n "$selected_path" ]] || exit 1
+printf '%s\n' "$selected_path"
