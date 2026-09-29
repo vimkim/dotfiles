@@ -1,0 +1,2 @@
+#!/bin/sh
+exec gh repo view --json url --jq '.url'
