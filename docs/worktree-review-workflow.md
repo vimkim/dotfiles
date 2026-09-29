@@ -47,6 +47,11 @@ than requirements imposed by Git:
 6. Wait for the user's explicit approval of the current committed work before
    merging into `main`. Approval to merge is separate from permission to push
    or deploy dotfiles.
+7. After a successful merge, remove the merged task worktree and local topic
+   branch as part of completion. Verify the entire branch tip was merged and
+   inspect uncommitted and ignored files first; preserve valuable files and
+   report blocked cleanup instead of forcing removal. Remote branch deletion
+   requires explicit authorization for that remote action.
 
 For verification, `git status --porcelain=v1 --untracked-files=all` exposes both
 tracked changes and individual untracked files; ignored outputs are omitted
@@ -78,3 +83,9 @@ If the destination contains user changes, preserve them and report the obstacle;
 do not auto-stash, reset, or commit them merely to merge. Git warns that aborting
 a merge started with uncommitted changes may not restore those changes fully.
 [Git: git-merge](https://git-scm.com/docs/git-merge)
+
+For local cleanup, run `git worktree remove <task-worktree>` from outside the
+worktree, then `git branch -d <task-branch>`. Git provides these commands for
+removing linked worktrees and safely deleting merged branches.
+[Git: git-worktree](https://git-scm.com/docs/git-worktree),
+[Git: git-branch](https://git-scm.com/docs/git-branch)
