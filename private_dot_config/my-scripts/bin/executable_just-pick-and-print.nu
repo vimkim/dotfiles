@@ -28,8 +28,12 @@ def main [
         exit 1
     }
 
-    # `--summary` is a space-separated list of recipe names.
-    let recipes = (just -f $justfile -d $justdir --summary | split row ' ' | str join (char nl))
+    # Keep justfile order, but float the `[default]` recipe to the top so a
+    # bare Enter in fzf picks the same recipe that plain `just` would run.
+    let dump = (just -f $justfile -d $justdir --dump --dump-format json | from json)
+    let default_recipe = ($dump.recipes | values | where { 'default' in $in.attributes } | get name)
+    let ordered = (just -f $justfile -d $justdir --summary --unsorted | split row ' ' | where { $in not-in $default_recipe })
+    let recipes = ($default_recipe | append $ordered | str join (char nl))
     if ($recipes | is-empty) {
         print -e "No recipes found."
         exit 1
