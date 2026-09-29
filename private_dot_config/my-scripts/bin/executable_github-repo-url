@@ -1,2 +1,11 @@
 #!/bin/sh
-exec gh repo view --json url --jq '.url'
+# Print "<remote> <web-url>" for every git remote, without network access.
+git rev-parse --git-dir >/dev/null || exit 1
+git remote | while read -r name; do
+  url=$(git remote get-url "$name")
+  web=$(printf '%s\n' "$url" | sed -E \
+    -e 's#^[a-z+]+://([^@/]+@)?([^/:]+)(:[0-9]+)?/#https://\2/#' \
+    -e 's#^[^@/]+@([^:/]+):#https://\1/#' \
+    -e 's#\.git/?$##')
+  printf '%s\t%s\n' "$name" "$web"
+done
