@@ -19,9 +19,17 @@ def fp [query?: string] {
 }
 
 def fc [query?: string] {
+  let selected = (^file-picker.sh --no-hidden -- ($query | default "") | str trim)
+
+  if $selected != "" {
+    $selected | clip
+  }
+}
+
+def fca [query?: string] {
   let selected = (^file-picker.sh --no-ignore -- ($query | default "") | str trim)
 
-  if $selected != null and ($selected | str trim) != "" {
+  if $selected != "" {
     $selected | clip
   }
 }

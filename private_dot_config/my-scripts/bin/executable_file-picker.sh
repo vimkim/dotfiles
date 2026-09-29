@@ -3,6 +3,7 @@ set -euo pipefail
 
 max_depth=""
 no_ignore=false
+hidden=true
 sep=$'\037'
 tmp_dir=""
 
@@ -22,6 +23,10 @@ while (($# > 0)); do
       ;;
     --no-ignore)
       no_ignore=true
+      shift
+      ;;
+    --no-hidden)
+      hidden=false
       shift
       ;;
     --)
@@ -69,7 +74,6 @@ write_rows() {
   local -a fd_args=(
     --type f
     --type l
-    --hidden
     --follow
     --exclude .git
     --exclude .jj
@@ -77,6 +81,9 @@ write_rows() {
 
   if [[ -n $max_depth ]]; then
     fd_args+=(--max-depth "$max_depth")
+  fi
+  if [[ $hidden == true ]]; then
+    fd_args+=(--hidden)
   fi
   if [[ $no_ignore == true ]]; then
     fd_args+=(--no-ignore)
