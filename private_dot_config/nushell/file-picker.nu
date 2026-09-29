@@ -19,7 +19,7 @@ def fp [query?: string] {
 }
 
 def fc [query?: string] {
-  let selected = (__pick_file_path ($query | default ""))
+  let selected = (^file-picker.sh --no-ignore -- ($query | default "") | str trim)
 
   if $selected != null and ($selected | str trim) != "" {
     $selected | clip
