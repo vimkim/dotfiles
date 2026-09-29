@@ -5,6 +5,12 @@
 - Clarify only ambiguities whose answers could materially change the outcome, scope, or risk. Continue asking until those decisions are resolved; handle routine, reversible details with explicit assumptions.
 - Track work with `work-tracker` when it is expected to take at least 30 minutes, cross sessions, use parallel agents, or wait on an external queue. Leave short, same-turn work unregistered.
 
+## Remote environment
+
+- This machine is a remote Linux server that the user reaches over SSH with X11 forwarding enabled, so `DISPLAY` is set, but every GUI window is forwarded over the network and is too slow to use.
+- Never launch GUI programs, especially web browsers (`firefox`, `chromium`, `google-chrome`, `xdg-open`, `sensible-browser`, `gio open`, Python `webbrowser`). Tools that open a browser on their own need their no-browser mode: for example, `gh ... --web` should become the plain command or print the URL; OAuth or device logins should use `--no-browser`, `--no-launch-browser`, or a device-code flow; dev servers and report generators should skip auto-open (`BROWSER=none`, `--no-open`, `open: false`). Run automated browsers headless only (for example, Playwright or Puppeteer with `headless: true`, or `firefox --headless --screenshot`).
+- When a page, file, or report would normally open in a browser, suggest a workaround instead: print the URL or file path for the user to open locally; serve the file with `python3 -m http.server --bind 127.0.0.1 <port>` and tell the user to run `ssh -L <port>:localhost:<port> <host>` from their machine; render the content in the terminal (`w3m -dump`, `lynx -dump`, `curl`, `glow`); or publish it through an available sharing tool.
+
 ## Worktree and review workflow
 
 For repository changes, use a topic branch in a sibling Git worktree:
