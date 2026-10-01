@@ -263,3 +263,8 @@ X11Forwarding yes
 X11DisplayOffset 10
 X11UseLocalhost yes
 ```
+
+## Daily tool and personal collection upkeep
+
+See [daily-update](docs/daily-update.md) for refresh policy, partial results,
+third-party boundaries, and isolated verification.

@@ -5,7 +5,7 @@
 #   --remind  prints the pending block on EVERY interactive shell start, for as
 #             long as today's upkeep is outstanding, and prints nothing once it
 #             has been done today. Shell rc files call this.
-#   (no args) runs the three upgrades, then stamps ~/.cache/daily-update.stamp
+#   (no args) runs upgrades and collection sync, then stamps ~/.cache/daily-update.stamp
 #             with today's date, which silences --remind for the rest of that
 #             calendar day.
 #
@@ -23,15 +23,16 @@ STALE_CACHE="$STATE_DIR/stale.tsv"
 STALE_NAMES_SHOWN=8
 TODAY="$(date +%F)"
 
-# Skill layout on this host: ~/.agents/skills is the one real store, the skills
-# CLI records only its GitHub-sourced installs in .skill-lock.json, and
-# ~/.claude/skills holds a symlink per skill. ~/.codex/skills is unrelated and
-# is never touched. The personal collection is installed from a local path, so
-# it never appears in the lock file.
+# Personal collections reconcile through their own sync interface. Third-party
+# maintenance excludes their source identities even if a checkout is unavailable.
 SKILLS_STORE="$HOME/.agents/skills"
 SKILLS_LOCK="$HOME/.agents/.skill-lock.json"
-CLAUDE_SKILLS="$HOME/.claude/skills"
-PERSONAL_REPO="$HOME/gh/my-cubrid-skills"
+CLAUDE_SKILLS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
+PERSONAL_COLLECTIONS=(my-skills my-cubrid-skills)
+# The optional order changes scheduling only; both collections always run.
+if [ "${DAILY_UPDATE_COLLECTION_ORDER:-}" = cubrid-first ]; then
+    PERSONAL_COLLECTIONS=(my-cubrid-skills my-skills)
+fi
 
 if [ -t 1 ]; then
     BOLD=$'\033[1m'
@@ -139,27 +140,61 @@ skills_age_days() {
 }
 
 # --- stale skill detection -------------------------------------------------
-# Three things count as stale, and all three are confined to skills the lock
-# file claims. Anything absent from the lock is somebody else's: the personal
-# collection installed from a local path, and hand-made skills. Deleting by
-# "not in the lock file" would wipe every one of them, which is exactly why the
-# CLI ships no prune of its own.
+# Legacy third-party stale checks stay confined to eligible lock entries.
+# Personal source identities and names are excluded before any removal;
+# collection sync owns their conflict checks, ownership and recovery.
 
-# Names owned by the personal collection. Belt and braces: the lock rule alone
-# already protects them, but a future upstream repo could publish a colliding
-# name and the local copy must win.
+# Names in current personal sources also protect a third-party name collision.
+# Source identity protection below works independently of checkout availability.
 personal_skill_names() {
-    local dir
-    [ -d "$PERSONAL_REPO" ] || return 0
-    find "$PERSONAL_REPO" -maxdepth 2 -name SKILL.md -printf '%h\n' 2>/dev/null |
-        while IFS= read -r dir; do basename "$dir"; done
+    local collection repo dir
+    for collection in "${PERSONAL_COLLECTIONS[@]}"; do
+        repo="$HOME/gh/$collection"
+        [ -d "$repo" ] || continue
+        find "$repo" -maxdepth 3 -name SKILL.md -printf '%h\n' |
+            while IFS= read -r dir; do basename "$dir"; done || return 1
+    done
+}
+
+# Emit only lock-backed third-party names. An invalid lock or failed scan is
+# failure, never an empty filter (the CLI interprets an empty filter as all).
+third_party_names() {
+    local names protected name
+    [ -e "$SKILLS_LOCK" ] || return 0
+    command -v jq >/dev/null 2>&1 || return 1
+    names="$(jq -r --arg new "$HOME/gh/my-skills" --arg old "$HOME/gh/my-cubrid-skills" '
+      def personal:
+        strings | (. == $new or . == $old or (ascii_downcase |
+        test("^(https://github\\.com/|git@github\\.com:)?vimkim/my-(cubrid-)?skills(\\.git)?(/.*)?$")));
+      if type != "object" or (.skills | type) != "object" then
+        error("invalid skills lock")
+      else
+        [.skills | to_entries[] |
+          if (.value | type) != "object" or (.value.source | type) != "string"
+             or ((.value.sourceUrl // "" | type) != "string")
+             or (.key | test("^[a-zA-Z0-9][a-zA-Z0-9._-]*$") | not)
+          then error("invalid skills lock entry") else . end |
+          select((.value.source | personal | not) and
+                 (.value.sourceUrl // "" | personal | not)) | .key] | .[]
+      end' "$SKILLS_LOCK")" || return 1
+    protected="$(personal_skill_names)" || return 1
+    while IFS= read -r name; do
+        [ -n "$name" ] || continue
+        printf '%s\n' "$protected" | grep -qixF -- "$name" && continue
+        printf '%s\n' "$name"
+    done <<<"$names"
 }
 
 # Emits one "<name>\t<reason>" row per stale skill, most meaningful reason
 # first, one row per name.
 detect_stale() {
-    [ -r "$SKILLS_LOCK" ] || return 0
-    command -v jq >/dev/null 2>&1 || return 0
+    [ -e "$SKILLS_LOCK" ] || return 0
+    [ -r "$SKILLS_LOCK" ] || return 1
+    local eligible
+    if ! eligible="$(third_party_names)"; then
+        printf 'daily-update: invalid lock/source evidence; stale scan skipped\n' >&2
+        return 1
+    fi
 
     {
         # 1. Present in the lock and still installed, but gone from its source
@@ -211,12 +246,10 @@ detect_stale() {
             done < <(find "$CLAUDE_SKILLS" -maxdepth 1 -xtype l -printf '%f\n' 2>/dev/null)
         fi
     } | awk -F'\t' '!seen[$1]++' | {
-        # Drop any row whose name belongs to the personal collection.
-        local protected name reason
-        protected="$(personal_skill_names | sort -u)"
+        local name reason
         while IFS=$'\t' read -r name reason; do
             [ -n "$name" ] || continue
-            printf '%s\n' "$protected" | grep -qxF -- "$name" && continue
+            printf '%s\n' "$eligible" | grep -qxF -- "$name" || continue
             printf '%s\t%s\n' "$name" "$reason"
         done
     }
@@ -345,19 +378,112 @@ run_codex_upgrade() {
     fi
 }
 
+run_collection() {
+    local repo="$HOME/gh/$1" status branch upstream remote rc root
+    local label="collection:$1"
+    printf '\n%s── %s ──%s\n' "$BOLD" "$label" "$RESET"
+    if [ ! -d "$repo" ] ||
+        ! root="$(git -C "$repo" rev-parse --show-toplevel 2>/dev/null)" ||
+        [ "$root" != "$(cd "$repo" && pwd -P)" ]; then
+        printf '   %s: skipped (missing independent checkout)\n' "$label"
+        SKIPPED+=("$label")
+        return
+    fi
+    if ! status="$(git -C "$repo" status --porcelain --untracked-files=all)"; then
+        printf '   %s: FAILED (cannot inspect checkout)\n' "$label"
+        FAILED+=("$label")
+        return
+    fi
+    if [ -n "$status" ]; then
+        printf '   %s: skipped (dirty checkout)\n' "$label"
+        SKIPPED+=("$label")
+        return
+    fi
+    if ! branch="$(git -C "$repo" symbolic-ref --quiet --short HEAD)" ||
+        ! upstream="$(git -C "$repo" rev-parse --abbrev-ref '@{upstream}')"; then
+        printf '   %s: skipped (detached HEAD or no upstream)\n' "$label"
+        SKIPPED+=("$label")
+        return
+    fi
+    remote="$(git -C "$repo" config --get "branch.$branch.remote")"
+    if [ -z "$remote" ] || [ "$remote" = . ]; then
+        printf '   %s: skipped (no published upstream)\n' "$label"
+        SKIPPED+=("$label")
+        return
+    fi
+    if ! git -C "$repo" fetch -- "$remote"; then
+        printf '   %s: FAILED (fetch); sync skipped\n' "$label"
+        FAILED+=("$label")
+        return
+    fi
+    if ! git -C "$repo" merge-base --is-ancestor HEAD "$upstream"; then
+        printf '   %s: skipped (ahead or diverged checkout)\n' "$label"
+        SKIPPED+=("$label")
+        return
+    fi
+    if ! git -C "$repo" merge --ff-only -- "$upstream"; then
+        printf '   %s: FAILED (fast-forward); sync skipped\n' "$label"
+        FAILED+=("$label")
+        return
+    fi
+    # Own the cwd so just cannot discover a recipe in a parent directory.
+    if [ ! -f "$repo/justfile" ]; then
+        printf '   %s: FAILED (missing local justfile)\n' "$label"
+        FAILED+=("$label")
+        return
+    fi
+    if (cd "$repo" && just --justfile ./justfile sync); then
+        printf '   %s: completed\n' "$label"
+    else
+        rc=$?
+        if [ "$rc" -eq 2 ]; then
+            printf '   %s: partial/skipped (sync exit 2)\n' "$label"
+            SKIPPED+=("$label")
+        else
+            printf '   %s: FAILED (sync exit %d)\n' "$label" "$rc"
+            FAILED+=("$label")
+        fi
+    fi
+}
+
+run_third_party_updates() {
+    local names name
+    local selected=()
+    if ! names="$(third_party_names)"; then
+        printf '   skills: FAILED (invalid lock/source evidence); update skipped\n'
+        FAILED+=(skills)
+        return
+    fi
+    while IFS= read -r name; do
+        [ -n "$name" ] && selected+=("$name")
+    done <<<"$names"
+    if [ "${#selected[@]}" -eq 0 ]; then
+        printf '\n   skills: no third-party updates to check\n'
+        return
+    fi
+    # 1.7.0 supports positional exact-name filtering. Pin it so protection does
+    # not depend on a future CLI changing this argument contract.
+    run_step skills npx --yes skills@1.7.0 update "${selected[@]}" --global --yes
+}
+
 run_upgrades() {
     mkdir -p "$(dirname "$STAMP")"
 
     run_codex_upgrade
     run_step claude claude update
-    # Skills for Claude Code and Codex are the same install: ~/.claude/skills
-    # symlinks into ~/.agents/skills, which this lock-file-backed CLI owns.
-    run_step skills npx --yes skills@latest update --global --yes
+    local collection
+    for collection in "${PERSONAL_COLLECTIONS[@]}"; do
+        run_collection "$collection"
+    done
+    run_third_party_updates
 
     # Detect after updating, so an upstream deletion that landed in this very
     # run is reported the same day. The result is cached for the reminder.
     local rows
-    rows="$(detect_stale)"
+    if ! rows="$(detect_stale)"; then
+        FAILED+=("stale scan")
+        rows=""
+    fi
     mkdir -p "$STATE_DIR"
     printf '%s' "$rows" >"$STALE_CACHE"
     report_stale "$rows"
@@ -373,12 +499,15 @@ run_upgrades() {
             "$RED" "$RESET" "${FAILED[*]}" "$BOLD" "$RESET"
     fi
     printf 'stamped %s; the startup reminder is silent until tomorrow.\n' "$TODAY"
+    [ "${#FAILED[@]}" -eq 0 ] || return 1
+    [ "${#SKIPPED[@]}" -eq 0 ] || return 2
+    return 0
 }
 
 prune_stale() {
     local rows trash name reason tmp count=0
 
-    rows="$(detect_stale)"
+    rows="$(detect_stale)" || return 1
     if [ -z "$rows" ]; then
         printf 'No stale skills to prune.\n'
         mkdir -p "$STATE_DIR"
@@ -427,7 +556,7 @@ usage() {
 daily-update — daily upkeep for codex, claude, and the global agent skills
 
 usage:
-  daily-update            run every upgrade, report stale skills, stamp the day
+  daily-update            upgrade tools, refresh/sync collections, stamp the day
   daily-update --remind   print the pending block, or nothing if done today
   daily-update --status   print current state either way
   daily-update --stale    list stale skills without changing anything
@@ -441,9 +570,16 @@ resolved Codex belongs to Homebrew, it is upgraded through Homebrew instead.
 
 A skill counts as stale only when the lock file claims it and it was deleted
 from its source repository, or its installed directory or symlink is broken.
-Skills absent from the lock file, which includes the whole personal
-collection, are never listed and never removed. --prune moves what it removes
-into a dated trash directory rather than deleting it.
+Personal sources vimkim/my-skills and vimkim/my-cubrid-skills, their current
+skill names, and skills absent from the lock are excluded from this pruning.
+Personal collections use just sync after a clean fast-forward; dirty, ahead,
+diverged, detached or missing checkouts are skipped. Failed refreshes skip sync.
+Each collection proceeds independently. Exit 0 means complete, 2 means skipped
+or partial work, and 1 means a failure. Runs still stamp the day in all cases.
+just sync alone reconciles local contents without fetching source changes.
+DAILY_UPDATE_COLLECTION_ORDER=cubrid-first reverses the default collection order.
+Third-party updates use the pinned CLI with an explicit eligible-name filter.
+--prune moves what it removes into a dated trash directory rather than deleting it.
 EOF
     printf 'Stamp file:  %s\n' "$STAMP"
     printf 'State dir:   %s\n' "$STATE_DIR"
@@ -458,7 +594,7 @@ case "${1:---run}" in
     ;;
 --status) print_status ;;
 --stale)
-    stale_rows="$(detect_stale)"
+    stale_rows="$(detect_stale)" || exit 1
     mkdir -p "$STATE_DIR"
     printf '%s' "$stale_rows" >"$STALE_CACHE"
     report_stale "$stale_rows"

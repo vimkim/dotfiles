@@ -4,3 +4,6 @@ docs/**
 CLAUDE.md
 AGENTS.md
 nushell-clip-defect.md
+
+# Repository verification artifacts are not deployed dotfiles.
+tests/**
