@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""git-log-pick (glp) — pick two commits from the `git log --all` map with fzf,
+then print `git-log.sh <A> <B>`.
+
+Each pick is a point in history, not a branch name: the final log shows only
+what is reachable backward from A and from B. Type a branch name in fzf to
+jump to its tip, or move the cursor to any older commit to start from there.
+
+Usage:
+  glp                  # pick A, then pick B
+  glp A                # A given, pick B
+  glp A B              # no picking, straight to git-log.sh
+  glp -n30 --since=1.month
+                       # arguments starting with '-' go to git-log.sh
+
+In the picker: Enter confirms, Esc aborts, ctrl-/ toggles the commit preview.
+Lines with only graph edges (no commit) are not selectable; the picker reopens.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+HASH = re.compile(r"\b[0-9a-f]{7,40}\b")
+
+# fzf runs --preview through $SHELL; pin it to sh so the preview renders even
+# when the caller's shell is nushell/fish.
+PREVIEW = (
+    "echo {} | grep -oE '[0-9a-f]{7,40}' | head -1"
+    " | xargs -r git show --color=always --stat -p"
+)
+
+
+def graph() -> bytes:
+    return subprocess.run(
+        ["git", "log", "--graph", "--oneline", "--decorate", "--all", "--color=always"],
+        check=True,
+        stdout=subprocess.PIPE,
+    ).stdout
+
+
+def pick(prompt: str, header: str) -> str | None:
+    """Return the selected commit hash, or None if the user aborted."""
+    lines = graph()
+    while True:
+        proc = subprocess.run(
+            [
+                "fzf", "--ansi", "--no-sort", "--reverse", "--height=80%",
+                f"--prompt={prompt} > ",
+                f"--header={header}",
+                f"--preview={PREVIEW}",
+                "--preview-window=right,50%,wrap",
+                "--bind=ctrl-/:toggle-preview",
+            ],
+            input=lines,
+            stdout=subprocess.PIPE,
+            env={**os.environ, "SHELL": "/bin/sh"},
+        )
+        if proc.returncode != 0:  # Esc / ctrl-c / no match
+            return None
+        match = HASH.search(ANSI.sub("", proc.stdout.decode(errors="replace")))
+        if match:
+            return match.group(0)
+
+
+def git_log_sh() -> str:
+    sibling = Path(__file__).resolve().parent / "git-log.sh"
+    if sibling.is_file():
+        return str(sibling)
+    found = shutil.which("git-log.sh")
+    if not found:
+        sys.exit("git-log-pick: git-log.sh not found")
+    return found
+
+
+def main(argv: list[str]) -> int:
+    if any(a in ("-h", "--help") for a in argv):
+        print(__doc__.strip())
+        return 0
+
+    opts = [a for a in argv if a.startswith("-")]
+    revs = [a for a in argv if not a.startswith("-")]
+    if len(revs) > 2:
+        sys.exit("git-log-pick: at most two revisions")
+
+    if subprocess.run(
+        ["git", "rev-parse", "--git-dir"], stdout=subprocess.DEVNULL
+    ).returncode != 0:
+        return 128
+
+    if not revs:
+        a = pick("A", "pick the first starting point   [ctrl-/ preview]")
+        if a is None:
+            return 130
+        revs.append(a)
+    if len(revs) == 1:
+        b = pick("B", f"A = {revs[0]} — pick the second starting point   [ctrl-/ preview]")
+        if b is None:
+            return 130
+        revs.append(b)
+
+    cmd = [git_log_sh(), *opts, *revs]
+    os.execv(cmd[0], cmd)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
