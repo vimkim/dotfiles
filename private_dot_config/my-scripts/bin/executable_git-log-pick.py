@@ -13,7 +13,8 @@ Usage:
   glp -n30 --since=1.month
                        # arguments starting with '-' go to git-log.sh
 
-In the picker: Enter confirms, Esc aborts, ctrl-/ toggles the commit preview.
+In the picker: the cursor starts on HEAD, so Enter alone picks HEAD.
+Enter confirms, Esc aborts, ctrl-/ toggles the commit preview.
 Lines with only graph edges (no commit) are not selectable; the picker reopens.
 """
 
@@ -45,9 +46,30 @@ def graph() -> bytes:
     ).stdout
 
 
+def head_position(lines: bytes) -> int | None:
+    """1-based index of the graph line for HEAD, or None (e.g. unborn HEAD)."""
+    proc = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", "HEAD"],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    head = proc.stdout.strip()
+    if not head:
+        return None
+    for i, line in enumerate(lines.decode(errors="replace").splitlines(), 1):
+        match = HASH.search(ANSI.sub("", line))
+        if match and head.startswith(match.group(0)):
+            return i
+    return None
+
+
 def pick(prompt: str, header: str) -> str | None:
-    """Return the selected commit hash, or None if the user aborted."""
+    """Return the selected commit hash, or None if the user aborted.
+
+    The cursor starts on HEAD, so Enter alone picks it.
+    """
     lines = graph()
+    pos = head_position(lines)
     while True:
         proc = subprocess.run(
             [
@@ -57,6 +79,7 @@ def pick(prompt: str, header: str) -> str | None:
                 f"--preview={PREVIEW}",
                 "--preview-window=right,50%,wrap",
                 "--bind=ctrl-/:toggle-preview",
+                *([f"--bind=load:pos({pos})"] if pos else []),
             ],
             input=lines,
             stdout=subprocess.PIPE,
