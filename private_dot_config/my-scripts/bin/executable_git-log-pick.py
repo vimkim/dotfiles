@@ -12,6 +12,9 @@ Usage:
   glp A B              # no picking, straight to git-log.sh
   glp -n30 --since=1.month
                        # arguments starting with '-' go to git-log.sh
+  glp --all-branch     # label every ref, not just those at A and B
+
+The output marks the picked commits with "◀ A" and "◀ B".
 
 In the picker: the cursor starts on HEAD, so Enter alone picks HEAD.
 Enter confirms, Esc aborts, ctrl-/ toggles the commit preview.
@@ -29,6 +32,8 @@ from pathlib import Path
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 HASH = re.compile(r"\b[0-9a-f]{7,40}\b")
+MARK = "\x1b[1;33m"
+RESET = "\x1b[m"
 
 # fzf runs --preview through $SHELL; pin it to sh so the preview renders even
 # when the caller's shell is nushell/fish.
@@ -92,6 +97,28 @@ def pick(prompt: str, header: str) -> str | None:
             return match.group(0)
 
 
+def full_hash(rev: str) -> str | None:
+    proc = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    return proc.stdout.strip() or None
+
+
+def mark(output: str, picks: list[tuple[str, str | None]]) -> str:
+    """Append "◀ A" / "◀ B" to the graph lines of the picked commits."""
+    lines = output.split("\n")
+    for i, line in enumerate(lines):
+        match = HASH.search(ANSI.sub("", line))
+        if not match:
+            continue
+        names = [n for n, h in picks if h and h.startswith(match.group(0))]
+        if names:
+            lines[i] = f"{line} {MARK}◀ {' '.join(names)}{RESET}"
+    return "\n".join(lines)
+
+
 def git_log_sh() -> str:
     sibling = Path(__file__).resolve().parent / "git-log.sh"
     if sibling.is_file():
@@ -128,8 +155,19 @@ def main(argv: list[str]) -> int:
             return 130
         revs.append(b)
 
-    cmd = [git_log_sh(), *opts, *revs]
-    os.execv(cmd[0], cmd)
+    # git-log.sh writes into a pipe here, so git skips its pager; page below.
+    proc = subprocess.run([git_log_sh(), *opts, *revs], stdout=subprocess.PIPE)
+    out = mark(
+        proc.stdout.decode(errors="replace"),
+        [("A", full_hash(revs[0])), ("B", full_hash(revs[1]))],
+    )
+    if out and not out.endswith("\n"):
+        out += "\n"
+    if sys.stdout.isatty():
+        subprocess.run(["less", "-iRFSX"], input=out.encode())
+    else:
+        sys.stdout.write(out)
+    return proc.returncode
 
 
 if __name__ == "__main__":
