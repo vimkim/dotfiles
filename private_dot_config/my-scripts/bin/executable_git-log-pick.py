@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """git-log-pick (glp) — pick two commits from the `git log --all` map with fzf,
-then print `git-log.sh <A> <B>`.
+then print `git-log.py <A> <B>` with the picks marked "◀ A" / "◀ B".
 
 Each pick is a point in history, not a branch name: the final log shows only
 what is reachable backward from A and from B. Type a branch name in fzf to
@@ -9,12 +9,10 @@ jump to its tip, or move the cursor to any older commit to start from there.
 Usage:
   glp                  # pick A, then pick B
   glp A                # A given, pick B
-  glp A B              # no picking, straight to git-log.sh
+  glp A B              # no picking, straight to the log
   glp -n30 --since=1.month
-                       # arguments starting with '-' go to git-log.sh
+                       # arguments starting with '-' go to git-log.py
   glp --all-branch     # label every ref, not just those at A and B
-
-The output marks the picked commits with "◀ A" and "◀ B".
 
 In the picker: the cursor starts on HEAD, so Enter alone picks HEAD.
 Enter confirms, Esc aborts, ctrl-/ toggles the commit preview.
@@ -25,22 +23,19 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
+import shlex
 import subprocess
 import sys
 from pathlib import Path
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 HASH = re.compile(r"\b[0-9a-f]{7,40}\b")
-MARK = "\x1b[1;33m"
-RESET = "\x1b[m"
+HERE = Path(__file__).resolve().parent
 
-# fzf runs --preview through $SHELL; pin it to sh so the preview renders even
-# when the caller's shell is nushell/fish.
-PREVIEW = (
-    "echo {} | grep -oE '[0-9a-f]{7,40}' | head -1"
-    " | xargs -r git show --color=always --stat -p"
-)
+# The preview calls this script back with the line (fzf quotes {} itself).
+# No shell pipeline here: fzf would expand regex braces like {7,40} as field
+# placeholders. $SHELL is still pinned to sh so nushell/fish never parse it.
+PREVIEW = f"{shlex.quote(sys.executable)} {shlex.quote(str(Path(__file__).resolve()))} --preview-line {{}}"
 
 
 def graph() -> bytes:
@@ -97,39 +92,18 @@ def pick(prompt: str, header: str) -> str | None:
             return match.group(0)
 
 
-def full_hash(rev: str) -> str | None:
-    proc = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"],
-        stdout=subprocess.PIPE,
-        text=True,
-    )
-    return proc.stdout.strip() or None
-
-
-def mark(output: str, picks: list[tuple[str, str | None]]) -> str:
-    """Append "◀ A" / "◀ B" to the graph lines of the picked commits."""
-    lines = output.split("\n")
-    for i, line in enumerate(lines):
-        match = HASH.search(ANSI.sub("", line))
-        if not match:
-            continue
-        names = [n for n, h in picks if h and h.startswith(match.group(0))]
-        if names:
-            lines[i] = f"{line} {MARK}◀ {' '.join(names)}{RESET}"
-    return "\n".join(lines)
-
-
-def git_log_sh() -> str:
-    sibling = Path(__file__).resolve().parent / "git-log.sh"
-    if sibling.is_file():
-        return str(sibling)
-    found = shutil.which("git-log.sh")
-    if not found:
-        sys.exit("git-log-pick: git-log.sh not found")
-    return found
+def preview(line: str) -> int:
+    match = HASH.search(ANSI.sub("", line))
+    if not match:
+        return 0  # graph-only line: empty preview
+    return subprocess.run(
+        ["git", "show", "--color=always", "--stat", "-p", match.group(0)]
+    ).returncode
 
 
 def main(argv: list[str]) -> int:
+    if argv[:1] == ["--preview-line"]:
+        return preview(" ".join(argv[1:]))
     if any(a in ("-h", "--help") for a in argv):
         print(__doc__.strip())
         return 0
@@ -155,19 +129,9 @@ def main(argv: list[str]) -> int:
             return 130
         revs.append(b)
 
-    # git-log.sh writes into a pipe here, so git skips its pager; page below.
-    proc = subprocess.run([git_log_sh(), *opts, *revs], stdout=subprocess.PIPE)
-    out = mark(
-        proc.stdout.decode(errors="replace"),
-        [("A", full_hash(revs[0])), ("B", full_hash(revs[1]))],
-    )
-    if out and not out.endswith("\n"):
-        out += "\n"
-    if sys.stdout.isatty():
-        subprocess.run(["less", "-iRFSX"], input=out.encode())
-    else:
-        sys.stdout.write(out)
-    return proc.returncode
+    log = str(HERE / "git-log.py")
+    cmd = [log, *opts, f"--mark=A={revs[0]}", f"--mark=B={revs[1]}", *revs]
+    os.execv(sys.executable, [sys.executable, *cmd])
 
 
 if __name__ == "__main__":
