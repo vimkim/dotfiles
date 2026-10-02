@@ -50,8 +50,9 @@ exec "$REAL_GIT" "$@"
         self.executable('just', f'exec {JUST} "$@"\n')
         self.executable('jq', f'exec {JQ} "$@"\n')
         self.repos = {}
+        self.tools = {}
         self.seeds = {}
-        for name in ('my-skills', 'my-cubrid-skills'):
+        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils'):
             remote = self.root / f'{name}.git'
             seed = self.root / f'{name}-seed'
             self.git(self.root, 'init', '--bare', str(remote))
@@ -63,7 +64,7 @@ exec "$REAL_GIT" "$@"
             self.git(seed, 'push', '-u', 'origin', 'HEAD')
             repo = self.home / 'gh' / name
             self.git(self.root, 'clone', str(remote), str(repo))
-            self.repos[name] = repo
+            (self.tools if name == 'my-git-utils' else self.repos)[name] = repo
             self.seeds[name] = seed
 
     def executable(self, name, contents):
@@ -119,6 +120,23 @@ exec "$REAL_GIT" "$@"
                 self.assertIn('upkeep done', self.run_daily('--status').stdout)
         self.assertEqual(self.run_daily('--reset').returncode, 0)
         self.assertIn('pending', self.run_daily('--remind').stdout)
+
+    def test_tool_checkout_refreshes_after_collections(self):
+        self.advance('my-git-utils')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        rows = self.logged().splitlines()
+        tool = rows.index(f"{self.tools['my-git-utils']}:after")
+        self.assertGreater(tool, max(rows.index(f'{repo}:before') for repo in self.repos.values()))
+        self.assertIn('tool:my-git-utils: completed', result.stdout)
+
+    def test_dirty_tool_checkout_is_skipped(self):
+        (self.tools['my-git-utils'] / 'scratch').write_text('wip')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('tool:my-git-utils: skipped (dirty checkout)', result.stdout)
+        self.assertNotIn(f"{self.tools['my-git-utils']}:", self.logged())
+        self.assertIn(f"{self.repos['my-skills']}:before", self.logged())
 
     def test_dirty_staged_and_untracked_preserved(self):
         for name, staged in (('my-skills', False), ('my-cubrid-skills', True)):

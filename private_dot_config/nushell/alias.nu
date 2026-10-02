@@ -254,13 +254,14 @@ alias ghrr = gh search prs --review-requested=@me --state=open
 alias ghpr = do { gh pr view --json url -q .url }
 alias gfpa = git fetch --all --prune
 alias grbpr = ~/.config/my-scripts/bin/git-rebase-pr.sh
-alias gl = ~/.config/my-scripts/bin/git-log.sh
-alias gld = do { ~/.config/my-scripts/bin/git-log.sh develop }
-alias glh = do { ~/.config/my-scripts/bin/git-log.sh HEAD }
+# git-log, git-log-pr, git-log-pick: vimkim/my-git-utils (uv tool, ~/.local/bin)
+alias gl = git-log
+alias gld = git-log develop HEAD
+alias glh = git-log HEAD
 alias glf = ~/.config/my-scripts/bin/git-log-find.sh
-alias glpr = ~/.config/my-scripts/bin/git-log-pr.sh
-alias glp = ~/.config/my-scripts/bin/git-log-pick.py
-alias gloga = with-env {GL_OPS: "--all"} { git-log.sh }
+alias glpr = git-log-pr
+alias glp = git-log-pick
+alias gloga = git-log --all
 alias gst = git status
 alias gsw = git switch
 alias h = cl ..

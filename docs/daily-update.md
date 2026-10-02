@@ -29,6 +29,12 @@ prerequisites must be installed. `jq` is required for lock-backed third-party wo
 Dirty, ahead, diverged, detached, missing, nested non-checkout, and untracked-branch
 checkouts are reported and skipped. Fetch or fast-forward failures report failure
 and skip that collection's sync. Source files and commits are never discarded.
+
+After the collections, the personal tool checkout `~/gh/my-git-utils`
+(`vimkim/my-git-utils`) goes through the same checks, fast-forward, and
+`just sync`, which reinstalls its commands with `uv tool install --editable`.
+It is reported as `tool:my-git-utils` and holds no skills, so stale-skill
+detection ignores it.
 Fetch can update remote-tracking refs even when a diverged checkout is skipped.
 An unrelated collection still proceeds after a failure or partial result. Set
 `DAILY_UPDATE_COLLECTION_ORDER=cubrid-first` to process the same two collections in

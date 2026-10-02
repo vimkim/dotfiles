@@ -1,0 +1,10 @@
+# Hidden refs for git-log, git-log-pick and git-log-pr (vimkim/my-git-utils).
+# They prune --all/--branches/--remotes/--glob, never a ref named on the
+# command line. Per run: --hide=REGEX adds a pattern, --no-hide disables both.
+
+# Regexes on the branch name without its remote prefix.
+hide = ["^release"]
+
+# Keep-list: refs of other remotes are hidden. Ignored in a repository that
+# has none of these remotes.
+remotes = ["vk", "origin"]

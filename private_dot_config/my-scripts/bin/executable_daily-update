@@ -33,6 +33,9 @@ PERSONAL_COLLECTIONS=(my-skills my-cubrid-skills)
 if [ "${DAILY_UPDATE_COLLECTION_ORDER:-}" = cubrid-first ]; then
     PERSONAL_COLLECTIONS=(my-cubrid-skills my-skills)
 fi
+# Personal tool checkouts refresh the same way after the collections; their
+# `just sync` reinstalls the tool's commands. They hold no skills.
+PERSONAL_TOOLS=(my-git-utils)
 
 if [ -t 1 ]; then
     BOLD=$'\033[1m'
@@ -380,7 +383,7 @@ run_codex_upgrade() {
 
 run_collection() {
     local repo="$HOME/gh/$1" status branch upstream remote rc root
-    local label="collection:$1"
+    local label="${2:-collection}:$1"
     printf '\n%s── %s ──%s\n' "$BOLD" "$label" "$RESET"
     if [ ! -d "$repo" ] ||
         ! root="$(git -C "$repo" rev-parse --show-toplevel 2>/dev/null)" ||
@@ -474,6 +477,10 @@ run_upgrades() {
     local collection
     for collection in "${PERSONAL_COLLECTIONS[@]}"; do
         run_collection "$collection"
+    done
+    local tool
+    for tool in "${PERSONAL_TOOLS[@]}"; do
+        run_collection "$tool" tool
     done
     run_third_party_updates
 
@@ -578,6 +585,7 @@ Each collection proceeds independently. Exit 0 means complete, 2 means skipped
 or partial work, and 1 means a failure. Runs still stamp the day in all cases.
 just sync alone reconciles local contents without fetching source changes.
 DAILY_UPDATE_COLLECTION_ORDER=cubrid-first reverses the default collection order.
+The personal tool checkout ~/gh/my-git-utils refreshes the same way afterwards.
 Third-party updates use the pinned CLI with an explicit eligible-name filter.
 --prune moves what it removes into a dated trash directory rather than deleting it.
 EOF
