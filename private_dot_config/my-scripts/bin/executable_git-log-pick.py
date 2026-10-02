@@ -13,6 +13,10 @@ Usage:
   glp -n30 --since=1.month
                        # arguments starting with '-' go to git-log.py
   glp --all-branch     # label every ref, not just those at A and B
+  glp --include-release-branches --all-remotes
+                       # show refs the picker map hides by default:
+                       # release* branches, and remotes other than
+                       # CUBRID/CUBRID and vimkim/cubrid (see git-log.py -h)
 
 In the picker: the cursor starts on HEAD, so Enter alone picks HEAD.
 Enter confirms, Esc aborts, ctrl-/ toggles the commit preview.
@@ -21,6 +25,7 @@ Lines with only graph edges (no commit) are not selectable; the picker reopens.
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import re
 import shlex
@@ -32,15 +37,21 @@ ANSI = re.compile(r"\x1b\[[0-9;]*m")
 HASH = re.compile(r"\b[0-9a-f]{7,40}\b")
 HERE = Path(__file__).resolve().parent
 
+# Share the ref-hiding rules with git-log.py (hyphenated, so load by path).
+_spec = importlib.util.spec_from_file_location("git_log", HERE / "git-log.py")
+git_log = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(git_log)
+
 # The preview calls this script back with the line (fzf quotes {} itself).
 # No shell pipeline here: fzf would expand regex braces like {7,40} as field
 # placeholders. $SHELL is still pinned to sh so nushell/fish never parse it.
 PREVIEW = f"{shlex.quote(sys.executable)} {shlex.quote(str(Path(__file__).resolve()))} --preview-line {{}}"
 
 
-def graph() -> bytes:
+def graph(hidden: list[str]) -> bytes:
+    revs, deco = git_log.all_view(hidden)
     return subprocess.run(
-        ["git", "log", "--graph", "--oneline", "--decorate", "--all", "--color=always"],
+        ["git", "log", "--graph", "--oneline", "--decorate", "--color=always", *deco, *revs],
         check=True,
         stdout=subprocess.PIPE,
     ).stdout
@@ -63,12 +74,12 @@ def head_position(lines: bytes) -> int | None:
     return None
 
 
-def pick(prompt: str, header: str) -> str | None:
+def pick(prompt: str, header: str, hidden: list[str]) -> str | None:
     """Return the selected commit hash, or None if the user aborted.
 
     The cursor starts on HEAD, so Enter alone picks it.
     """
-    lines = graph()
+    lines = graph(hidden)
     pos = head_position(lines)
     while True:
         proc = subprocess.run(
@@ -118,13 +129,17 @@ def main(argv: list[str]) -> int:
     ).returncode != 0:
         return 128
 
+    hidden = git_log.hidden_refs(
+        include_release="--include-release-branches" in opts,
+        all_remotes="--all-remotes" in opts,
+    )
     if not revs:
-        a = pick("A", "pick the first starting point   [ctrl-/ preview]")
+        a = pick("A", "pick the first starting point   [ctrl-/ preview]", hidden)
         if a is None:
             return 130
         revs.append(a)
     if len(revs) == 1:
-        b = pick("B", f"A = {revs[0]} — pick the second starting point   [ctrl-/ preview]")
+        b = pick("B", f"A = {revs[0]} — pick the second starting point   [ctrl-/ preview]", hidden)
         if b is None:
             return 130
         revs.append(b)

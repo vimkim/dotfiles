@@ -7,11 +7,17 @@ Usage:
   Arguments starting with '-' are git-log options (write -n30, not -n 30);
   everything else is a revision.
 
-  no revisions      log --all and label every ref
+  no revisions      log --all minus hidden refs (below); label the rest
   revisions given   log only their history; label only their refs (a raw
                     commit gets the refs pointing exactly at it) plus HEAD
   --all-branch      label every ref
   --mark=NAME=REV   append "◀ NAME" to REV's line (repeatable; used by glp)
+
+Hidden refs (only affects the --all view; named revisions always work):
+  release* and <remote>/release* branches   --include-release-branches
+  remotes other than CUBRID/CUBRID and      --all-remotes
+  vimkim/cubrid (only in repos that have
+  one of those two remotes)
 
 git-log.sh is a thin wrapper around this script.
 """
@@ -32,6 +38,10 @@ PAGER = "less -iRFSX"
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 HASH = re.compile(r"\b[0-9a-f]{7,40}\b")
+RELEASE_REFS = ["refs/heads/release*", "refs/remotes/*/release*"]
+KEPT_REMOTE_URL = re.compile(
+    r"github\.com[:/](CUBRID/CUBRID|vimkim/cubrid)(\.git)?/?$", re.IGNORECASE
+)
 MARK = "\x1b[1;33m"
 RESET = "\x1b[m"
 
@@ -61,6 +71,27 @@ def refs_for(rev: str) -> list[str]:
                 "for-each-ref", f"--points-at={commit}", "--format=%(refname)"
             ).split()
     return refs
+
+
+def hidden_refs(include_release: bool = False, all_remotes: bool = False) -> list[str]:
+    """Ref globs left out of the --all view."""
+    hidden = [] if include_release else list(RELEASE_REFS)
+    if not all_remotes:
+        urls = {}
+        for line in git_out("config", "--get-regexp", r"^remote\..*\.url$").splitlines():
+            key, _, url = line.partition(" ")
+            urls[key[len("remote."):-len(".url")]] = url
+        kept = {name for name, url in urls.items() if KEPT_REMOTE_URL.search(url)}
+        if kept:  # elsewhere (non-CUBRID repos) keep every remote
+            hidden += [f"refs/remotes/{name}/*" for name in sorted(urls) if name not in kept]
+    return hidden
+
+
+def all_view(hidden: list[str]) -> tuple[list[str], list[str]]:
+    """(revision args, decoration args) for --all without the hidden refs."""
+    revs = [f"--exclude={h}" for h in hidden] + ["--all"]
+    deco = [f"--decorate-refs-exclude={h}" for h in hidden]
+    return revs, deco
 
 
 def decorate_opts(revs: list[str]) -> list[str]:
@@ -114,10 +145,16 @@ def main(argv: list[str]) -> int:
     opts: list[str] = []
     revs: list[str] = []
     all_labels = False
+    include_release = False
+    all_remotes = False
     mark_args: list[tuple[str, str]] = []
     for arg in argv:
         if arg == "--all-branch":
             all_labels = True
+        elif arg == "--include-release-branches":
+            include_release = True
+        elif arg == "--all-remotes":
+            all_remotes = True
         elif arg.startswith("--mark="):
             name, _, rev = arg[len("--mark="):].partition("=")
             mark_args.append((name, rev))
@@ -127,7 +164,8 @@ def main(argv: list[str]) -> int:
             revs.append(arg)
 
     if not revs:
-        revs = ["--all"]
+        revs, deco = all_view(hidden_refs(include_release, all_remotes))
+        opts = deco + opts
     elif not all_labels:
         opts = decorate_opts(revs) + opts
 
