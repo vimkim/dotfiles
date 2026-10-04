@@ -145,6 +145,18 @@ The terminal configuration uses Maple Mono. On Fedora, follow
 
 </details>
 
+### Listing helpers
+
+`ls-by-size`, `ls-by-name`, and `ls-by-time` provide detailed eza listings sorted
+largest first, alphabetically, and newest first. `ls-by-extension`, `ls-tree`,
+`ls-dirs`, and `ls-files` add extension sorting, a two-level tree, and filtered
+views. All include hidden entries and accept paths and eza options.
+
+In a terminal, long output opens in less; short output stays visible. Use
+`--no-pager` to print directly and `--reverse` to reverse the default order.
+Pipes and redirected output bypass paging. These Python 3 scripts work in
+Nushell, Bash, and Zsh; see [usage and verification](docs/ls-helper-family.md).
+
 ### Daily AI-toolchain upkeep
 
 `daily-update` (in `~/.config/my-scripts/bin`) upgrades Codex, Claude Code, and

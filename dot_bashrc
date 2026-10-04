@@ -26,6 +26,7 @@ path_prepend \
     "$HOMEBREW_PREFIX/sbin" \
     "$HOMEBREW_PREFIX/bin" \
     "$HOME/.local/bin" \
+    "$HOME/.config/my-scripts/bin" \
     "$HOME/.cargo/bin"
 
 # If not running interactively, don't do anything else.

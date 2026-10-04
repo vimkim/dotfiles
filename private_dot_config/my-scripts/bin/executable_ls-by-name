@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+"""Sorted eza presets with terminal-aware paging; also invoked through symlinks."""
+
+import argparse
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import sys
+
+
+# Options, descending by default, description.
+PRESETS = {
+    "ls-by-name": (["--sort=name"], False, "names A–Z"),
+    "ls-by-size": (["--sort=size"], True, "largest entries first (no recursive totals)"),
+    "ls-by-time": (["--sort=modified"], True, "most recently modified first"),
+    "ls-by-extension": (["--sort=extension"], False, "extension, then name"),
+    "ls-tree": (["--sort=name", "--tree", "--level=2"], False, "tree, two levels deep"),
+    "ls-dirs": (["--sort=name", "--only-dirs"], False, "directories only, names A–Z"),
+    "ls-files": (["--sort=name", "--only-files"], False, "files only, names A–Z"),
+}
+
+VALUE_OPTIONS = {
+    "-s", "--sort", "-L", "--level", "-I", "--ignore-glob", "-w", "--width",
+    "-t", "--time", "--time-style", "--color-scale-mode",
+}
+OPTIONAL_VALUE_OPTIONS = {
+    "-F", "--classify", "--color", "--colour", "--icons", "--hyperlink",
+    "--absolute", "--code", "--loc", "--color-scale",
+}
+
+
+def expand_short_options(arguments):
+    """Expose bundled -r to our parser without splitting eza option values."""
+    result = []
+    value_expected = False
+    for index, argument in enumerate(arguments):
+        if value_expected:
+            # Protect eza values from the helper parser, including '-r' globs.
+            previous = result.pop()
+            result.append(previous + ("=" if previous.startswith("--") else "") + argument)
+            value_expected = False
+            continue
+        if argument == "--":
+            return result + arguments[index:]
+        if len(argument) > 1 and argument.startswith("-") and not argument.startswith("--"):
+            for offset, flag in enumerate(argument[1:], 1):
+                result.append("-" + flag)
+                if flag in "sLIwt":  # eza short options taking a value
+                    if argument[offset + 1:]:
+                        result[-1] += argument[offset + 1:]
+                    else:
+                        value_expected = True
+                    break
+                if flag == "F":
+                    # Optional attached classify value belongs to eza.
+                    result[-1] += argument[offset + 1:]
+                    break
+        else:
+            result.append(argument)
+            value_expected = argument in VALUE_OPTIONS
+    return result
+
+
+def default_directory(arguments):
+    """Explicitly default to '.', even when eza would read non-terminal stdin."""
+    skip_value = None
+    for index, argument in enumerate(arguments):
+        if skip_value and not argument.startswith("-"):
+            if skip_value != "--color-scale":
+                skip_value = None
+            continue
+        skip_value = None
+        if argument == "--stdin":
+            return arguments
+        elif argument == "--":
+            return arguments if arguments[index + 1:] else [*arguments, "."]
+        elif argument in VALUE_OPTIONS or argument in OPTIONAL_VALUE_OPTIONS:
+            skip_value = argument
+        elif not argument.startswith("-") or argument == "-":
+            return arguments
+    return [*arguments, "--", "."]
+
+
+def exit_status(code):
+    return 128 - code if code < 0 else code
+
+
+def main():
+    name = Path(sys.argv[0]).name
+    options, descending, description = PRESETS[name]
+    parser = argparse.ArgumentParser(
+        prog=name,
+        add_help=False,
+        allow_abbrev=False,
+        usage="%(prog)s [--no-pager] [-r|--reverse] [EZA OPTIONS] [--] [PATH ...]",
+        description=f"{description}; detailed listing including hidden entries.",
+        epilog="Other arguments go to eza. Use -- before paths beginning with '-'.",
+    )
+    parser.add_argument("--no-pager", action="store_true", help="print directly, even in a terminal")
+    parser.add_argument("-r", "--reverse", action="store_true", help="reverse this helper's default order")
+    parser.add_argument("--help", "-?", action="store_true", help="show helper and eza help")
+    args, forwarded = parser.parse_known_args(expand_short_options(sys.argv[1:]))
+    eza = shutil.which("eza")
+    if args.help:
+        parser.print_help()
+        if eza:
+            print("\neza options:", flush=True)
+            return exit_status(subprocess.call([eza, "--help"]))
+        return 0
+    if not eza:
+        print(f"{name}: eza is required; install eza and retry.", file=sys.stderr)
+        return 127
+
+    less = shutil.which("less")
+    page = (
+        not args.no_pager
+        and sys.stdin.isatty()
+        and sys.stdout.isatty()
+        and os.environ.get("TERM") not in (None, "", "dumb")
+        and less is not None
+    )
+    command = [eza, "--long", "--all", *options]
+    if descending != args.reverse:
+        command.append("--reverse")
+    if page:
+        # eza's output is a pipe here, but the listing is still for a terminal.
+        color = "never" if "NO_COLOR" in os.environ else "always"
+        command.extend([f"--color={color}", f"--width={shutil.get_terminal_size().columns}"])
+    command.extend(default_directory(forwarded))
+    if not page:
+        # Preserve the real stdout descriptor, including pipes from any shell.
+        os.execv(eza, command)
+
+    # User LESS settings must not disable wrapping or short-output auto-exit.
+    pager_env = os.environ.copy()
+    pager_env.pop("LESS", None)
+    with subprocess.Popen(command, stdout=subprocess.PIPE) as listing:
+        try:
+            with subprocess.Popen([less, "-FRX"], stdin=listing.stdout, env=pager_env) as pager:
+                listing.stdout.close()
+                pager_status = pager.wait()
+        finally:
+            listing.stdout.close()
+            # Quitting the pager should also stop a still-running recursive listing.
+            cancelled = listing.poll() is None
+            if cancelled:
+                listing.terminate()
+            listing_status = listing.wait()
+    if listing_status == -signal.SIGPIPE or (cancelled and listing_status == -signal.SIGTERM):
+        listing_status = 0
+    return exit_status(listing_status or pager_status)
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except OSError as error:
+        print(f"{Path(sys.argv[0]).name}: {error}", file=sys.stderr)
+        sys.exit(1)
