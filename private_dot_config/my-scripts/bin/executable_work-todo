@@ -22,13 +22,13 @@ def main():
         index = 0
         while index < len(args):
             arg = args[index]
-            if arg == "--database":
+            if arg in ("--database", "--color"):
                 if index + 1 == len(args):
-                    print(f"{name}: --database requires a path", file=sys.stderr)
+                    print(f"{name}: {arg} requires a value", file=sys.stderr)
                     return 2
                 index += 2
                 continue
-            if arg in ("--json", "--help", "-h", "--version", "-V") or arg.startswith("--database="):
+            if arg in ("--json", "--help", "-h", "--version", "-V") or arg.startswith(("--database=", "--color=")):
                 index += 1
                 continue
             print(f"{name}: fixed horizon; use work-todo for other options: {arg}", file=sys.stderr)
