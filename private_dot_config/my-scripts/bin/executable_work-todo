@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Dispatch todo shortcuts by invocation name, like ls-tree -> ls-by-name."""
+import os
+from pathlib import Path
+import sys
+
+PRESETS = {
+    "todo-today": ["today"],
+    "todo-3days": ["--days", "3"],
+    "todo-5days": ["--days", "5"],
+}
+
+
+def main():
+    name = Path(sys.argv[0]).name
+    args = sys.argv[1:]
+    if name == "work-todo":
+        forwarded = args
+    elif name in PRESETS:
+        # Only non-horizon options are valid for a fixed-horizon shortcut.
+        # Treat a database argument as opaque even when it resembles an option.
+        index = 0
+        while index < len(args):
+            arg = args[index]
+            if arg == "--database":
+                if index + 1 == len(args):
+                    print(f"{name}: --database requires a path", file=sys.stderr)
+                    return 2
+                index += 2
+                continue
+            if arg in ("--json", "--help", "-h", "--version", "-V") or arg.startswith("--database="):
+                index += 1
+                continue
+            print(f"{name}: fixed horizon; use work-todo for other options: {arg}", file=sys.stderr)
+            return 2
+        forwarded = PRESETS[name] + args
+    else:
+        print(f"{name}: unknown todo shortcut", file=sys.stderr)
+        return 2
+    try:
+        os.execvp("work-tracker", ["work-tracker", "todo", *forwarded])
+    except FileNotFoundError:
+        print(f"{name}: work-tracker is not installed or is not on PATH", file=sys.stderr)
+        return 127
+    except OSError as error:
+        print(f"{name}: {error}", file=sys.stderr)
+        return 126
+
+
+if __name__ == "__main__":
+    sys.exit(main())
