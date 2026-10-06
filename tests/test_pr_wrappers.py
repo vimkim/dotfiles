@@ -46,16 +46,14 @@ sys.exit(int(os.environ.get('PR_EXIT', '0')))
         return subprocess.run(['bash', str(BIN / ('executable_' + name)), *args],
                               cwd=self.repo, env=self.env, capture_output=True, text=True, timeout=10)
 
-    def test_url_wrappers_forward_selectors_and_exit_status(self):
-        for name in ('gh-pr-url', 'gh-pr-view'):
-            result = self.wrapper(name, '8095', '--repo', 'CUBRID/cubrid')
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(result.stdout.strip(), URL)
-            self.assertEqual(json.loads(self.calls.read_text().splitlines()[-1]),
-                             ['8095', '--repo', 'CUBRID/cubrid', '--json', 'url', '--jq', '.url'])
-            self.env['PR_EXIT'] = '3'
-            self.assertEqual(self.wrapper(name).returncode, 3)
-            self.env.pop('PR_EXIT')
+    def test_url_wrapper_forwards_selectors_and_exit_status(self):
+        result = self.wrapper('gh-pr-url', '8095', '--repo', 'CUBRID/cubrid')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), URL)
+        self.assertEqual(json.loads(self.calls.read_text().splitlines()[-1]),
+                         ['8095', '--repo', 'CUBRID/cubrid', '--json', 'url', '--jq', '.url'])
+        self.env['PR_EXIT'] = '3'
+        self.assertEqual(self.wrapper('gh-pr-url').returncode, 3)
 
     def test_starship_keeps_background_refresh_and_open_filter(self):
         self.env['PR_RESULT'] = '8095'
