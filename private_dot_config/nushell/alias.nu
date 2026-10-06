@@ -11,26 +11,21 @@ def --env cl [
   let target_dir = if $dir != null {
     $dir
   } else {
-    # ls -a | where type in ['dir' 'symlink'] | sort-by modified -r | get name | to text | fzfm
-    eza -l --no-permissions --no-user -a --icons=always --sort modified --reverse --color=always --only-dirs --show-symlinks
-    | fzfm --ansi --query ""
-    | str trim -l
-    | split row -r '\s+'
-    | get 5 -o
-    | default null
+    let selection = (^dir-picker --json | complete)
+    if $selection.exit_code in [1 130] { return }
+    if $selection.exit_code != 0 {
+      error make {msg: ($selection.stderr | str trim)}
+    }
+    $selection.stdout | from json
   }
 
-  if $target_dir == null {
-    print "No directory selected."
-    return
+  # A final slash keeps cd from trimming whitespace that belongs to the name.
+  # Preserve cd's special targets (such as '-') when they are not actual paths.
+  if ($target_dir | path exists) {
+    cd $"($target_dir)/"
+  } else {
+    cd $target_dir
   }
-
-  cd $target_dir
-
-  let big_threshold = 400
-  let entry_count   = (fd -d1 --hidden --no-ignore | wc -l | into int)
-  let rows          = (term size | get rows)
-  let max_lines     = ($rows * 0.8 | math floor)
 
   ezam
 }

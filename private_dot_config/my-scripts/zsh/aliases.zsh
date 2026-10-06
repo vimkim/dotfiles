@@ -265,7 +265,7 @@ alias cr='DIR=$(dirs -v | sed "1d" | head -n 20 | awk '\''{print $2}'\'' | fzf -
 alias ch='DIR=$(cat $HOME/.zdirs | fzf +s --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias co='popd >/dev/null'
 
-# in order to include ".." to the selection list supplied to fzf, use $dirs
+# Shared directory ordering and selection live in dir-picker.
 cv() {
     # If an argument is provided, act like 'cd' and go to that directory
     if [[ -n $1 ]]; then
@@ -273,12 +273,10 @@ cv() {
         return
     fi
 
-    # Combine the parent directory and subdirectories into an array
-    local dirs=("../" $(fd --max-depth 1 -H -I --type d --type l -L --strip-cwd-prefix))
-    # Pass the array to fzf for selection
-    local dir=$(printf "%s\n" "${dirs[@]}" | fzf --height 80% --reverse)
-    # If a directory was selected, change to that directory
-    [[ -n $dir ]] && cd "$dir"
+    # NUL framing preserves spaces, tabs, and even trailing newlines in paths.
+    local dir
+    IFS= read -r -d '' dir < <(command dir-picker --null) || return
+    cl "$dir"
 }
 alias c='cv'
 

@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+"""Pick an immediate child directory by creation time; print its absolute path."""
+
+import argparse
+from decimal import Decimal
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+
+def native_birth_ns(metadata):
+    """Python exposes birth time on macOS/BSD and recent Windows versions."""
+    value = getattr(metadata, "st_birthtime_ns", None)
+    if value is None:
+        seconds = getattr(metadata, "st_birthtime", 0)
+        value = int(seconds * 1_000_000_000)
+    return value if value > 0 else None
+
+
+def linux_birth_times(paths):
+    """Read Linux birth times through GNU stat, without a platform-specific ABI.
+
+    Include the filename in each NUL-delimited record so a disappearing entry
+    cannot shift timestamps onto another path. Batch calls to bound argv size.
+    Missing stat or unavailable birth times leave modification-time fallbacks.
+    """
+    stat = shutil.which("stat")
+    if not sys.platform.startswith("linux") or not stat:
+        return {}
+    result = {}
+    for offset in range(0, len(paths), 128):
+        try:
+            completed = subprocess.run(
+                [stat, "--printf=%.9W\t%n\\0", "--", *paths[offset:offset + 128]],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                env={**os.environ, "LC_ALL": "C"},
+            )
+        except OSError:
+            return result
+        for record in completed.stdout.split(b"\0"):
+            if not record:
+                continue
+            timestamp, separator, name = record.partition(b"\t")
+            if separator:
+                value = int(Decimal(timestamp.decode("ascii")) * 1_000_000_000)
+                if value > 0:
+                    result[os.fsdecode(name)] = value
+    return result
+
+
+def directory_choices(root):
+    """Parent first, then children newest first; equal timestamps sort by name.
+
+    Hidden directories and symlinks to directories are included. Symlinks use
+    the link's timestamp, and returned paths retain the link rather than
+    resolving it. Files and dangling links are excluded.
+    """
+    entries = []
+    with os.scandir(root) as directory:
+        for entry in directory:
+            try:
+                if entry.is_dir():
+                    entries.append((entry.path, entry.stat(follow_symlinks=False)))
+            except OSError:
+                # Entries may disappear or become inaccessible during a scan.
+                continue
+    birth_times = linux_birth_times([
+        path for path, metadata in entries if native_birth_ns(metadata) is None
+    ])
+    timestamps = {
+        path: native_birth_ns(metadata) or birth_times.get(path, metadata.st_mtime_ns)
+        for path, metadata in entries
+    }
+    ordered = sorted(timestamps, key=lambda path: (-timestamps[path], Path(path).name))
+    return [("../", str(root.parent)), *[
+        (Path(path).name + "/", path) for path in ordered
+    ]]
+
+
+def pick_directory(choices):
+    """fzf handles the terminal UI; stdout carries only the selected path."""
+    fzf = shutil.which("fzf")
+    if not fzf:
+        print("dir-picker: fzf is required; install fzf and retry.", file=sys.stderr)
+        return 127, None
+    completed = subprocess.run(
+        [fzf, "--read0", "--print0", "--no-multi", "--no-print-query", "--no-expect",
+         "--no-sort", "--no-tac", "--height=80%", "--reverse", "--bind=ctrl-s:toggle-sort",
+         "--header=Newest directories first | Ctrl-S: toggle relevance sort"],
+        input=b"".join(os.fsencode(label) + b"\0" for label, _ in choices),
+        stdout=subprocess.PIPE,
+    )
+    if completed.returncode:
+        return (128 - completed.returncode if completed.returncode < 0 else completed.returncode), None
+    selected = os.fsdecode(completed.stdout.removesuffix(b"\0"))
+    paths = dict(choices)
+    if selected not in paths:
+        print("dir-picker: fzf returned an invalid selection.", file=sys.stderr)
+        return 2, None
+    return 0, paths[selected]
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("directory", nargs="?", default=".", help="directory to browse (default: current)")
+    parser.add_argument("--list", action="store_true", help="list ordered paths without opening fzf")
+    output = parser.add_mutually_exclusive_group()
+    output.add_argument("--json", action="store_true", help="emit a JSON string, or array with --list")
+    output.add_argument("--null", action="store_true", help="terminate paths with NUL instead of newline")
+    args = parser.parse_args()
+    root = Path(os.path.abspath(os.path.expanduser(args.directory)))
+    choices = directory_choices(root)
+    if args.list:
+        paths = [path for _, path in choices]
+    else:
+        status, selected = pick_directory(choices)
+        if status:
+            return status
+        paths = [selected]
+    if args.json:
+        print(json.dumps(paths if args.list else paths[0]))
+    else:
+        separator = b"\0" if args.null else b"\n"
+        sys.stdout.buffer.write(b"".join(os.fsencode(path) + separator for path in paths))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except OSError as error:
+        print(f"dir-picker: {error}", file=sys.stderr)
+        sys.exit(2)
