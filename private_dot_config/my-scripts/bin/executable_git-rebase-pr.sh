@@ -131,7 +131,7 @@ need_no_rebase_in_progress() {
 }
 
 need_cmd git
-need_cmd gh
+need_cmd gh-pr-info
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not inside a git work tree"
 
@@ -169,10 +169,10 @@ if [[ -n "$PR_SELECTOR" ]]; then
 fi
 
 PR_METADATA="$(
-  gh pr view "${GH_PR_ARGS[@]}" \
+  gh-pr-info "${GH_PR_ARGS[@]}" \
     --json baseRefName,headRefName,baseRefOid,headRefOid,headRepository,number,url \
     --jq '[.baseRefName, .headRefName, .baseRefOid, .headRefOid, .url, (.headRepository.nameWithOwner // ""), (.number | tostring)] | @tsv'
-)" || die "failed to read PR metadata with gh"
+)" || die "failed to resolve PR metadata with gh-pr-info"
 
 IFS=$'\t' read -r BASE_REF_NAME HEAD_REF_NAME BASE_REF_OID HEAD_REF_OID PR_URL HEAD_REPO PR_NUMBER <<<"$PR_METADATA"
 

@@ -246,7 +246,7 @@ def ghpd [] {
 # PRs where someone is waiting on you to review
 alias ghrr = gh search prs --review-requested=@me --state=open
 
-alias ghpr = do { gh pr view --json url -q .url }
+alias ghpr = gh-pr-url
 alias gfpa = git fetch --all --prune
 alias grbpr = ~/.config/my-scripts/bin/git-rebase-pr.sh
 # git-log, git-log-pr, git-log-pick: vimkim/my-git-utils (uv tool, ~/.local/bin)

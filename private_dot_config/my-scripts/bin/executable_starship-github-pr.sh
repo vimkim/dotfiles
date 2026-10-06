@@ -23,7 +23,7 @@ if [ $((now - mtime)) -ge $ttl ]; then
     cd "$repo_root" || exit 0
     # An empty file is a valid cache entry meaning "no open PR" — it stops
     # us from re-querying the API on every prompt until the TTL expires.
-    gh pr view --json number,state \
+    gh-pr-info --json number,state \
       --jq 'select(.state == "OPEN") | .number' \
       2>/dev/null >"$cache.tmp.$$"
     mv "$cache.tmp.$$" "$cache"
