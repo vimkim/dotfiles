@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dispatch todo shortcuts by invocation name, like ls-tree -> ls-by-name."""
+"""Show all scheduled work, dispatching todo shortcuts by invocation name."""
 import os
 from pathlib import Path
 import sys
@@ -28,7 +28,7 @@ def main():
                     return 2
                 index += 2
                 continue
-            if arg in ("--json", "--help", "-h", "--version", "-V") or arg.startswith(("--database=", "--color=")):
+            if arg in ("--all", "--json", "--help", "-h", "--version", "-V") or arg.startswith(("--database=", "--color=")):
                 index += 1
                 continue
             print(f"{name}: fixed horizon; use work-todo for other options: {arg}", file=sys.stderr)
@@ -38,7 +38,7 @@ def main():
         print(f"{name}: unknown todo shortcut", file=sys.stderr)
         return 2
     try:
-        os.execvp("work-tracker", ["work-tracker", "todo", *forwarded])
+        os.execvp("work-tracker", ["work-tracker", "todo", "--all", *forwarded])
     except FileNotFoundError:
         print(f"{name}: work-tracker is not installed or is not on PATH", file=sys.stderr)
         return 127

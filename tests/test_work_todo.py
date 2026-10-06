@@ -29,7 +29,7 @@ class TodoWrapperTests(unittest.TestCase):
         for name, preset in (("todo-today", ["today"]), ("todo-3days", ["--days", "3"]), ("todo-5days", ["--days", "5"])):
             result = self.run_alias(name, "--json", "--database", "a path/ledger.db")
             self.assertEqual(result.returncode, 0)
-            self.assertEqual(json.loads(result.stdout), ["todo", *preset, "--json", "--database", "a path/ledger.db"])
+            self.assertEqual(json.loads(result.stdout), ["todo", "--all", *preset, "--json", "--database", "a path/ledger.db"])
             self.assertIn("stderr preserved", result.stderr)
         result = self.run_alias("todo-today", "--database", "--days")
         self.assertEqual(result.returncode, 0)
@@ -39,7 +39,7 @@ class TodoWrapperTests(unittest.TestCase):
             for args in (("--color", "always"), ("--color=never",)):
                 result = self.run_alias(name, *args)
                 self.assertEqual(result.returncode, 0)
-                self.assertEqual(json.loads(result.stdout), ["todo", *preset, *args])
+                self.assertEqual(json.loads(result.stdout), ["todo", "--all", *preset, *args])
         self.assertEqual(self.run_alias("todo-today", "--color").returncode, 2)
 
     def test_reject_horizon_override_and_unknown_arguments(self):
@@ -50,7 +50,7 @@ class TodoWrapperTests(unittest.TestCase):
         self.env["FAKE_EXIT"] = "7"
         result = self.run_alias("work-todo", "--days", "8", "--json")
         self.assertEqual(result.returncode, 7)
-        self.assertEqual(json.loads(result.stdout), ["todo", "--days", "8", "--json"])
+        self.assertEqual(json.loads(result.stdout), ["todo", "--all", "--days", "8", "--json"])
 
     def test_missing_binary(self):
         (self.root / "work-tracker").unlink()
