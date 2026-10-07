@@ -1,8 +1,10 @@
 # Directory picker search and metadata design
 
-Status: interview in progress. This document records confirmed requirements,
-source evidence, and a proposed refactoring plan. Runtime behavior has not
-changed. The existing behavior remains documented in [directory-picker.md](directory-picker.md).
+Status: design decisions settled; awaiting confirmation of shared
+understanding and documentation review. This document records confirmed
+requirements, source evidence, and a proposed refactoring plan. Runtime
+behavior has not changed. The existing behavior remains documented in
+[directory-picker.md](directory-picker.md).
 
 ## Confirmed requirements
 
@@ -25,6 +27,30 @@ changed. The existing behavior remains documented in [directory-picker.md](direc
   picker with initial query text.
 - Keep `../` as the first candidate with an empty query. Ordinary name
   searches filter it out.
+- A directory symlink uses the target directory's modification time for both
+  recency and the displayed Modified value. Navigation still uses the symlink
+  path rather than resolving it to the target path.
+- Retain normal fzf extended query syntax and smart-case matching. Multiple
+  terms, prefix/suffix matching, quoted terms, and negation remain available,
+  all restricted to the name field. A spaces-only query behaves as empty.
+- Python renders similar metadata columns; eza is not a new dependency.
+- `c PATH --query TEXT` opens the picker inside PATH with that initial query.
+  Without PATH, an explicit query option browses the current directory.
+
+## Intended command behavior
+
+| Command | Result |
+| --- | --- |
+| `c` | Browse the current directory with an empty query |
+| `c PATH` | Navigate directly to PATH, as before |
+| `c --query TEXT` | Browse the current directory with initial query TEXT |
+| `c PATH --query TEXT` | Browse PATH with initial query TEXT |
+| `c --query ""` | Explicitly open the picker with an empty query |
+
+The query option is added to Nushell's `cl`, which its `c` alias uses, and to
+the shared `dir-picker` command. The existing Zsh wrapper receives the shared
+presentation and ordering changes; adding a query flag to that wrapper is
+outside this Nushell-focused refactor.
 
 ## Current behavior and fzf options
 
@@ -75,17 +101,21 @@ and [fzf search syntax](https://github.com/junegunn/fzf#search-syntax).
 ## Proposed refactoring
 
 1. Keep Python as the shared candidate enumerator and path owner. Replace
-   creation-time collection with each candidate's modification time, keeping
+   creation-time collection with each candidate directory's modification time,
+   following directory symlinks for metadata while retaining their paths, keeping
    existing inclusion rules and deterministic name ordering for equal times.
 2. Represent a candidate with a stable numeric identifier, its actual path,
    its matchable name, and its display metadata. Keep actual paths in Python;
    return an identifier from fzf and look up the path rather than parsing a
    decorated display row.
-3. Separate metadata and name into distinct fields. For example, an original
-   record `ID<TAB>METADATA<TAB>NAME` can use `--with-nth=2.. --nth=2
-   --accept-nth=1`: display metadata and name, search only the name, and return
-   the original ID. Escape display control characters and backslashes so
-   unusual names cannot alter field boundaries or terminal presentation;
+3. Render size, modification date/time, icons, and symlink information in
+   Python. Separate metadata and name into distinct fields. For example, an
+   original record `ID<TAB>METADATA<TAB>NAME<TAB>SYMLINK_INFO` can use
+   `--with-nth=2.. --nth=2 --accept-nth=1`: display metadata, name, and symlink
+   information, search only the name, and return the original ID. Keep icons
+   and symlink target text outside the name field. Escape display control
+   characters and backslashes so unusual names cannot alter field boundaries
+   or terminal presentation;
    selection must still retain the actual path.
 4. Feed candidates in the chosen empty-query order, enable `--sort`, and use
    `--tiebreak=index`. fzf preserves input order for an empty query and ranks
@@ -93,23 +123,29 @@ and [fzf search syntax](https://github.com/junegunn/fzf#search-syntax).
    the query restores the input order. Remove the manual sorting toggle so it
    cannot disable the requested automatic score ordering.
 5. Add `--query` to the shared script and Nushell wrapper, preserving direct
-   navigation when the wrapper's option is absent. Choose metadata rendering
-   and the combined path/query behavior after the open decisions below are
-   answered. Match the file picker's 60% height, reverse layout, and
-   colors unless a later requirement changes this routine presentation choice.
-   If eza renders directory rows, pass `--list-dirs`; without it, eza can list
-   directory contents instead. Do not copy the file picker's newline-based
-   `stat`/`paste` pipeline into the directory picker.
+   navigation when the wrapper's option is absent. When the option is present,
+   browse the supplied PATH or current directory, passing the initial text to
+   fzf. Match the file picker's 60% height, reverse layout, and colors. Preserve
+   fzf's normal extended syntax and smart-case behavior. No query-change hook
+   or external sort operation is needed while typing. Do not copy the file
+   picker's newline-based `stat`/`paste` pipeline into the directory picker.
 6. Revise the current tests that enforce birth-time order and unchanged order
    while filtering. Verify modification-time order, score order after typing,
    restoration after clearing, metadata exclusion, tied scores, cancellation,
    directory symlinks, and existing unusual-name path round trips. Verify the
    Nushell and Zsh wrappers according to the chosen CLI contract.
 
-The metadata timestamp should describe the same time used for recency. The
-symlink timestamp policy remains an open decision: current ordering uses the
-link itself, whereas target-directory modification time may better describe
-changes inside the directory being entered.
+The metadata timestamp describes the same time used for recency. For a
+directory symlink, both use target-directory modification time. Symlink
+identification and display information must remain separate from the actual
+navigation path.
+
+Routine presentation assumptions are human-readable entry sizes, local-time
+modification dates, an explicit Modified label, and safe escaped names. The
+existing single-selection, error, cancellation, listing-after-navigation, and
+JSON/NUL output contracts are retained. Equal modification times use name
+ordering; equal match scores use input order. Negative-only queries have equal
+match scores and therefore keep input order.
 
 These implementation choices are readily reversible; an ADR is not justified
 at this stage. Confirmed terminology is recorded in [GLOSSARY.md](../GLOSSARY.md).
@@ -132,18 +168,12 @@ and name fields were tested with ambient fzf defaults disabled.
 These were mechanism checks, not tests of a completed picker refactor. No
 picker implementation or deployed configuration changed during this interview.
 
-## Open decisions
+## Review boundary
 
-Round 1 is settled. Round 2 questions awaiting answers:
-
-- Does recency for a directory symlink use the link's modification time or its
-  target directory's modification time?
-- Are fzf's usual space-separated terms and query operators desired, or should
-  every query character be literal while retaining fuzzy matching?
-- Should Python render similar metadata columns, should eza become required
-  for exact presentation, or should eza be optional with a Python fallback?
-- Should `c PATH --query TEXT` browse PATH with initial text or reject the
-  combination?
+Both interview rounds are settled. Confirmation of shared understanding is
+pending. This change saves the plan and vocabulary; it does not implement the
+runtime refactor. Approval to rebase and fast-forward merge the documentation
+branch is separate from authorization to implement, push, or deploy the picker.
 
 ## Managed-file boundaries for later implementation
 
@@ -153,6 +183,8 @@ Round 1 is settled. Round 2 questions awaiting answers:
 | `private_dot_config/nushell/alias.nu` | `/home/vimkim/.config/nushell/alias.nu` |
 | `private_dot_config/my-scripts/zsh/aliases.zsh` | `/home/vimkim/.config/my-scripts/zsh/aliases.zsh` |
 
-The selected wrapper contract determines whether wrapper edits are needed.
-Documentation and test files are excluded from chezmoi deployment. Any later
-deployment must verify and apply each concrete target separately.
+Only the shared script and Nushell wrapper require runtime edits under this
+plan; the Zsh source/target pair is listed for existing-wrapper regression
+verification. Documentation and test files are excluded from chezmoi
+deployment. Any later deployment must verify and apply each concrete target
+separately.

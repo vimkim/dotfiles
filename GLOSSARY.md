@@ -13,7 +13,7 @@ _Avoid_: Creation time, access time
 A listing view that stays directly visible when it fits on one terminal screen and allows navigation when it exceeds that screen.
 
 **Directory picker recency**:
-The last modification time of the directory itself. Changes to entries directly inside it can update this time; editing an existing file's contents need not.
+The last modification time of the directory being entered, including the directory referred to by a symbolic link. Changes to its direct entries can update this time; editing an existing file's contents need not.
 _Avoid_: Creation time, newest descendant modification
 
 **Directory picker name**:
