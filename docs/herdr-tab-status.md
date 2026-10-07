@@ -7,7 +7,7 @@ existing socket API and runs with Python's standard library on Linux.
 Example tab labels:
 
 ```text
-1 [▶ Codex]     review [! Claude]     logs [— shell]
+1 [▶ Codex 12m]     review [! Claude 3m]     logs [— shell]
 ```
 
 Example workspace entry:
@@ -16,7 +16,8 @@ Example workspace entry:
 ● dotfiles · working
 main · * ↑2
 4 tabs · 6 panes · 3 agents
-1 ▶ Codex · 2 ! Claude · 3 ✓ Codex
+1 ▶ Codex 12m · 2 ! Claude 3m
+3 ✓ Codex <1m
 4 — shell
 ```
 
@@ -33,7 +34,7 @@ main · * ↑2
 
 The updater reads `session.snapshot`: agent entries determine which tabs contain
 agents, and each tab's native `agent_status` supplies the aggregate state. Multiple
-agents appear as, for example, `review [! Claude+Codex ×2]`. Shells, editors, and
+agents appear as, for example, `review [! Claude+Codex ×2 3m]`. Shells, editors, and
 servers without a detected agent get the ordinary-terminal marker.
 
 The server's `done`/`idle` distinction uses its seen state. Each attached client
@@ -49,10 +50,34 @@ the current managed suffix. The API does not offer conditional renames, so a
 manual rename made between a snapshot and its rename request can race the updater.
 
 Sidebar summaries normally include agent types. If there are too many for the
-13 available summary rows, they switch to compact markers such as `1▶ 2! 3—`.
+13 available summary rows, they switch to compact markers such as `1▶12m 2!3m 3—`.
 If those also exceed the rows, the final line points to the tab bar for the rest.
 Missing summary rows disappear. The agent panel also shows state, workspace,
 tab/pane names, and the terminal activity title.
+
+## Time in the current state
+
+Agent tabs show elapsed time beside their status in both the tab bar and workspace
+summary. Durations use `<1m`, minutes (`8m`), hours and minutes (`1h02m`), then days
+and hours (`1d03h`). Ordinary terminal tabs keep their shell marker without a timer.
+
+Timing starts when the updater first observes a tab's aggregate agent state. A
+change between working, blocked, done, idle, or unknown resets that tab's timer.
+An observed agent exit followed by a return also starts a new timer. Renaming or
+reordering tabs does not reset timing; changing the set of agents without changing
+the aggregate state keeps the same timer.
+
+The journal retains the observed state and start time for recovery after an abrupt
+worker exit. Existing journals without timing data preserve their original names
+and start timing on the first update. A deliberate `stop` clears the journal, so
+the next `start` begins fresh timers. `preview` calculates ages without saving
+observations or changing runtime state.
+
+These are observation times, not the agent's actual start times. Changes between
+polls or while the worker is unavailable cannot be reconstructed. Durations use
+the machine's clock; a backwards clock adjustment restarts affected timers to
+avoid negative ages. Labels update when the displayed duration or agent details
+change, rather than on every poll.
 
 ## Managed files
 
@@ -80,6 +105,10 @@ start the updater for existing tabs:
 herdr-tab-status preview  # read-only planned labels and sidebar metadata
 herdr-tab-status start
 ```
+
+When updating an existing helper, run `herdr-tab-status stop` and wait for the
+original tab names to return before applying the helper and running `start`.
+Replacing the script does not reload an already running Python worker.
 
 New panes launched by `herdr-shell` start it automatically before Nushell, zsh,
 or bash. Startup returns immediately; a socket-specific file lock ensures one
@@ -115,7 +144,8 @@ HERDR_CONFIG_PATH="$PWD/private_dot_config/herdr/config.toml" herdr config check
 sh -n private_dot_local/bin/executable_herdr-shell
 ```
 
-The socket tests cover state transitions, agent exits, multiple agents, manual
-renames, lost replies, restoration, reordered tabs, compact summaries, singleton
-startup, and metadata ownership. The live `preview` command reads runtime state
-without changing tab labels, focus, or metadata.
+The socket tests cover state transitions and elapsed time, recovery and legacy
+journals, clock changes, agent exits, multiple agents, manual renames, lost replies,
+restoration, reordered tabs, compact summaries, singleton startup, and metadata
+ownership. The live `preview` command reads runtime state without changing tab
+labels, focus, or metadata.

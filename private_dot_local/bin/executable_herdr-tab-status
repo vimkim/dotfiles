@@ -84,13 +84,27 @@ def original_label(label, record):
     return label, False
 
 
-def build_plan(snapshot, saved_tabs):
+def format_duration(seconds):
+    minutes = max(0, int(seconds // 60))
+    if minutes < 1:
+        return "<1m"
+    if minutes < 60:
+        return f"{minutes}m"
+    hours, minutes = divmod(minutes, 60)
+    if hours < 24:
+        return f"{hours}h{minutes:02d}m"
+    days, hours = divmod(hours, 24)
+    return f"{days}d{hours:02d}h"
+
+
+def build_plan(snapshot, saved_tabs, now=None):
     # Missing agent data must never turn every live tab into a "shell" tab.
     if any(
         not isinstance(snapshot.get(key), list)
         for key in ("workspaces", "tabs", "agents")
     ):
         raise HerdrError("snapshot is missing workspace, tab, or agent lists")
+    now = time.time() if now is None else now
     agents_by_tab = defaultdict(list)
     for agent in snapshot["agents"]:
         agents_by_tab[agent["tab_id"]].append(agent)
@@ -98,7 +112,12 @@ def build_plan(snapshot, saved_tabs):
     tabs = []
     for tab in snapshot["tabs"]:
         agents = agents_by_tab[tab["tab_id"]]
-        marker = MARKERS.get(tab["agent_status"], "?") if agents else "—"
+        state = (
+            (tab["agent_status"] if tab["agent_status"] in MARKERS else "unknown")
+            if agents
+            else "shell"
+        )
+        marker = MARKERS.get(state, "—")
         kinds = sorted({agent.get("agent") or "agent" for agent in agents})
         name = "+".join(kind.title() for kind in kinds) if agents else "shell"
         if len(agents) > 1:
@@ -106,8 +125,15 @@ def build_plan(snapshot, saved_tabs):
         # Keep sidebar names bounded; original tab names are never shortened.
         short_name = name if len(name) <= 18 else name[:17] + "…"
         record = saved_tabs.get(tab["tab_id"])
+        state_since = (
+            record["state_since"] if record and record.get("state") == state else now
+        )
+        # A backwards wall-clock adjustment must never display negative ages.
+        state_since = min(state_since, now)
+        duration = format_duration(now - state_since) if agents else ""
+        age = f" {duration}" if duration else ""
         base, owned = original_label(tab["label"], record)
-        suffix = f" [{marker} {name}]"
+        suffix = f" [{marker} {name}{age}]"
         item = {
             "tab_id": tab["tab_id"],
             "base": base,
@@ -117,8 +143,12 @@ def build_plan(snapshot, saved_tabs):
             "owned": owned,
             "number": tab["number"],
             "marker": marker,
+            "state": state,
+            "state_since": state_since,
+            "duration": duration,
             "agent_count": len(agents),
-            "summary": f"{tab['number']} {marker} {short_name}",
+            "summary": f"{tab['number']} {marker} {short_name}{age}",
+            "compact_summary": f"{tab['number']}{marker}{duration}",
         }
         tabs.append(item)
         tabs_by_workspace[tab["workspace_id"]].append(item)
@@ -129,9 +159,7 @@ def build_plan(snapshot, saved_tabs):
         )
         rows = pack_rows([tab["summary"] for tab in ordered], " · ")
         if len(rows) > STATUS_ROWS:
-            rows = pack_rows(
-                [f"{tab['number']}{tab['marker']}" for tab in ordered], " "
-            )
+            rows = pack_rows([tab["compact_summary"] for tab in ordered], " ")
         if len(rows) > STATUS_ROWS:
             rows = rows[: STATUS_ROWS - 1] + ["More tab states in the tab bar"]
         tokens = dict.fromkeys(TOKEN_NAMES)
@@ -174,6 +202,18 @@ class Updater:
                     )
                 ):
                     raise HerdrError(f"invalid label journal: {self.state_path}")
+                # Older journals contain only label ownership. Timing starts on
+                # the first observation after upgrade; keep their original names.
+                if "state" in record or "state_since" in record:
+                    since = record.get("state_since")
+                    if (
+                        record.get("state") not in (*MARKERS, "shell")
+                        or isinstance(since, bool)
+                        or not isinstance(since, (int, float))
+                        or not math.isfinite(since)
+                        or since < 0
+                    ):
+                        raise HerdrError(f"invalid label journal: {self.state_path}")
 
     def snapshot(self):
         return request(self.socket_path, "session.snapshot", {})["snapshot"]
@@ -214,6 +254,8 @@ class Updater:
                 "base": tab["base"],
                 "labels": list(dict.fromkeys(labels)),
                 "suffixes": list(dict.fromkeys(suffixes)),
+                "state": tab["state"],
+                "state_since": tab["state_since"],
             }
         if journal != self.tabs:
             # Persist both possible labels before rename: a lost API reply must

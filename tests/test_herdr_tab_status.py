@@ -5,6 +5,7 @@ import fcntl
 import hashlib
 import json
 import os
+import runpy
 import socket
 import subprocess
 import sys
@@ -13,6 +14,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 HELPER = (
     Path(__file__).resolve().parents[1]
@@ -234,11 +236,188 @@ class HerdrTabStatusTest(unittest.TestCase):
             time.sleep(0.02)
         self.fail("updater did not reach the expected state")
 
+    def update_at(self, timestamp):
+        self.directory.mkdir(parents=True, exist_ok=True)
+        module = runpy.run_path(str(HELPER))
+        with mock.patch("time.time", return_value=timestamp):
+            return module["Updater"](str(self.server.path), self.directory).update()
+
+    def test_elapsed_time_advances_in_labels_and_sidebar_across_restarts(self):
+        self.update_at(1000)
+        renames = sum(
+            request["method"] == "tab.rename" for request in self.server.requests
+        )
+        self.update_at(1059)
+        self.assertEqual(
+            sum(request["method"] == "tab.rename" for request in self.server.requests),
+            renames,
+        )
+        for elapsed, duration in (
+            (60, "1m"),
+            (480, "8m"),
+            (3540, "59m"),
+            (3600, "1h00m"),
+            (3720, "1h02m"),
+            (86400, "1d00h"),
+            (97200, "1d03h"),
+        ):
+            with self.subTest(elapsed=elapsed):
+                self.update_at(1000 + elapsed)
+                self.assertEqual(self.server.labels()[0], f"1 [▶ Codex {duration}]")
+                self.assertEqual(
+                    self.server.labels()[1], f"review [! Claude {duration}]"
+                )
+                self.assertIn(f"1 ▶ Codex {duration}", self.tokens()["tab_states_1"])
+                self.assertEqual(self.server.labels()[3], "logs [— shell]")
+        self.success("stop")
+        self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
+
+    def test_state_transitions_reset_only_the_changed_tab_timer(self):
+        self.update_at(1000)
+        with self.server.lock:
+            self.server.tab("w1:t1")["agent_status"] = "blocked"
+        self.update_at(1480)
+        self.assertEqual(self.server.labels()[0], "1 [! Codex <1m]")
+        self.assertEqual(self.server.labels()[1], "review [! Claude 8m]")
+        for index, state in enumerate(("done", "idle", "unknown", "working"), 1):
+            with self.subTest(state=state):
+                with self.server.lock:
+                    self.server.tab("w1:t1")["agent_status"] = state
+                plan = self.update_at(1480 + index * 120)
+                self.assertEqual(plan["tabs"][0]["duration"], "<1m")
+                self.assertEqual(plan["tabs"][0]["state_since"], 1480 + index * 120)
+
+    def test_agent_exit_and_return_start_a_new_timer(self):
+        self.update_at(1000)
+        with self.server.lock:
+            agent = self.server.snapshot["agents"].pop(0)
+        self.update_at(1480)
+        self.assertEqual(self.server.labels()[0], "1 [— shell]")
+        with self.server.lock:
+            self.server.snapshot["agents"].append(agent)
+        self.update_at(1600)
+        self.assertEqual(self.server.labels()[0], "1 [▶ Codex <1m]")
+
+    def test_timer_tracks_aggregate_state_when_agent_membership_changes(self):
+        self.update_at(1000)
+        with self.server.lock:
+            self.server.snapshot["agents"].append(
+                {"tab_id": "w1:t1", "agent": "claude", "agent_status": "working"}
+            )
+        self.update_at(1480)
+        self.assertEqual(self.server.labels()[0], "1 [▶ Claude+Codex ×2 8m]")
+        with self.server.lock:
+            self.server.tab("w1:t1")["agent_status"] = "blocked"
+            self.server.snapshot["agents"][-1]["agent_status"] = "blocked"
+        self.update_at(1540)
+        self.assertEqual(self.server.labels()[0], "1 [! Claude+Codex ×2 <1m]")
+
+    def test_manual_names_and_tab_order_changes_do_not_reset_timers(self):
+        self.update_at(1000)
+        self.update_at(1480)
+        with self.server.lock:
+            self.server.tab("w1:t1")["label"] = "renamed [▶ Codex 8m]"
+            self.server.tab("w1:t1")["number"] = 2
+            self.server.tab("w1:t2")["number"] = 1
+        self.update_at(1540)
+        self.assertEqual(self.server.labels()[0], "renamed [▶ Codex 9m]")
+        self.assertTrue(self.tokens()["tab_states_1"].startswith("1 ! Claude 9m"))
+        self.success("stop")
+        self.assertEqual(self.server.labels()[0], "renamed")
+
+    def test_lost_age_rename_reply_preserves_original_name_and_timer(self):
+        self.update_at(1000)
+        self.server.drop_next_rename_reply = True
+        with self.assertRaisesRegex(RuntimeError, "incomplete response"):
+            self.update_at(1480)
+        self.assertEqual(self.server.labels()[0], "1 [▶ Codex 8m]")
+        self.update_at(1540)
+        self.assertEqual(self.server.labels()[0], "1 [▶ Codex 9m]")
+        self.success("stop")
+        self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
+
+    def test_legacy_journal_migrates_without_repeating_status_suffixes(self):
+        self.directory.mkdir(parents=True)
+        with self.server.lock:
+            self.server.tab("w1:t1")["label"] = "1 [▶ Codex]"
+        legacy = {
+            "version": 1,
+            "tabs": {
+                "w1:t1": {
+                    "base": "1",
+                    "labels": ["1 [▶ Codex]"],
+                    "suffixes": [" [▶ Codex]"],
+                }
+            },
+        }
+        (self.directory / "state.json").write_text(json.dumps(legacy))
+        self.update_at(1000)
+        self.assertEqual(self.server.labels()[0], "1 [▶ Codex <1m]")
+        self.update_at(1480)
+        self.assertEqual(self.server.labels()[0], "1 [▶ Codex 8m]")
+        self.success("stop")
+        self.assertEqual(self.server.labels()[0], "1")
+
+    def test_clock_moving_backwards_rebases_the_timer_without_negative_age(self):
+        self.update_at(1000)
+        self.update_at(900)
+        self.assertEqual(self.server.labels()[0], "1 [▶ Codex <1m]")
+        self.update_at(1020)
+        self.assertEqual(self.server.labels()[0], "1 [▶ Codex 2m]")
+
+    def test_preview_uses_persisted_age_without_saving_new_observations(self):
+        self.update_at(1000)
+        previous_journal = (self.directory / "state.json").read_text()
+        previous_requests = len(self.server.requests)
+        module = runpy.run_path(str(HELPER))
+        with self.server.lock:
+            self.server.tab("w1:t2")["agent_status"] = "idle"
+        with mock.patch("time.time", return_value=1480):
+            plan = module["Updater"](str(self.server.path), self.directory).preview()
+        self.assertEqual(plan["tabs"][0]["duration"], "8m")
+        self.assertEqual(plan["tabs"][1]["duration"], "<1m")
+        self.assertEqual((self.directory / "state.json").read_text(), previous_journal)
+        self.assertEqual(
+            [request["method"] for request in self.server.requests[previous_requests:]],
+            ["session.snapshot"],
+        )
+
+    def test_invalid_timing_in_journal_fails_without_runtime_mutations(self):
+        self.update_at(1000)
+        valid = json.loads((self.directory / "state.json").read_text())
+        for timing in (
+            {"state": "invalid", "state_since": 1000},
+            {"state": "working", "state_since": "1000"},
+            {"state": "working", "state_since": True},
+            {"state": "working", "state_since": float("inf")},
+            {"state": "working", "state_since": -1},
+            {"state": "working"},
+            {"state_since": 1000},
+        ):
+            with self.subTest(timing=timing):
+                invalid = copy.deepcopy(valid)
+                record = invalid["tabs"]["w1:t1"]
+                del record["state"]
+                del record["state_since"]
+                record.update(timing)
+                (self.directory / "state.json").write_text(json.dumps(invalid))
+                previous_requests = len(self.server.requests)
+                result = self.command("once")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("invalid label journal", result.stderr)
+                self.assertEqual(len(self.server.requests), previous_requests)
+        (self.directory / "state.json").write_text(json.dumps(valid))
+
     def test_labels_and_sidebar_distinguish_agents_unknown_and_shell(self):
         self.success("once")
         self.assertEqual(
             self.server.labels(),
-            ["1 [▶ Codex]", "review [! Claude]", "3 [? Codex]", "logs [— shell]"],
+            [
+                "1 [▶ Codex <1m]",
+                "review [! Claude <1m]",
+                "3 [? Codex <1m]",
+                "logs [— shell]",
+            ],
         )
         self.assertEqual(self.tokens()["tab_inventory"], "4 tabs · 5 panes · 3 agents")
         summary = " ".join(
@@ -270,7 +449,7 @@ class HerdrTabStatusTest(unittest.TestCase):
             ),
             renames,
         )
-        self.assertEqual(self.server.labels()[0], "1 [▶ Codex]")
+        self.assertEqual(self.server.labels()[0], "1 [▶ Codex <1m]")
 
     def test_native_done_idle_and_multi_agent_aggregate_states(self):
         self.success("once")
@@ -281,8 +460,8 @@ class HerdrTabStatusTest(unittest.TestCase):
                 {"tab_id": "w1:t1", "agent": "claude", "agent_status": "done"}
             )
         self.success("once")
-        self.assertEqual(self.server.labels()[0], "1 [✓ Claude+Codex ×2]")
-        self.assertEqual(self.server.labels()[1], "review [○ Claude]")
+        self.assertEqual(self.server.labels()[0], "1 [✓ Claude+Codex ×2 <1m]")
+        self.assertEqual(self.server.labels()[1], "review [○ Claude <1m]")
         self.assertEqual(self.tokens()["tab_inventory"], "4 tabs · 5 panes · 4 agents")
 
     def test_agent_exit_replaces_previous_state_with_shell(self):
@@ -297,10 +476,10 @@ class HerdrTabStatusTest(unittest.TestCase):
         self.success("once")
         with self.server.lock:
             self.server.tab("w1:t2")["label"] = "security review"
-            self.server.tab("w1:t1")["label"] = "edited [▶ Codex]"
+            self.server.tab("w1:t1")["label"] = "edited [▶ Codex <1m]"
         self.success("once")
-        self.assertEqual(self.server.labels()[0], "edited [▶ Codex]")
-        self.assertEqual(self.server.labels()[1], "security review [! Claude]")
+        self.assertEqual(self.server.labels()[0], "edited [▶ Codex <1m]")
+        self.assertEqual(self.server.labels()[1], "security review [! Claude <1m]")
         self.success("stop")
         self.assertEqual(
             self.server.labels(), ["edited", "security review", "3", "logs"]
@@ -318,7 +497,7 @@ class HerdrTabStatusTest(unittest.TestCase):
         self.server.drop_next_rename_reply = True
         result = self.command("once")
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self.server.labels()[0], "1 [▶ Codex]")
+        self.assertEqual(self.server.labels()[0], "1 [▶ Codex <1m]")
         self.success("once")
         self.success("stop")
         self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
@@ -335,12 +514,12 @@ class HerdrTabStatusTest(unittest.TestCase):
 
     def test_original_name_that_looks_like_a_marker_survives_a_failed_rename(self):
         with self.server.lock:
-            self.server.tab("w1:t1")["label"] = "manual [▶ Codex]"
+            self.server.tab("w1:t1")["label"] = "manual [▶ Codex <1m]"
             self.server.reject_next_rename = True
         self.assertNotEqual(self.command("once").returncode, 0)
         self.success("once")
         self.success("stop")
-        self.assertEqual(self.server.labels()[0], "manual [▶ Codex]")
+        self.assertEqual(self.server.labels()[0], "manual [▶ Codex <1m]")
 
     def test_closed_tabs_prune_the_journal_and_clear_unused_summary_rows(self):
         self.success("once")
@@ -363,9 +542,11 @@ class HerdrTabStatusTest(unittest.TestCase):
             self.server.tab("w1:t2")["number"] = 1
         self.success("once")
         self.assertTrue(
-            self.tokens()["tab_states_1"].startswith("1 ! Claude · 2 ▶ Codex")
+            self.tokens()["tab_states_1"].startswith("1 ! Claude <1m · 2 ▶ Codex <1m")
         )
-        self.assertEqual(self.server.labels()[:2], ["1 [▶ Codex]", "review [! Claude]"])
+        self.assertEqual(
+            self.server.labels()[:2], ["1 [▶ Codex <1m]", "review [! Claude <1m]"]
+        )
 
     def test_many_tabs_use_compact_summary_and_keep_each_tab_status(self):
         with self.server.lock:
@@ -390,7 +571,7 @@ class HerdrTabStatusTest(unittest.TestCase):
             if key.startswith("tab_states_")
         ]
         markers = " ".join(rows).split()
-        self.assertEqual(markers, [f"{i}▶" for i in range(1, 61)])
+        self.assertEqual(markers, [f"{i}▶<1m" for i in range(1, 61)])
         self.assertLessEqual(len(rows), 13)
 
     def test_metadata_from_other_reporters_survives_stop(self):
@@ -408,9 +589,9 @@ class HerdrTabStatusTest(unittest.TestCase):
             environment = {**self.environment, "HERDR_SOCKET_PATH": str(other.path)}
             result = self.command("once", environment=environment)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(other.labels()[0], "another session [▶ Codex]")
+            self.assertEqual(other.labels()[0], "another session [▶ Codex <1m]")
             self.success("stop")
-            self.assertEqual(other.labels()[0], "another session [▶ Codex]")
+            self.assertEqual(other.labels()[0], "another session [▶ Codex <1m]")
             result = self.command("stop", environment=environment)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(other.labels()[0], "another session")
@@ -418,7 +599,7 @@ class HerdrTabStatusTest(unittest.TestCase):
     def test_preview_is_read_only_and_creates_no_journal(self):
         result = self.success("preview")
         plan = json.loads(result.stdout)
-        self.assertEqual(plan["tabs"][1]["label"], "review [! Claude]")
+        self.assertEqual(plan["tabs"][1]["label"], "review [! Claude <1m]")
         self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
         self.assertEqual(
             [request["method"] for request in self.server.requests],
