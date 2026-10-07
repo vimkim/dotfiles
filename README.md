@@ -157,6 +157,12 @@ In a terminal, long output opens in less; short output stays visible. Use
 Pipes and redirected output bypass paging. These Python 3 scripts work in
 Nushell, Bash, and Zsh; see [usage and verification](docs/ls-helper-family.md).
 
+### HTML review from a remote server
+
+`~/.config/my-scripts/bin/serve-html.py` serves an HTML directory until Ctrl+C,
+chooses a free port automatically, and prints Tailscale/VPN and LAN links for
+opening from your PC. See [usage and verification](docs/serve-html.md).
+
 ### Daily AI-toolchain upkeep
 
 `daily-update` (in `~/.config/my-scripts/bin`) upgrades Codex, Claude Code, and
