@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 
-import os
-from pathlib import Path
 import subprocess
 import tempfile
 import textwrap
 import unittest
-
+from pathlib import Path
 
 HERDR_SHELL = (
-    Path(__file__).resolve().parents[1]
-    / "private_dot_local/bin/executable_herdr-shell"
+    Path(__file__).resolve().parents[1] / "private_dot_local/bin/executable_herdr-shell"
 )
 
 GRAPHICAL_ENVIRONMENT = {
@@ -31,6 +28,7 @@ class HerdrShellTest(unittest.TestCase):
         self,
         inherited_environment: dict[str, str] | None = None,
         systemctl_succeeds: bool = True,
+        reporter_succeeds: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temporary_directory:
             fixture_directory = Path(temporary_directory)
@@ -61,19 +59,33 @@ class HerdrShellTest(unittest.TestCase):
                 printf 'XDG_SESSION_TYPE=%s\n' "${XDG_SESSION_TYPE-<unset>}"
                 """,
             )
+            self.write_executable(
+                fixture_directory / "herdr-tab-status",
+                f"""
+                #!/bin/sh
+                printf '%s\\n' "$*" >> "$HERDR_STATUS_TEST_LOG"
+                exit {0 if reporter_succeeds else 1}
+                """,
+            )
 
             environment = {
                 "HOME": str(fixture_directory),
                 "PATH": f"{fixture_directory}:/usr/bin:/bin",
+                "HERDR_STATUS_TEST_LOG": str(fixture_directory / "reporter-calls"),
             }
             environment.update(inherited_environment or {})
-            return subprocess.run(
+            result = subprocess.run(
                 ["/bin/sh", HERDR_SHELL],
                 capture_output=True,
                 check=False,
                 env=environment,
                 text=True,
             )
+            calls = fixture_directory / "reporter-calls"
+            self.reporter_calls = (
+                calls.read_text().splitlines() if calls.exists() else []
+            )
+            return result
 
     def parse_environment(
         self, result: subprocess.CompletedProcess[str]
@@ -106,6 +118,26 @@ class HerdrShellTest(unittest.TestCase):
             self.parse_environment(result),
             {name: "<unset>" for name in GRAPHICAL_ENVIRONMENT},
         )
+
+    def test_starts_status_reporter_inside_herdr_before_nushell(self) -> None:
+        result = self.run_shell(
+            {"HERDR_ENV": "1", "HERDR_SOCKET_PATH": "/tmp/example-herdr.sock"}
+        )
+        self.parse_environment(result)
+        self.assertEqual(self.reporter_calls, ["start"])
+
+    def test_reporter_failure_does_not_prevent_shell_start(self) -> None:
+        result = self.run_shell(
+            {"HERDR_ENV": "1", "HERDR_SOCKET_PATH": "/tmp/example-herdr.sock"},
+            reporter_succeeds=False,
+        )
+        self.parse_environment(result)
+        self.assertEqual(self.reporter_calls, ["start"])
+
+    def test_does_not_start_reporter_without_session_context(self) -> None:
+        result = self.run_shell({"HERDR_ENV": "1"})
+        self.parse_environment(result)
+        self.assertEqual(self.reporter_calls, [])
 
 
 if __name__ == "__main__":

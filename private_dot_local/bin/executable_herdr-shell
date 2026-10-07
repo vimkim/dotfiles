@@ -29,6 +29,13 @@ if command -v systemctl >/dev/null 2>&1; then
     unset herdr_user_environment herdr_environment_name herdr_environment_value
 fi
 
+# One session-wide reporter serves all panes, including Nushell panes. The
+# reporter returns immediately after starting its independently locked worker.
+if [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_SOCKET_PATH:-}" ] \
+    && command -v herdr-tab-status >/dev/null 2>&1; then
+    herdr-tab-status start >/dev/null 2>&1 || :
+fi
+
 for shell_name in nu zsh bash; do
     if shell_path=$(command -v "$shell_name" 2>/dev/null); then
         exec "$shell_path" "$@"

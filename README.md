@@ -224,6 +224,9 @@ The display-environment, XKB layout, and `dead_hamza` packaging diagnosis is
 recorded in [WezTerm on Fedora KDE through Herdr](docs/wezterm-fedora.md),
 including verification and rollback commands.
 
+Herdr's tab agent markers, workspace tab inventory, and updater controls are
+documented in [Herdr tab agent indicators](docs/herdr-tab-status.md).
+
 ### Optional: Install the Colemak programmer layout
 
 The KDE Wayland configuration includes a standalone Colemak layout with
