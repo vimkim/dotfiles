@@ -22,13 +22,14 @@ switch_workspace = ["alt+shift+1..9", "prefix+shift+1..9"]
 new_tab = "alt+t"
 rename_tab = "alt+shift+t"
 close_tab = "alt+x"
-previous_tab = "alt+left"
-next_tab = "alt+right"
+previous_tab = ["alt+h", "alt+left"]
+next_tab = ["alt+i", "alt+right"]
+move_tab_previous = "alt+shift+h"
+move_tab_next = "alt+shift+i"
 switch_tab = "alt+1..9"
 
 edit_scrollback = "alt+e"
 copy_mode = "alt+s"
-focus_pane_left = "alt+h"
 focus_pane_down = "alt+j"
 focus_pane_up = "alt+k"
 focus_pane_right = "alt+l"
