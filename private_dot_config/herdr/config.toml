@@ -16,7 +16,7 @@ next_workspace = ["alt+n", "alt+down"]
 new_workspace = "alt+c"
 rename_workspace = "alt+shift+w"
 close_workspace = "alt+shift+x"
-switch_workspace = ["alt+shift+1..9", "prefix+shift+1..9"]
+switch_workspace = ["alt+1..9", "prefix+shift+1..9"]
 
 # Tabs follow horizontal tab-bar order.
 new_tab = "alt+t"
@@ -26,7 +26,8 @@ previous_tab = ["alt+h", "alt+left"]
 next_tab = ["alt+i", "alt+right"]
 move_tab_previous = "alt+shift+h"
 move_tab_next = "alt+shift+i"
-switch_tab = "alt+1..9"
+# Shifted numbers are !, @, #, $, %, ^, &, *, (.
+switch_tab = "alt+shift+1..9"
 
 edit_scrollback = "alt+e"
 copy_mode = "alt+s"
