@@ -66,3 +66,19 @@ the content of `~/.claude/CLAUDE.md` as well. Edit only `dot_codex/AGENTS.md`;
 do not copy the text into `dot_claude/CLAUDE.md.tmpl` or edit either deployed
 file. When verifying or deploying such a change, handle both targets, each as
 its own command: `$HOME/.codex/AGENTS.md` and `$HOME/.claude/CLAUDE.md`.
+
+## Agent skills
+
+### Issue tracker
+
+For specs, tickets, and triage, use GitHub Issues in `vimkim/dotfiles`.
+Read `docs/agents/issue-tracker.md` before tracker work.
+
+### Triage labels
+
+Use `docs/agents/triage-labels.md` when assigning triage roles.
+
+### Domain docs
+
+This is a single-context repository. Before codebase exploration, read
+`docs/agents/domain.md` for glossary and ADR conventions.
