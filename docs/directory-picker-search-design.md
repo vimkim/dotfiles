@@ -1,7 +1,7 @@
 # Directory picker search and metadata design
 
-Status: design decisions settled; awaiting confirmation of shared
-understanding and documentation review. This document records confirmed
+Status: accepted on 2026-10-07 after confirmation of shared understanding and
+documentation review. This document records confirmed
 requirements, source evidence, and a proposed refactoring plan. Runtime
 behavior has not changed. The existing behavior remains documented in
 [directory-picker.md](directory-picker.md).
@@ -170,10 +170,10 @@ picker implementation or deployed configuration changed during this interview.
 
 ## Review boundary
 
-Both interview rounds are settled. Confirmation of shared understanding is
-pending. This change saves the plan and vocabulary; it does not implement the
-runtime refactor. Approval to rebase and fast-forward merge the documentation
-branch is separate from authorization to implement, push, or deploy the picker.
+Both interview rounds are settled, and the user confirmed shared understanding
+and approved the local documentation merge on 2026-10-07. This change saves the
+plan and vocabulary; it does not implement the runtime refactor. Implementation,
+push, and deployment remain separate actions.
 
 ## Managed-file boundaries for later implementation
 
