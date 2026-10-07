@@ -163,6 +163,8 @@ Run `handoff-dir` to create `.handoff/` in the current directory and write `*`
 to `.handoff/.gitignore`, ignoring everything inside. The Python 3 command lives
 in `~/.config/my-scripts/bin`; running it again preserves the directory's other
 contents and rewrites its `.gitignore`.
+It reports `Created: .handoff/` or `Already exists: .handoff/` after completing
+successfully.
 
 ### HTML review from a remote server
 

@@ -4,5 +4,14 @@
 from pathlib import Path
 
 handoff_dir = Path(".handoff")
-handoff_dir.mkdir(exist_ok=True)
+try:
+    handoff_dir.mkdir()
+except FileExistsError:
+    if not handoff_dir.is_dir():
+        raise
+    status = f"Already exists: {handoff_dir}/"
+else:
+    status = f"Created: {handoff_dir}/"
+
 (handoff_dir / ".gitignore").write_text("*\n", encoding="utf-8")
+print(status)
