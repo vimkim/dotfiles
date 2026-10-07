@@ -7,11 +7,17 @@ alias fzfm = fzf --height 60% --reverse
 alias l = ezam
 def --env cl [
   dir?: string # Optional argument
+  --query: string # Open the picker with an initial name query
 ] {
-  let target_dir = if $dir != null {
+  let target_dir = if $dir != null and $query == null {
     $dir
   } else {
-    let selection = (^dir-picker --json | complete)
+    let picker_args = if $query == null {
+      ["--json"]
+    } else {
+      ["--json" $"--query=($query)" "--" ($dir | default ".")]
+    }
+    let selection = (^dir-picker ...$picker_args | complete)
     if $selection.exit_code in [1 130] { return }
     if $selection.exit_code != 0 {
       error make {msg: ($selection.stderr | str trim)}
