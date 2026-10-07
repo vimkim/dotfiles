@@ -8,14 +8,24 @@ pane_history = false
 
 [keys]
 prefix = "ctrl+a"
+
+# Workspaces follow sidebar order.
 workspace_picker = "alt+w"
-previous_workspace = ["alt+p", "alt+left"]
-next_workspace = ["alt+n", "alt+right"]
+previous_workspace = ["alt+p", "alt+up"]
+next_workspace = ["alt+n", "alt+down"]
 new_workspace = "alt+c"
+rename_workspace = "alt+shift+w"
+close_workspace = "alt+shift+x"
 switch_workspace = ["alt+shift+1..9", "prefix+shift+1..9"]
-previous_tab = "alt+["
-next_tab = "alt+]"
+
+# Tabs follow horizontal tab-bar order.
+new_tab = "alt+t"
+rename_tab = "alt+shift+t"
+close_tab = "alt+x"
+previous_tab = "alt+left"
+next_tab = "alt+right"
 switch_tab = "alt+1..9"
+
 edit_scrollback = "alt+e"
 copy_mode = "alt+s"
 focus_pane_left = "alt+h"
@@ -38,6 +48,7 @@ command = "$HOME/.local/bin/herdr-move-workspace down"
 description = "move workspace down"
 
 [ui]
+confirm_close = true
 prompt_new_tab_name = false
 agent_panel_sort = "priority"
 host_cursor = "native"
