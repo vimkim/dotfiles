@@ -23,7 +23,6 @@ REPO = Path(__file__).resolve().parents[1]
 SOURCE = REPO / "private_dot_config/my-scripts/bin/executable_dir-picker"
 
 
-
 class DirectoryPickerTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -40,6 +39,11 @@ class DirectoryPickerTests(unittest.TestCase):
         # Make noninteractive fzf tests independent of the user's UI options.
         self.env.pop("FZF_DEFAULT_OPTS_FILE", None)
         self.env["FZF_DEFAULT_OPTS"] = ""
+
+    def make_directory(self, name, modified_ns):
+        directory = self.data / name
+        directory.mkdir()
+        os.utime(directory, ns=(modified_ns,) * 2)
 
     def run_picker(self, *args, env=None):
         return subprocess.run(
@@ -173,9 +177,7 @@ class DirectoryPickerTests(unittest.TestCase):
     def test_terminal_query_switches_recency_to_score_and_back(self):
         for name, timestamp in [("xabc", 3_000_000_000), ("abc", 2_000_000_000),
                                 ("a_x_b_x_c", 1_000_000_000)]:
-            directory = self.data / name
-            directory.mkdir()
-            os.utime(directory, ns=(timestamp,) * 2)
+            self.make_directory(name, timestamp)
         env = {**self.env, "FZF_DEFAULT_OPTS": "--tac --no-sort"}
         for state, keys, expected in [
             ("empty", [b"\x0e"], "xabc"),
@@ -208,9 +210,7 @@ class DirectoryPickerTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("fzf"), "requires fzf")
     def test_initial_query_selects_by_score_and_accepts_empty_text(self):
         for name, timestamp in [("xabc", 2_000_000_000), ("abc", 1_000_000_000)]:
-            directory = self.data / name
-            directory.mkdir()
-            os.utime(directory, ns=(timestamp,) * 2)
+            self.make_directory(name, timestamp)
         for query, expected in [("abc", self.data / "abc"), ("", self.root)]:
             with self.subTest(query=query):
                 selected, _ = self.terminal_selection([], "--query", query, str(self.data))
@@ -251,9 +251,7 @@ class DirectoryPickerTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("fzf"), "requires fzf")
     def test_tied_scores_and_empty_patterns_keep_recency(self):
         for name, timestamp in [("antelope", 2_000_000_000), ("alpha", 1_000_000_000)]:
-            directory = self.data / name
-            directory.mkdir()
-            os.utime(directory, ns=(timestamp,) * 2)
+            self.make_directory(name, timestamp)
         for keys in [[b"a"], [b"   ", b"\x0e"], [b"!absent", b"\x0e"]]:
             with self.subTest(keys=keys):
                 selected, _ = self.terminal_selection(keys)
