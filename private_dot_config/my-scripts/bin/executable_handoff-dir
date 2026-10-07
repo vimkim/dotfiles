@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""Create .handoff/.gitignore in the current directory."""
+
+from pathlib import Path
+
+handoff_dir = Path(".handoff")
+handoff_dir.mkdir(exist_ok=True)
+(handoff_dir / ".gitignore").write_text("*\n", encoding="utf-8")

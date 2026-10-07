@@ -157,6 +157,13 @@ In a terminal, long output opens in less; short output stays visible. Use
 Pipes and redirected output bypass paging. These Python 3 scripts work in
 Nushell, Bash, and Zsh; see [usage and verification](docs/ls-helper-family.md).
 
+### Handoff directory
+
+Run `handoff-dir` to create `.handoff/` in the current directory and write `*`
+to `.handoff/.gitignore`, ignoring everything inside. The Python 3 command lives
+in `~/.config/my-scripts/bin`; running it again preserves the directory's other
+contents and rewrites its `.gitignore`.
+
 ### HTML review from a remote server
 
 `~/.config/my-scripts/bin/serve-html.py` serves an HTML directory until Ctrl+C,
