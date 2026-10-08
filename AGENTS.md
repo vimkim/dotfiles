@@ -1,8 +1,8 @@
 # Chezmoi Dotfiles Repository
 
 This repository contains the chezmoi source of truth for managed dotfiles.
-Make task edits in a sibling Git worktree, never in deployed counterparts
-under `$HOME`.
+Make task edits in the source checkout selected by `dot_codex/AGENTS.md`,
+never in deployed counterparts under `$HOME`.
 
 ## Safe dotfile workflow
 
@@ -42,18 +42,19 @@ inspect the resulting diff and still deploy only named target paths.
 
 ## Git and handoff
 
-Follow the worktree and review workflow in `dot_codex/AGENTS.md`: work on a
-sibling topic worktree, verify the changes, and commit before asking for review.
-Keep the task worktree clean at handoff, except during grilling or when an error
-prevents completion; report any exception. Stage only task files and preserve
-unrelated user changes. Put disposable outputs in narrowly scoped `.gitignore`
-entries and commit those entries too.
+Follow the branch-based Git workflow in `dot_codex/AGENTS.md`: verify the
+changes and commit before asking for review. Keep task changes committed at
+handoff, except during grilling or when an error prevents completion; report
+any exception or unrelated dirt. Stage only task files and preserve unrelated
+user changes. Put disposable outputs in narrowly scoped `.gitignore` entries
+and commit those entries too.
 
-User approval of the reviewed work authorizes merging into `main`. Push and
-chezmoi deployment each require an explicit request. After an approved merge,
-verify any requested deployment against the main source tree and apply each
-concrete target separately. Report the committed review result and request
-review of that result; do not bundle review approval with push or deployment.
+User approval of the reviewed work authorizes merging into the recorded
+destination branch. Push and chezmoi deployment each require an explicit
+request. After an approved merge, verify any requested deployment against the
+merged source tree and apply each concrete target separately. Report the
+committed review result and request review of that result; do not bundle review
+approval with push or deployment.
 
 Keep root `CLAUDE.md` identical to this file when changing repository guidance.
 

@@ -24,34 +24,39 @@ release, and hotfix branches. [Vincent Driessen: A successful Git branching mode
 
 ## Recommended policy for this user's agents
 
-These are proposed working rules implementing the user's preferences, rather
-than requirements imposed by Git:
+These working rules implement the user's preferences, rather than requirements
+imposed by Git. The authoritative agent policy is
+[`dot_codex/AGENTS.md`](../dot_codex/AGENTS.md).
 
-1. For a task that changes repository files, inspect existing worktrees and
-   changes, then create or reuse its topic branch in a sibling directory such
-   as `../chezmoi-task-name`. Start new independent tasks from `main`.
+1. Inspect the current branch, existing worktrees, and changes. When starting
+   on `main`, `develop`, or `feature/*`, create or reuse a sibling task worktree
+   with a separate topic branch based on the starting branch; merge back into
+   that starting branch. On any other named branch, work directly in the
+   current checkout without creating another worktree. Use the repository's
+   documented or agreed destination for later integration of an existing
+   topic branch.
 2. Do the work and focused verification there. Preserve unrelated user changes
    in every checkout; a new worktree is not permission to reset or clean the
    original checkout.
 3. Commit all intended task changes before requesting review. Report the
    worktree, branch, commit, validation, and any limitations. Commit subsequent
    review fixes before asking for review again.
-4. At normal handoff, leave no staged changes, tracked modifications, or
-   non-ignored untracked files in the task worktree. Grilling sessions and
-   errors are the user's exceptions; explain unfinished work when an error
-   prevents completion. This is a handoff requirement, not a demand to commit
-   after every individual edit.
+4. At normal handoff, leave all task changes committed and report unrelated
+   dirt without altering it. Grilling sessions and errors are the user's
+   exceptions; explain unfinished work when an error prevents completion.
+   This is a handoff requirement, not a demand to commit after every edit.
 5. Put narrowly scoped patterns for disposable generated outputs in
    `.gitignore`, and commit those patterns. Keep requested deliverables tracked;
    do not conceal unfinished source changes or user files with ignore rules.
-6. Wait for the user's explicit approval of the current committed work before
-   merging into `main`. Approval to merge is separate from permission to push
-   or deploy dotfiles.
-7. After a successful merge, remove the merged task worktree and local topic
-   branch as part of completion. Verify the entire branch tip was merged and
-   inspect uncommitted and ignored files first; preserve valuable files and
-   report blocked cleanup instead of forcing removal. Remote branch deletion
-   requires explicit authorization for that remote action.
+6. Obtain one approval of the committed work for rebase onto the current local
+   destination branch and local fast-forward merge. Push and dotfile deployment
+   each require separate explicit requests.
+7. After every successful rebase and fast-forward merge, remove any merged
+   linked task worktree and safely delete the local topic branch as part of
+   completion. This includes task worktrees reused from earlier sessions.
+   Verify the entire branch tip was merged and inspect uncommitted and ignored
+   files first; preserve valuable files and report blocked cleanup instead of
+   forcing removal. Remote branch deletion requires explicit authorization.
 
 For verification, `git status --porcelain=v1 --untracked-files=all` exposes both
 tracked changes and individual untracked files; ignored outputs are omitted
@@ -62,21 +67,23 @@ does not hide changes to already tracked files.
 
 ## Merge choices and safeguards
 
-`git merge --ff-only <approved-commit>` moves `main` to the reviewed commit
+`git merge --ff-only <approved-commit>` moves the destination to the reviewed commit
 without another commit and refuses divergent history. `--no-ff` creates a merge
 commit, retaining an explicit integration point but adding history. Ordinary
 `git merge` may choose either behavior. [Git: git-merge](https://git-scm.com/docs/git-merge)
 
-Recommended default: fast-forward only. If `main` has advanced incompatibly,
-integrate it in the task branch, resolve conflicts, verify and commit the result,
-then obtain approval for that updated result. This keeps review attached to the
-actual result instead of silently broadening what the user approved. GitHub
+Required local policy: fast-forward only. After approval, rebase onto the current
+destination branch, resolve conflicts, inspect the resulting diff, and run
+proportionate checks. The same approval covers confident conflict resolution
+and another rebase if the destination advances; ask again only if uncertain
+about the result or a failure's impact, and report understood failures. GitHub
 also supports dismissing approvals when the reviewed diff changes, although
-that hosted setting is optional and does not enforce local conversation review.
+that hosted setting does not enforce local conversation review.
 [GitHub: About protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)
 
-Perform integration in the worktree holding `main`, after checking that it is
-clean. Git normally rejects checking out the same branch in another worktree.
+Perform integration in the checkout holding the destination branch, after
+checking that it is clean and on the expected branch. Git normally rejects
+checking out the same branch in another worktree.
 Do not bypass this with `--force`. [Git: git-worktree](https://git-scm.com/docs/git-worktree)
 
 If the destination contains user changes, preserve them and report the obstacle;
