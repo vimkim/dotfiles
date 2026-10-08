@@ -1,85 +1,28 @@
-# Chezmoi Dotfiles Repository
+# Chezmoi Dotfiles
 
-This repository contains the chezmoi source of truth for managed dotfiles.
-Make task edits in the source checkout selected by `dot_codex/AGENTS.md`,
-never in deployed counterparts under `$HOME`.
+Edit chezmoi sources in the checkout selected by `dot_codex/AGENTS.md`.
+Preserve unrelated changes in the source checkout and deployed files.
 
-## Safe dotfile workflow
+## Workflow
 
-For every dotfile change:
+1. Map each affected source to its absolute deployed file path; inspect both and edit only the source.
+2. Review each target with `chezmoi --source <absolute-task-checkout> diff -- <absolute-target>` and run focused checks.
+3. Follow the Git workflow in `dot_codex/AGENTS.md`: commit task changes, then request approval to rebase and fast-forward merge locally.
+4. **After every approved merge, apply every affected dotfile from the merged source checkout:** run `chezmoi --source <absolute-merged-checkout> apply -- <absolute-target>` separately for each file. Merge approval authorizes this deployment; no separate deployment request is needed.
+5. Verify each applied target with `chezmoi --source <absolute-merged-checkout> diff -- <absolute-target>`. Resolve or report remaining differences and any target that could not be applied.
+6. Complete Git cleanup as specified in `dot_codex/AGENTS.md`; report the checkout, branch, commit, checks, applied targets, and any remaining dirt or blockers. Completion requires all affected targets applied and verified, plus Git cleanup.
 
-1. Identify the source file and its exact deployed target path before editing.
-   Chezmoi naming rules mean, for example, `dot_zshrc` deploys as `~/.zshrc`.
-2. Inspect the existing source and target as needed. Preserve user changes that
-   are unrelated to the request; a dirty worktree is normal in this repository.
-3. Change only the relevant chezmoi source file. Do not edit the deployed
-   target directly, since a later targeted apply would replace that edit.
-4. Verify the rendered change for that target, normally with
-   `chezmoi --source <absolute-task-worktree> diff -- <target-path>` when
-   working in a sibling worktree. Use an additional focused syntax or command
-   check when the file type makes one appropriate.
-5. If the user explicitly requests deployment, apply exactly that verified target:
-   `chezmoi apply -- <target-path>`. Use the absolute target path or a quoted
-   path rooted at `$HOME`; never rely on an ambiguous relative path.
-6. Re-check that one target after applying when practical, then report both the
-   source file and target path changed.
+Use one absolute file target per command. Never run a broad `chezmoi apply`
+or use directory/glob targets. Repository synchronization requires an explicit
+request; it does not authorize a broad apply. Push requires a separate request.
 
-`<target-path>` always means one concrete managed destination, such as
-`$HOME/.zshrc` or `$HOME/.config/nushell/config.nu`. Resolve it before running
-the command; do not use a directory, glob, or a list of unrelated files.
+## Guidance sources
 
-## Deployment boundary
+- Keep root `CLAUDE.md` identical to this file; both are repository-only guidance.
+- Global guidance lives in `dot_codex/AGENTS.md`. Its targets are `$HOME/.codex/AGENTS.md` and `$HOME/.claude/CLAUDE.md`; verify and apply both separately. `dot_claude/CLAUDE.md.tmpl` includes the source, so edit only `dot_codex/AGENTS.md`.
 
-Never run a broad `chezmoi apply`, including after `chezmoi update` or
-`chezmoi git pull`. This repository may coexist with important local changes
-that are not yet managed or version controlled, and a broad apply can overwrite
-them. The same restriction applies even when the requested source change is
-small: always use `chezmoi apply -- <one-specific-target-path>`.
+## Context
 
-Do not run `chezmoi update` as part of a dotfile-editing task unless the user
-explicitly requests repository synchronization. If synchronization is requested,
-inspect the resulting diff and still deploy only named target paths.
-
-## Git and handoff
-
-Follow the branch-based Git workflow in `dot_codex/AGENTS.md`: verify the
-changes and commit before asking for review. Keep task changes committed at
-handoff, except during grilling or when an error prevents completion; report
-any exception or unrelated dirt. Stage only task files and preserve unrelated
-user changes. Put disposable outputs in narrowly scoped `.gitignore` entries
-and commit those entries too.
-
-User approval of the reviewed work authorizes merging into the recorded
-destination branch. Push and chezmoi deployment each require an explicit
-request. After an approved merge, verify any requested deployment against the
-merged source tree and apply each concrete target separately. Report the
-committed review result and request review of that result; do not bundle review
-approval with push or deployment.
-
-Keep root `CLAUDE.md` identical to this file when changing repository guidance.
-
-## Global agent instructions
-
-Global instructions live only in `dot_codex/AGENTS.md` (deployed as
-`~/.codex/AGENTS.md`). `dot_claude/CLAUDE.md.tmpl` includes that file through a
-chezmoi template, so any edit to `dot_codex/AGENTS.md` automatically becomes
-the content of `~/.claude/CLAUDE.md` as well. Edit only `dot_codex/AGENTS.md`;
-do not copy the text into `dot_claude/CLAUDE.md.tmpl` or edit either deployed
-file. When verifying or deploying such a change, handle both targets, each as
-its own command: `$HOME/.codex/AGENTS.md` and `$HOME/.claude/CLAUDE.md`.
-
-## Agent skills
-
-### Issue tracker
-
-For specs, tickets, and triage, use GitHub Issues in `vimkim/dotfiles`.
-Read `docs/agents/issue-tracker.md` before tracker work.
-
-### Triage labels
-
-Use `docs/agents/triage-labels.md` when assigning triage roles.
-
-### Domain docs
-
-This is a single-context repository. Before codebase exploration, read
-`docs/agents/domain.md` for glossary and ADR conventions.
+- Before codebase exploration, read `docs/agents/domain.md`.
+- For specs, tickets, or triage, use GitHub Issues in `vimkim/dotfiles`; first read `docs/agents/issue-tracker.md`.
+- When assigning triage roles, read `docs/agents/triage-labels.md`.
