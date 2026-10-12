@@ -2,6 +2,7 @@
 """Serve an HTML directory and print PC access links until Ctrl+C."""
 
 import argparse
+import errno
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
@@ -15,6 +16,12 @@ VPN_PREFIXES = ("tailscale", "tun", "tap", "wg", "ppp", "vpn", "zt")
 CONTAINER_PREFIXES = (
     "docker", "podman", "veth", "virbr", "br-", "cni", "flannel", "cali", "lxc",
 )
+REPEATED_PORTS = (7777, 8888, 9999, 5555, 4444, 3333, 2222, 1111)
+# Four-digit entries from https://fetch.spec.whatwg.org/#port-blocking.
+BLOCKED_HTTP_PORTS = frozenset({
+    1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566,
+    6665, 6666, 6667, 6668, 6669, 6679, 6697,
+})
 
 
 class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
@@ -119,6 +126,51 @@ def print_links(directory, port, filename, addresses):
     print("\nPress **Ctrl+C** in the SSH terminal when finished.", flush=True)
 
 
+def port_preference(port):
+    """Rank four-digit ports by patterns that are easy to remember and type."""
+    a, b, c, d = map(int, str(port))
+    if port in REPEATED_PORTS:
+        return 0, REPEATED_PORTS.index(port)
+    if a == b and c == d and abs(a - c) == 1:  # 2233, 3322
+        return 1, port
+    if (a == b == c or b == c == d) and abs(a - d) == 1:  # 2223, 2333
+        return 2, port
+    if b - a == c - b == d - c and abs(b - a) == 1:  # 5678, 8765
+        return 3, port
+    if a == b and c == d:  # 2255, 5577
+        return 4, port
+    if a == c and b == d:  # 1212, 8080
+        return 5, port
+    if a == d and b == c:  # 1221, 8008
+        return 6, port
+    if port % 1000 == 0:  # 7000, 8000
+        return 7, port
+    if port % 100 == 0:  # 2500, 8100
+        return 8, port
+    return 9, port
+
+
+def preferred_ports():
+    """Try memorable patterns, then the remaining unprivileged four-digit ports."""
+    return sorted((port for port in range(1024, 10000)
+                   if port not in BLOCKED_HTTP_PORTS), key=port_preference)
+
+
+def create_server(bind, port, handler):
+    """Reserve a requested port or the first available preferred port."""
+    if port:
+        return ThreadingHTTPServer((bind, port), handler)
+    for candidate in preferred_ports():
+        try:
+            # Bind the actual server; retain its socket instead of probing ports.
+            return ThreadingHTTPServer((bind, candidate), handler)
+        except OSError as error:
+            if error.errno not in (errno.EADDRINUSE, errno.EACCES):
+                raise
+    # Exhausted four-digit choices: let the kernel reserve an available port.
+    return ThreadingHTTPServer((bind, 0), handler)
+
+
 def port_number(value):
     try:
         port = int(value)
@@ -143,7 +195,7 @@ def main():
     parser.add_argument("--directory", required=True, help="directory to serve, including adjacent assets")
     parser.add_argument("--file", default="index.html", help="HTML path relative to --directory (default: index.html)")
     parser.add_argument("--port", type=port_number, default=0,
-                        help="use a fixed port; 0 chooses a free port automatically (default: 0)")
+                        help="use a fixed port; 0 prefers memorable four-digit ports (default: 0)")
     parser.add_argument("--interface", help="print links for only this active interface")
     parser.add_argument("--verbose", action="store_true",
                         help="print HTTP request logs (disabled by default)")
@@ -153,8 +205,7 @@ def main():
         addresses = addresses_for_bind(args.bind, args.interface)
         handler_class = SimpleHTTPRequestHandler if args.verbose else QuietHTTPRequestHandler
         handler = partial(handler_class, directory=str(directory))
-        # Port 0 lets the kernel allocate and retain a free port on this server.
-        with ThreadingHTTPServer((args.bind, args.port), handler) as server:
+        with create_server(args.bind, args.port, handler) as server:
             print_links(directory, server.server_port, filename, addresses)
             server.serve_forever()
     except KeyboardInterrupt:

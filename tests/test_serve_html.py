@@ -1,6 +1,7 @@
 """Verify discovery and the foreground CLI's actual HTTP lifecycle."""
 
 from contextlib import contextmanager
+import errno
 import importlib.util
 import json
 import os
@@ -13,7 +14,7 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
 from urllib.request import ProxyHandler, build_opener
@@ -87,6 +88,64 @@ class ServeHTML(unittest.TestCase):
         with patch.object(helper, "network_addresses", side_effect=AssertionError("unneeded discovery")):
             self.assertEqual(helper.addresses_for_bind("127.0.0.1"),
                              [{"interface": "lo", "address": "127.0.0.1"}])
+
+    def test_preferred_ports_follow_memorable_patterns_without_blocked_ports(self):
+        ports = helper.preferred_ports()
+        self.assertEqual(ports[0], 7777)
+        self.assertEqual(len(ports), len(set(ports)))
+        self.assertTrue(all(1024 <= port <= 9999 for port in ports))
+        examples = [7777, 8888, 1111, 2233, 2223, 5678, 2255,
+                    8080, 1221, 7000, 2500, 4329]
+        positions = [ports.index(port) for port in examples]
+        self.assertEqual(positions, sorted(positions))
+        for port in (4190, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6679, 6697):
+            self.assertNotIn(port, ports)
+
+    def test_auto_port_skips_busy_or_permission_denied_candidates(self):
+        handler = helper.QuietHTTPRequestHandler
+        selected = object()
+        for code in (errno.EADDRINUSE, errno.EACCES):
+            with self.subTest(errno=code):
+                with patch.object(helper, "preferred_ports", return_value=[7777, 8888]), \
+                        patch.object(helper, "ThreadingHTTPServer", side_effect=[
+                            OSError(code, "unavailable"), selected]) as constructor:
+                    self.assertIs(helper.create_server("127.0.0.1", 0, handler), selected)
+                    self.assertEqual(constructor.call_args_list, [
+                        call(("127.0.0.1", 7777), handler),
+                        call(("127.0.0.1", 8888), handler),
+                    ])
+
+    def test_auto_port_fallback_retains_a_reserved_socket(self):
+        handler = helper.QuietHTTPRequestHandler
+        # Simulate unavailable preferred choices without occupying real services.
+        constructor = helper.ThreadingHTTPServer
+
+        def unavailable_preferred(address, selected_handler):
+            if address[1] != 0:
+                raise OSError(errno.EADDRINUSE, "occupied")
+            return constructor(address, selected_handler)
+
+        with patch.object(helper, "preferred_ports", return_value=[7777, 8888]), \
+                patch.object(helper, "ThreadingHTTPServer", side_effect=unavailable_preferred) as attempted:
+            with helper.create_server("127.0.0.1", 0, handler) as server:
+                self.assertGreater(server.server_port, 0)
+                self.assertEqual(attempted.call_args_list, [
+                    call(("127.0.0.1", 7777), handler),
+                    call(("127.0.0.1", 8888), handler),
+                    call(("127.0.0.1", 0), handler),
+                ])
+                with socket.socket() as probe:
+                    with self.assertRaises(OSError):
+                        probe.bind(("127.0.0.1", server.server_port))
+
+    def test_auto_port_reports_unrelated_bind_errors_without_retrying(self):
+        handler = helper.QuietHTTPRequestHandler
+        error = OSError(errno.EADDRNOTAVAIL, "bind address unavailable")
+        with patch.object(helper, "ThreadingHTTPServer", side_effect=error) as constructor:
+            with self.assertRaises(OSError) as caught:
+                helper.create_server("192.0.2.1", 0, handler)
+            self.assertIs(caught.exception, error)
+            constructor.assert_called_once_with(("192.0.2.1", 7777), handler)
 
     @contextmanager
     def server(self, directory, *args, env=None):

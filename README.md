@@ -169,8 +169,8 @@ successfully.
 ### HTML review from a remote server
 
 `~/.config/my-scripts/bin/serve-html.py` serves an HTML directory until Ctrl+C,
-chooses a free port automatically, and prints Tailscale/VPN and LAN links for
-opening from your PC. See [usage and verification](docs/serve-html.md).
+prefers memorable four-digit free ports, and prints Tailscale/VPN and LAN links
+for opening from your PC. See [usage and verification](docs/serve-html.md).
 
 ### Daily AI-toolchain upkeep
 
