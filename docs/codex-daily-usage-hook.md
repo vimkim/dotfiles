@@ -4,8 +4,8 @@ The daily guard runs through normal Codex lifecycle hooks. It warns after 25
 weekly percentage points of observed daily consumption and rejects new prompts
 at 33. The accounting day changes at midnight in `Asia/Seoul`.
 
-Use Codex normally after enabling the two hooks. The existing session hook is
-preserved; shell aliases and base Codex configuration are unchanged.
+Use Codex normally after enabling the two hooks. The existing session hook,
+shell aliases, and model settings are preserved.
 
 ## Configuration
 
@@ -27,6 +27,10 @@ Changed hook definitions need review again. Hooks are currently enabled in this
 account's deployed configuration. On other installations, enable them with
 `[features] hooks = true` if necessary.
 [Official hook documentation](https://learn.chatgpt.com/docs/hooks)
+
+Activation stores the reviewed hooks' enabled flags and definition hashes in
+Codex's runtime settings. Other saved settings are preserved; the repository's
+base `config.toml` is not applied to perform activation.
 
 The prompt hook returns `decision: "block"` at the cap. The Stop hook returns
 `continue: false` to prevent hook-driven continuation; a Stop decision of
