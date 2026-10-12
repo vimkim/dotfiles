@@ -17,6 +17,13 @@ CONTAINER_PREFIXES = (
 )
 
 
+class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
+    """Suppress HTTP access logs while retaining error diagnostics."""
+
+    def log_request(self, code="-", size="-"):
+        pass
+
+
 def network_addresses(interface=None):
     """Find active IPv4 addresses, preferring VPN interfaces."""
     try:
@@ -138,11 +145,14 @@ def main():
     parser.add_argument("--port", type=port_number, default=0,
                         help="use a fixed port; 0 chooses a free port automatically (default: 0)")
     parser.add_argument("--interface", help="print links for only this active interface")
+    parser.add_argument("--verbose", action="store_true",
+                        help="print HTTP request logs (disabled by default)")
     args = parser.parse_args()
     try:
         directory, filename = review_file(args.directory, args.file)
         addresses = addresses_for_bind(args.bind, args.interface)
-        handler = partial(SimpleHTTPRequestHandler, directory=str(directory))
+        handler_class = SimpleHTTPRequestHandler if args.verbose else QuietHTTPRequestHandler
+        handler = partial(handler_class, directory=str(directory))
         # Port 0 lets the kernel allocate and retain a free port on this server.
         with ThreadingHTTPServer((args.bind, args.port), handler) as server:
             print_links(directory, server.server_port, filename, addresses)

@@ -13,6 +13,9 @@ addresses. Open a printed URL from your PC, then press Ctrl+C in the SSH termina
 to stop the server. The port stays bound throughout serving; concurrent runs get
 different ports. The directory includes adjacent CSS, JavaScript, and images.
 
+HTTP access logs, such as GET and HEAD requests, are quiet by default. Startup
+links and errors remain visible. Add `--verbose` to print request logs.
+
 `--file` defaults to `index.html` and can name an HTML file in a subdirectory.
 `--port PORT` requires a particular port; an occupied port fails before any links
 are printed. `--interface NAME` limits the printed links, while `--bind ADDRESS`
