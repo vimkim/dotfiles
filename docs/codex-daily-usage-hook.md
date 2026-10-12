@@ -17,6 +17,11 @@ python3 '/home/vimkim/.codex/hooks/daily-usage.py' hook --daily-cap 33 --warn-at
 
 Change the two numbers in the source `dot_codex/hooks.json.tmpl` to change the
 thresholds. Set `--warn-at` below `--daily-cap`, and keep both events consistent.
+For October 13, 2026 in `Asia/Seoul`, the helper's `CAP_BY_DAY` exception raises
+the usual 33-point cap to 66. It automatically returns to 33 at midnight on
+October 14. Other explicitly configured caps still apply, and recorded usage
+is preserved.
+
 There is no documented native daily quota key in Codex configuration; the helper
 implements the check using the quota telemetry established in the
 [research note](codex-daily-usage-guard-research.md).

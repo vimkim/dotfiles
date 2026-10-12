@@ -6,6 +6,7 @@ reads a synthetic quota snapshot. Run explicitly; this requires installed Codex.
 
 import importlib.machinery
 import importlib.util
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -16,7 +17,6 @@ import subprocess
 import sys
 import tempfile
 import threading
-import time
 
 SOURCE = Path(__file__).resolve().parents[1] / "dot_codex/hooks/executable_daily-usage.py"
 loader = importlib.machinery.SourceFileLoader("native_guard_verification", str(SOURCE))
@@ -51,13 +51,13 @@ def main():
     with tempfile.TemporaryDirectory(prefix="codex-native-guard-") as temporary:
         root = Path(temporary)
         fixture = root / "quota.json"
-        observed = time.time()
+        observed = datetime(2026, 10, 12, 12, tzinfo=guard.KOREA).timestamp()
         fixture.write_text(json.dumps({
             "account_key": "a" * 64, "plan": "pro", "used_percent": 33,
             "resets_at": int(observed) + 604800, "observed_at": observed,
         }))
         hook = shlex.join([sys.executable, "-B", str(SOURCE), "hook", "--snapshot", str(fixture),
-                           "--state-dir", str(root / "state")])
+                           "--state-dir", str(root / "state"), "--now", str(observed)])
         server = ThreadingHTTPServer(("127.0.0.1", 0), Sink)
         worker = threading.Thread(target=server.serve_forever, daemon=True)
         worker.start()

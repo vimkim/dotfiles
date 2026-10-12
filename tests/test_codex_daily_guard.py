@@ -44,6 +44,44 @@ class DailyGuardTest(unittest.TestCase):
         self.assertFalse(self.record(33)["allowed"])
         self.assertFalse(self.record(42)["allowed"])
 
+    def test_temporary_cap_applies_to_both_hooks_and_expires_at_korean_midnight(self):
+        cases = (
+            (timestamp(12, 23, 59), 33, 33, False),
+            (timestamp(13, 0, 0), 33, 66, True),
+            (timestamp(13, 23, 59), 65, 66, True),
+            (timestamp(13, 23, 59), 66, 66, False),
+            (timestamp(14, 0, 0), 33, 33, False),
+        )
+        fixture = self.root / "snapshot.json"
+        for index, (now, points, cap, allowed) in enumerate(cases):
+            fixture.write_text(json.dumps(snapshot(points, now)))
+            state_dir = self.root / f"state-{index}"
+            for event in ("UserPromptSubmit", "Stop"):
+                with self.subTest(now=now, points=points, event=event):
+                    result = subprocess.run([
+                        sys.executable, "-B", str(SOURCE), "hook", "--snapshot", str(fixture),
+                        "--state-dir", str(state_dir), "--now", str(now),
+                        "--daily-cap", "33", "--warn-at", "25",
+                    ], input=json.dumps({"hook_event_name": event}), text=True, capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    output = json.loads(result.stdout)
+                    self.assertIn(f"{points}/{cap}", output["systemMessage"])
+                    if allowed:
+                        self.assertNotIn("decision", output)
+                        self.assertNotIn("continue", output)
+                    elif event == "Stop":
+                        self.assertFalse(output["continue"])
+                    else:
+                        self.assertEqual(output["decision"], "block")
+            state = json.loads((state_dir / ("a" * 64 + ".json")).read_text())
+            self.assertEqual(state["daily_points"], points)
+
+    def test_temporary_cap_preserves_other_explicit_caps(self):
+        now = timestamp(13)
+        result = guard.record(snapshot(40, now), self.root / "state", now, cap=40)
+        self.assertFalse(result["allowed"])
+        self.assertIn("40/40", result["message"])
+
     def test_midnight_resets_cap_and_counts_boundary_gap(self):
         self.record(40, timestamp(12, 23, 59))
         after = self.record(42, timestamp(13, 0, 1))

@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 KOREA = ZoneInfo("Asia/Seoul")
 CAP = 33
+CAP_BY_DAY = {"2026-10-13": 66}  # Temporary exception, using Korean calendar days.
 WARNING = 25
 TIMEOUT = 15
 
@@ -264,6 +265,8 @@ def record(snapshot, directory, now, baseline=None, cap=CAP, warning=WARNING):
 
 
 def decision(state, now, cap=CAP, warning=WARNING):
+    if cap == CAP:
+        cap = CAP_BY_DAY.get(day_at(now), cap)
     tomorrow = datetime.fromtimestamp(now, KOREA).date() + timedelta(days=1)
     unblock = datetime.combine(tomorrow, datetime.min.time(), KOREA)
     points = state["daily_points"]
