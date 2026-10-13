@@ -1,5 +1,9 @@
 # Codex daily usage hook
 
+**Status: disabled.** The `UserPromptSubmit` and `Stop` entries were removed
+from `dot_codex/hooks.json.tmpl` on October 13, 2026. The helper script is
+kept; restore the entries below to re-enable the guard.
+
 The daily guard runs through normal Codex lifecycle hooks. It warns after 25
 weekly percentage points of observed daily consumption and rejects new prompts
 at 33. The accounting day changes at midnight in `Asia/Seoul`.

@@ -10,28 +10,6 @@
           }
         ]
       }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "command": "python3 '{{ .chezmoi.homeDir }}/.codex/hooks/daily-usage.py' hook --daily-cap 33 --warn-at 25",
-            "timeout": 25,
-            "type": "command"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "command": "python3 '{{ .chezmoi.homeDir }}/.codex/hooks/daily-usage.py' hook --daily-cap 33 --warn-at 25",
-            "timeout": 25,
-            "type": "command"
-          }
-        ]
-      }
     ]
   }
 }
