@@ -163,6 +163,23 @@ def review_file(directory, filename):
     return directory, quote(relative.as_posix(), safe="/")
 
 
+def file_serving_target(target):
+    """Use a positional file's Git root, falling back to its parent directory."""
+    parent = target.parent.resolve()
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(parent), "rev-parse", "--show-toplevel"],
+            check=True, capture_output=True, text=True, timeout=5,
+        )
+        root = Path(result.stdout.rstrip("\n"))
+        if root.is_absolute():
+            # Resolve directory aliases, but preserve the selected file's symlink name.
+            return root, (parent / target.name).relative_to(root)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        pass
+    return target.parent, target.name
+
+
 def serving_target(path=None, directory=None, filename=None):
     """Resolve a positional file/directory or an explicit root and relative file."""
     if path is not None:
@@ -174,7 +191,7 @@ def serving_target(path=None, directory=None, filename=None):
         elif target.is_file():
             if filename is not None:
                 raise ValueError("a positional file and --file/-f cannot be used together; choose one file")
-            directory, filename = target.parent, target.name
+            directory, filename = file_serving_target(target)
         else:
             raise ValueError(f"path does not exist or is not a regular file or directory: {target}")
     return review_file(directory if directory is not None else ".", filename)
@@ -275,7 +292,8 @@ def ipv4_address(value):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path", nargs="?", metavar="PATH",
-                        help="directory to list or file to link to (serves its parent); default: current directory")
+                        help="directory to list or file to link to (serves its Git root, "
+                             "or parent outside Git); default: current directory")
     parser.add_argument("--bind", type=ipv4_address, default="0.0.0.0",
                         help="IPv4 bind address (default: 0.0.0.0)")
     parser.add_argument("-d", "--directory",

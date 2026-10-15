@@ -353,6 +353,113 @@ class ServeHTML(unittest.TestCase):
                         with client.open(urls[0].replace("page.html", "style.css"), timeout=2) as response:
                             self.assertEqual(response.read(), b"adjacent asset")
 
+    @unittest.skipUnless(shutil.which("git"), "Git is unavailable")
+    def test_positional_file_serves_git_root_from_another_directory(self):
+        with tempfile.TemporaryDirectory(prefix="serve-html-git-test-") as temp:
+            directory = Path(temp) / "repository with spaces"
+            directory.mkdir()
+            subprocess.run(["git", "init", "--quiet", str(directory)], check=True)
+            nested = directory / "docs/nested folder"
+            nested.mkdir(parents=True)
+            document = nested / "한글 review #1's ?.md"
+            markdown = "# Review\n\n![Diagram](../../assets/drawing.svg)\n"
+            document.write_text(markdown)
+            (directory / "assets").mkdir()
+            drawing = b'<svg xmlns="http://www.w3.org/2000/svg"/>'
+            (directory / "assets/drawing.svg").write_bytes(drawing)
+            client = build_opener(ProxyHandler({}))
+            for path in (str(document), os.path.relpath(document, temp),
+                         str(nested / ".." / nested.name / document.name)):
+                with self.subTest(path=path), self.server(
+                    temp, path, "--bind", "127.0.0.1",
+                    command=[sys.executable, str(SCRIPT)],
+                ) as (_, urls, output):
+                    expected_path = "/" + quote(document.relative_to(directory).as_posix(), safe="/")
+                    self.assertEqual(urlsplit(urls[0]).path, expected_path)
+                    self.assertIn(f"Serving {directory} on port", output)
+                    with client.open(urls[0], timeout=2) as response:
+                        self.assertIn(b"Markdown preview", response.read())
+                    with client.open(urls[0] + "?raw=1", timeout=2) as response:
+                        self.assertEqual(response.read().decode(), markdown)
+                    origin = urls[0].removesuffix(expected_path)
+                    with client.open(origin + "/assets/drawing.svg", timeout=2) as response:
+                        self.assertEqual(response.read(), drawing)
+                    with client.open(origin + "/", timeout=2) as response:
+                        self.assertIn(b'href="docs/"', response.read())
+
+            # Explicit roots and --file retain their requested directory inside Git.
+            for args in ([str(nested), "-f", document.name],
+                         ["-d", str(nested), "-f", document.name],
+                         ["-f", document.name]):
+                with self.subTest(args=args), self.server(
+                    nested, *args, "--bind", "127.0.0.1",
+                    command=[sys.executable, str(SCRIPT)],
+                ) as (_, urls, output):
+                    self.assertEqual(urlsplit(urls[0]).path, "/" + quote(document.name, safe=""))
+                    self.assertIn(f"Serving {nested} on port", output)
+                    with client.open(urls[0] + "?raw=1", timeout=2) as response:
+                        self.assertEqual(response.read().decode(), markdown)
+
+    @unittest.skipUnless(shutil.which("git"), "Git is unavailable")
+    def test_nested_repositories_and_worktrees_use_their_own_roots(self):
+        with tempfile.TemporaryDirectory(prefix="serve-html-git-test-") as temp:
+            repository = Path(temp) / "repository"
+            repository.mkdir()
+            subprocess.run(["git", "init", "--quiet", str(repository)], check=True)
+            nested = repository / "nested repository"
+            nested.mkdir()
+            subprocess.run(["git", "init", "--quiet", str(nested)], check=True)
+            subprocess.run(
+                ["git", "-C", str(repository), "-c", "user.name=Serve HTML test",
+                 "-c", "user.email=serve-html@example.invalid", "-c", "commit.gpgsign=false",
+                 "-c", "core.hooksPath=/dev/null", "commit", "--quiet", "--allow-empty", "-m", "fixture"],
+                check=True, capture_output=True, text=True,
+            )
+            worktree = Path(temp) / "linked worktree"
+            subprocess.run(
+                ["git", "-C", str(repository), "worktree", "add", "--quiet", "--detach", str(worktree)],
+                check=True, capture_output=True, text=True,
+            )
+            self.assertTrue((worktree / ".git").is_file())
+            for root in (nested, worktree):
+                with self.subTest(root=root):
+                    document = root / "docs/review.md"
+                    document.parent.mkdir()
+                    document.write_text("# Review")
+                    self.assertEqual(helper.serving_target(document), (root, "docs/review.md"))
+
+    @unittest.skipUnless(shutil.which("git"), "Git is unavailable")
+    def test_git_file_paths_preserve_file_symlinks_and_resolve_directory_aliases(self):
+        with tempfile.TemporaryDirectory(prefix="serve-html-git-test-") as temp:
+            repository = Path(temp) / "repository"
+            repository.mkdir()
+            subprocess.run(["git", "init", "--quiet", str(repository)], check=True)
+            nested = repository / "docs"
+            nested.mkdir()
+            document = nested / "review.md"
+            document.write_text("# Review")
+            alias = Path(temp) / "directory alias"
+            alias.symlink_to(nested, target_is_directory=True)
+            self.assertEqual(helper.serving_target(alias / document.name), (repository, "docs/review.md"))
+            outside = Path(temp) / "outside.md"
+            outside.write_text("# Linked document")
+            linked_document = nested / "linked.md"
+            linked_document.symlink_to(outside)
+            self.assertEqual(helper.serving_target(linked_document), (repository, "docs/linked.md"))
+
+    def test_git_discovery_failures_fall_back_to_the_file_parent(self):
+        with tempfile.TemporaryDirectory(prefix="serve-html-git-test-") as temp:
+            directory = Path(temp) / "nested"
+            directory.mkdir()
+            document = directory / "review #1.md"
+            document.write_text("# Review")
+            for error in (FileNotFoundError(), PermissionError(),
+                          subprocess.CalledProcessError(128, "git"),
+                          subprocess.TimeoutExpired("git", 5)):
+                with self.subTest(error=error), patch.object(helper.subprocess, "run", side_effect=error):
+                    self.assertEqual(helper.serving_target(document),
+                                     (directory, quote(document.name, safe="")))
+
     def test_markdown_urls_render_by_default_with_raw_and_head_support(self):
         with tempfile.TemporaryDirectory(prefix="serve-markdown-test-") as temp:
             directory = Path(temp)

@@ -23,7 +23,7 @@ the filename to open that page, or select it explicitly on the command line.
 | --- | --- | --- |
 | None, or `.` | Current directory | Directory listing at `/` |
 | `DIR` | `DIR` | Directory listing at `/` |
-| `PATH/FILE` | File's parent directory | The selected file |
+| `PATH/FILE` | File's Git repository root, or parent directory outside Git | The selected file relative to the serving directory |
 | `-d DIR` or `--directory DIR` | `DIR` | Directory listing at `/` |
 | `-f FILE` or `--file FILE` | Current directory | `FILE` relative to the current directory |
 | `DIR -f FILE` | `DIR` | `FILE` relative to `DIR` |
@@ -32,8 +32,12 @@ the filename to open that page, or select it explicitly on the command line.
 A positional path can be relative or absolute; quoted `~` paths are expanded.
 It must name an existing directory or regular file. Any regular file can be
 selected: HTML opens as a page, Markdown uses the preview, and other formats
-use the browser's normal behavior. Selecting a file serves its parent directory
-so adjacent assets remain accessible.
+use the browser's normal behavior. Selecting a file serves its enclosing Git
+repository root, so links and assets elsewhere in the repository remain
+accessible. Detection starts from the file's directory, regardless of your
+current directory. Nested repositories and linked worktrees use their own roots.
+Outside a repository, or if Git is unavailable or detection fails, the file's
+parent directory is served instead.
 
 `--directory` (`-d`) requires a directory. `--file` (`-f`) requires a file path
 relative to the selected serving directory; absolute paths and `..` components
@@ -42,9 +46,12 @@ directory, or choose its serving root explicitly with `-d`.
 
 A positional path together with `-d` is an error. A positional file together
 with `-f` is also an error. A positional directory can be combined with `-f`.
-For example, `html-serve docs -f nested/review.html` serves `docs` and prints a
-link to `/nested/review.html`; `html-serve docs/nested/review.html` serves
-`docs/nested` and prints a link to `/review.html`.
+For example, from a repository root, `html-serve docs -f nested/review.html`
+serves `docs` and prints a link to `/nested/review.html`;
+`html-serve docs/nested/review.html` serves the repository root and prints a
+link to `/docs/nested/review.html`. Outside Git it serves `docs/nested` and links to
+`/review.html`. To explicitly serve only the file's parent directory, use
+`html-serve docs/nested -f review.html`.
 
 ## Markdown preview
 
@@ -181,8 +188,10 @@ occupied preferred ports, automatic fallback and reservation,
 concurrent servers, occupied fixed ports, Ctrl+C shutdown, encoded HTML paths,
 adjacent assets, and interface discovery. They also verify directory listings
 with index pages present, explicit index links, directory redirects, positional
-directories and files, short and long options, and conflicting arguments. CLI
-integration uses temporary files and a deterministic `ip` fixture. No deployed
+directories and files, Git root discovery for nested repositories and linked
+worktrees, parent-directory fallback, explicit directory overrides, short and
+long options, and conflicting arguments. CLI integration uses temporary files
+and a deterministic `ip` fixture. No deployed
 files are used. They also cover Markdown routing, raw responses, GET/HEAD,
 SVG content types, asset paths, and rendering with `--verbose`.
 
