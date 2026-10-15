@@ -173,6 +173,7 @@ These everyday shortcuts also exist in Nushell:
 | `fzfm`, `fda`, `rgall` | Fuzzy finder, fd including hidden/ignored files, and ripgrep including hidden/ignored files. |
 | `conf`, `confd`, `mycub`, `nvimh` | Jump to configuration, CUBRID, or Neovim directories. |
 | `lz`, `lj`, `lzd`, `v`, `py`, `sctl` | Lazygit, lazyjj, lazydocker, Neovim, Python 3, and systemctl. |
+| `lzps` (`lzp` in Zsh/Nushell) | Run lazydocker with sudo against the system Podman socket. |
 | `ports`, `ports-tcp`, `ports-all` | Existing port listing helper, its TCP view, or somo. |
 
 `cd` retains its existing change-and-list behavior; bare `cd` goes home.
@@ -181,6 +182,11 @@ the existing managed `dir-picker` / `file-picker.sh` commands and their
 dependencies (Python 3, fzf, and, for files, fd/eza). Cancelling a picker leaves
 the current directory unchanged. Other shortcuts require their named tools;
 they do not install them during shell startup.
+
+`lzps` resolves lazydocker from the caller's `PATH` before invoking sudo, then
+passes its absolute path and `DOCKER_HOST=unix:///run/podman/podman.sock` to sudo.
+It forwards all arguments and requires only `sh`, sudo, and lazydocker on `PATH`;
+it has no Nix or Homebrew dependency. `lzd` runs lazydocker without sudo.
 
 The Just pickers prepare an editable command: Zsh preloads the next prompt;
 Bash opens a `Run:` Readline prompt where Enter runs the command and records it
