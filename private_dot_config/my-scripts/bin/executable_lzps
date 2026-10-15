@@ -11,4 +11,5 @@ case "$lazydocker_path" in
     *) lazydocker_path="$PWD/$lazydocker_path" ;;
 esac
 
-exec sudo -- DOCKER_HOST=unix:///run/podman/podman.sock "$lazydocker_path" "$@"
+# Sudo only parses environment assignments before the option separator.
+exec sudo DOCKER_HOST=unix:///run/podman/podman.sock -- "$lazydocker_path" "$@"
