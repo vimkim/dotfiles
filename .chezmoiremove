@@ -1,2 +1,5 @@
 # Retired duplicate of gh-pr-url. Remove only this exact command.
 .config/my-scripts/bin/gh-pr-view
+
+# Container shortcuts now use aliases to descriptive commands.
+.config/my-scripts/bin/lzps

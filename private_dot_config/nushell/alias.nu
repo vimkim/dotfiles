@@ -295,8 +295,10 @@ def lf [...file: string] {
 alias lj = lazyjj
 alias lz = lazygit
 alias lzd = lazydocker
+alias lzds = ^sudo-path lazydocker
+alias lzp = ^lazydocker-with-podman
+alias lzps = ^sudo-path lazydocker-with-podman
 alias lzpu = with-env {DOCKER_HOST: "unix:///run/user/1000/podman/podman.sock"} { lazydocker }
-alias lzp = ^lzps
 
 def --env mc [dir: string] {
   mkdir $dir

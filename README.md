@@ -173,7 +173,9 @@ These everyday shortcuts also exist in Nushell:
 | `fzfm`, `fda`, `rgall` | Fuzzy finder, fd including hidden/ignored files, and ripgrep including hidden/ignored files. |
 | `conf`, `confd`, `mycub`, `nvimh` | Jump to configuration, CUBRID, or Neovim directories. |
 | `lz`, `lj`, `lzd`, `v`, `py`, `sctl` | Lazygit, lazyjj, lazydocker, Neovim, Python 3, and systemctl. |
-| `lzps` (`lzp` in Zsh/Nushell) | Run lazydocker with sudo against the system Podman socket. |
+| `lzds` | `sudo-path lazydocker`: run lazydocker with sudo. |
+| `lzp` | `lazydocker-with-podman`: use the system Podman socket without sudo. |
+| `lzps` | `sudo-path lazydocker-with-podman`: use the system Podman socket with sudo. |
 | `ports`, `ports-tcp`, `ports-all` | Existing port listing helper, its TCP view, or somo. |
 
 `cd` retains its existing change-and-list behavior; bare `cd` goes home.
@@ -183,10 +185,16 @@ dependencies (Python 3, fzf, and, for files, fd/eza). Cancelling a picker leaves
 the current directory unchanged. Other shortcuts require their named tools;
 they do not install them during shell startup.
 
-`lzps` resolves lazydocker from the caller's `PATH` before invoking sudo, then
-passes its absolute path and `DOCKER_HOST=unix:///run/podman/podman.sock` to sudo.
-It forwards all arguments and requires only `sh`, sudo, and lazydocker on `PATH`;
-it has no Nix or Homebrew dependency. `lzd` runs lazydocker without sudo.
+`sudo-path COMMAND [ARG ...]` resolves an external executable from the caller's
+`PATH`, then passes its absolute path and the caller's `PATH` to sudo. Preserving
+`PATH` lets wrapper scripts find their child commands after sudo starts them.
+It also accepts explicit executable paths and forwards all arguments and the exit
+status. It requires only `sh` and sudo, with no Nix or Homebrew dependency.
+
+`lazydocker-with-podman` sets `DOCKER_HOST=unix:///run/podman/podman.sock` and
+executes lazydocker. It does not request sudo itself. The `lzd`, `lzds`, `lzp`,
+and `lzps` aliases are available in Bash, Zsh, and Nushell; their `s` suffix
+selects sudo. The retired `lzps` executable is removed by chezmoi.
 
 The Just pickers prepare an editable command: Zsh preloads the next prompt;
 Bash opens a `Run:` Readline prompt where Enter runs the command and records it

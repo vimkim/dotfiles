@@ -109,9 +109,7 @@ alias penv='env | fzf --exact -i'
 # Lazydocker
 ###############################################################################
 
-alias lzd='lazydocker'
-
-alias lzp='lzps'
+# lzd, lzds, lzp, and lzps are defined in the shared shell/productivity.sh.
 alias lazypodman='lzp'
 
 alias lzpu='DOCKER_HOST=unix:///run/user/1000/podman/podman.sock lazydocker'

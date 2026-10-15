@@ -1,0 +1,44 @@
+#!/bin/sh
+
+if [ "$#" -eq 0 ]; then
+    printf '%s\n' 'Usage: sudo-path COMMAND [ARG ...]' >&2
+    exit 2
+fi
+
+command_name=$1
+shift
+
+case "$command_name" in
+    */*) command_path=$command_name ;;
+    *)
+        # Search for external executables, including names shared with builtins.
+        search_path=${PATH-}
+        command_path=
+        while :; do
+            directory=${search_path%%:*}
+            candidate=${directory:-.}/$command_name
+            if [ -f "$candidate" ] && [ -x "$candidate" ]; then
+                command_path=$candidate
+                break
+            fi
+            case "$search_path" in
+                *:*) search_path=${search_path#*:} ;;
+                *) break ;;
+            esac
+        done
+        ;;
+esac
+
+if [ ! -f "$command_path" ] || [ ! -x "$command_path" ]; then
+    printf 'sudo-path: executable not found: %s\n' "$command_name" >&2
+    exit 127
+fi
+
+case "$command_path" in
+    /*) ;;
+    *) command_path="$PWD/$command_path" ;;
+esac
+
+# Wrappers need the caller's PATH to find their own child commands after sudo.
+# Environment assignments must precede sudo's option separator.
+exec sudo "PATH=${PATH-}" -- "$command_path" "$@"
