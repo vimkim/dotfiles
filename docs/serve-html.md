@@ -8,13 +8,14 @@ PYTHONDONTWRITEBYTECODE=1 python "$HOME/.config/my-scripts/bin/serve-html.py" --
 ```
 
 The CLI starts a foreground HTTP server, chooses a memorable free port, and
-prints Markdown links for the server's active Tailscale/VPN and LAN IPv4
+prints plain URLs for the server's active Tailscale/VPN and LAN IPv4
 addresses. Open a printed URL from your PC, then press Ctrl+C in the SSH terminal
 to stop the server. The port stays bound throughout serving; concurrent runs get
 different ports. The directory includes adjacent CSS, JavaScript, and images.
 
-Each link shows the full URL as its clickable text, followed by a short network
-label such as Tailscale or LAN, making the address easier to copy on mobile.
+Each address appears once as a plain URL, followed by a short network label
+such as Tailscale or LAN. The output needs no Markdown renderer, and terminals
+that recognize URLs can make them clickable.
 
 HTTP access logs, such as GET and HEAD requests, are quiet by default. Startup
 links and errors remain visible. Add `--verbose` to print request logs.

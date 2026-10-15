@@ -163,7 +163,7 @@ class ServeHTML(unittest.TestCase):
                         if process.poll() is not None or time.monotonic() >= deadline:
                             self.fail(f"server did not start: {error_path.read_text()}")
                         time.sleep(0.02)
-                    urls = re.findall(r"\]\(<(http://[^>]+)>\)", output)
+                    urls = re.findall(r"^- (http://\S+) — ", output, re.MULTILINE)
                     self.assertTrue(urls, output)
                     yield process, urls, output
                 finally:
@@ -200,7 +200,7 @@ class ServeHTML(unittest.TestCase):
                 self.assertEqual(parsed[0].path, "/" + quote(html.name, safe=""))
                 self.assertEqual(
                     [line for line in output.splitlines() if line.startswith("- ")],
-                    [f"- [{url}](<{url}>) — {label}"
+                    [f"- {url} — {label}"
                      for url, label in zip(urls, ("Tailscale", "LAN"))],
                 )
                 with socket.socket() as probe:
