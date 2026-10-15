@@ -31,6 +31,23 @@ class Bootstrap(unittest.TestCase):
             path = self.bin / name
             path.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{self.log}"\nexit "${{INSTALL_RESULT:-0}}"\n')
             path.chmod(0o755)
+        (self.bin / 'uv').write_text(
+            '#!/bin/sh\n'
+            'if [ "$*" = "tool dir" ]; then\n'
+            '    printf "%s\\n" "$HOME/.local/share/uv/tools"\n'
+            'else\n'
+            '    exit 1\n'
+            'fi\n'
+        )
+        self.runtime_python = self.home / '.local/share/uv/tools/herdr-next-to-current/bin/python'
+        self.runtime_python.parent.mkdir(parents=True)
+        self.runtime_python.write_text('#!/bin/sh\nexit "${RUNTIME_RESULT:-0}"\n')
+        self.runtime_python.chmod(0o755)
+        (self.bin / 'herdr').write_text(
+            '#!/bin/sh\nprintf "%s\\n" "${HERDR_VERSION:-herdr 0.9.3}"\n'
+            'exit "${HERDR_VERSION_RESULT:-0}"\n'
+        )
+        (self.bin / 'herdr').chmod(0o755)
         self.seed = self.root / 'seed'
         self.git(self.root, 'init', '--initial-branch=main', str(self.seed))
         (self.seed / 'justfile').write_text('sync:\n    @true\n')
@@ -81,14 +98,52 @@ class Bootstrap(unittest.TestCase):
         self.assertFalse(self.log.exists())
 
     def test_missing_dependencies_and_failed_install_remain_retryable(self):
+        uv_script = (self.bin / 'uv').read_text()
         (self.bin / 'uv').unlink()
         result = self.run_bootstrap()
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn('install uv first', result.stderr)
+        self.assertIn('chezmoi apply', result.stderr)
         self.assertFalse(self.checkout.exists())
-        shutil.copy(self.bin / 'just', self.bin / 'uv')
+        (self.bin / 'uv').write_text(uv_script)
+        (self.bin / 'uv').chmod(0o755)
         result = self.run_bootstrap(INSTALL_RESULT='1')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('installation failed', result.stderr)
+        self.assertEqual(self.run_bootstrap().returncode, 0)
+
+    def test_missing_herdr_warns_without_blocking_installation(self):
+        (self.bin / 'herdr').unlink()
+        # Keep a host's /usr/bin/herdr from satisfying this missing-tool case.
+        for name in ('bash', 'git', 'mkdir', 'dirname'):
+            (self.bin / name).symlink_to(shutil.which(name))
+        result = self.run_bootstrap(PATH=str(self.bin))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.log.exists())
+        self.assertIn('warning: Alt+C and Alt+Shift+C', result.stderr)
+        self.assertIn('herdr was not found on PATH', result.stderr)
+        self.assertIn('Herdr 0.9.3 (protocol 22)', result.stderr)
+
+    def test_incompatible_herdr_warns_without_blocking_installation(self):
+        for version_result, report in (('0', 'herdr 0.9.4'), ('1', 'version check failed')):
+            with self.subTest(version_result=version_result):
+                result = self.run_bootstrap(HERDR_VERSION='herdr 0.9.4',
+                                            HERDR_VERSION_RESULT=version_result)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(self.log.exists())
+                self.assertIn('warning:', result.stderr)
+                self.assertIn(report, result.stderr)
+                self.assertIn('Herdr 0.9.3 server (protocol 22)', result.stderr)
+        result = self.run_bootstrap()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('warning:', result.stderr)
+
+    def test_unusable_installed_python_remains_retryable(self):
+        result = self.run_bootstrap(RUNTIME_RESULT='1')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Python 3.11+ with curses', result.stderr)
+        self.assertIn(str(self.runtime_python), result.stderr)
+        self.assertIn('chezmoi apply', result.stderr)
         self.assertEqual(self.run_bootstrap().returncode, 0)
 
     def test_linked_worktree_is_preserved(self):
@@ -115,6 +170,12 @@ class Bootstrap(unittest.TestCase):
         self.assertFalse(self.log.exists())
         self.assertEqual(self.checkout.read_text(), 'valuable')
         self.checkout.unlink()
+        result = subprocess.run(command, env=self.env | {'RUNTIME_RESULT': '1'},
+                                capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Python 3.11+ with curses', result.stderr)
+        self.assertTrue(self.log.exists())
+        self.log.unlink()
         result = subprocess.run(command, env=self.env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue(self.log.exists())

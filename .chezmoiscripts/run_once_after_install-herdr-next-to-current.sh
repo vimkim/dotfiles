@@ -30,3 +30,20 @@ status="$(git -C "$checkout" status --porcelain --untracked-files=all)" || retry
 [ -z "$status" ] || retry 'dirty checkout; preserved'
 [ -f "$checkout/justfile" ] || retry 'missing justfile'
 just --justfile "$checkout/justfile" --working-directory "$checkout" sync || retry 'installation failed'
+
+# Check the interpreter uv installed, which can differ from python3 on PATH.
+tool_root="$(uv tool dir)" || retry 'cannot locate the installed Python environment'
+runtime_python="$tool_root/herdr-next-to-current/bin/python"
+"$runtime_python" -I -c 'import curses, sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 ||
+    retry "installed runtime requires Python 3.11+ with curses; repair the interpreter at $runtime_python and reinstall"
+
+# Herdr is optional on machines that only use the other dotfiles. Its absence
+# must not undo a successful tool install or prevent the other dotfiles applying.
+if ! command -v herdr >/dev/null; then
+    printf '%s\n' 'herdr-next-to-current: warning: Alt+C and Alt+Shift+C need Herdr 0.9.3 (protocol 22); herdr was not found on PATH. Install compatible Herdr before using these shortcuts.' >&2
+else
+    herdr_version="$(herdr --version 2>/dev/null)" || herdr_version='version check failed'
+    if [ "$herdr_version" != 'herdr 0.9.3' ]; then
+        printf 'herdr-next-to-current: warning: Alt+C and Alt+Shift+C need a Herdr 0.9.3 server (protocol 22); installed command reports "%s". Use compatible Herdr before using these shortcuts.\n' "$herdr_version" >&2
+    fi
+fi

@@ -87,6 +87,12 @@ nix --extra-experimental-features nix-command --extra-experimental-features flak
 
 </details>
 
+The personal tool installers also require Git, `uv`, and `just` on PATH:
+
+```bash
+brew install git uv just
+```
+
 Then apply:
 
 ```bash
@@ -322,6 +328,23 @@ including verification and rollback commands.
 
 Herdr's tab agent markers, workspace tab inventory, and updater controls are
 documented in [Herdr tab agent indicators](docs/herdr-tab-status.md).
+
+Alt+C creates a Space immediately below the current one; Alt+Shift+C opens the
+numbered Space reorder popup. Both use
+[`vimkim/herdr-next-to-current`](https://github.com/vimkim/herdr-next-to-current),
+which chezmoi clones into `~/gh/herdr-next-to-current` and installs with
+`just sync`. `daily-update` refreshes that checkout alongside `my-git-utils`.
+
+These shortcuts require Linux/WSL, Python 3.11+ with `curses`, and a Herdr
+**0.9.3 server using protocol 22**. There are no third-party Python runtime
+dependencies. `uv` selects a compatible Python during installation; the installer
+checks that installed interpreter, rather than the system `python3`.
+Missing Git, `uv`, or `just`, failed installation, or an unusable Python runtime
+produces an error and leaves installation eligible to retry with `chezmoi apply`.
+Missing Herdr, an unreadable version, or a different installed Herdr version
+produces a warning without blocking the other dotfiles. The helper also checks
+the actual server version and protocol when a shortcut runs. The installer runs
+once per script revision; it does not check dependencies at every shell startup.
 
 ### Optional: Install the Colemak programmer layout
 
