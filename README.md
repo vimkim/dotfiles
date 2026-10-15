@@ -235,6 +235,15 @@ and symlinks while reporting locally changed targets as successful skips.
 Run it without arguments to use chezmoi's configured source checkout; `--source`
 selects a different checkout. See [usage and verification](docs/chezmoi-apply-unmodified.md).
 
+### Share HTML from GitHub
+
+Run `gh-html /path/to/repository/report.html` to print a rendered githack URL.
+It infers the GitHub remote, repository path, and current commit from a local
+file, or converts a GitHub blob/raw URL directly. `--cdn` selects the CDN host.
+The file must already be committed and pushed to a public GitHub repository.
+The Python 3 command lives in `~/.config/my-scripts/bin`; see
+[usage and verification](docs/gh-html.md).
+
 ### HTML review from a remote server
 
 Run `html-serve` from any directory to serve it until Ctrl+C. It shows an index

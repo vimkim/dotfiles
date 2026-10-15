@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Print a githack URL for a local Git file or a public GitHub file URL."""
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
+
+
+class InputError(Exception):
+    """An input cannot be converted to a GitHub-backed githack URL."""
+
+
+def git(directory, *arguments):
+    try:
+        return subprocess.run(
+            ["git", "--literal-pathspecs", "-C", str(directory), *arguments],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        raise InputError("Git is required to convert a local file path.") from None
+
+
+def encoded_parts(parts):
+    if any(not part or part in (".", "..") for part in parts):
+        raise InputError("The URL must contain a repository, revision, and file path.")
+    return "/".join(quote(part, safe="") for part in parts)
+
+
+def github_repository(remote):
+    scp = re.fullmatch(r"(?:[^@/]+@)?github\.com:(.+)", remote)
+    if scp:
+        repository = scp.group(1)
+    else:
+        parsed = urlsplit(remote)
+        if parsed.hostname != "github.com" or parsed.scheme not in (
+            "https", "http", "ssh", "git"
+        ):
+            raise InputError("The selected remote must point to github.com.")
+        repository = parsed.path.lstrip("/")
+    repository = repository.rstrip("/").removesuffix(".git")
+    parts = [unquote(part) for part in repository.split("/")]
+    if len(parts) != 2 or any("/" in part for part in parts):
+        raise InputError("The selected remote must identify a GitHub owner/repository.")
+    encoded_parts(parts)
+    return parts
+
+
+def from_file(value, remote_name, revision, cdn):
+    try:
+        path = Path(value).expanduser().resolve(strict=True)
+    except (OSError, RuntimeError):
+        raise InputError(f"File does not exist or cannot be accessed: {value}") from None
+    if not path.is_file():
+        raise InputError(f"Expected a file: {value}")
+
+    root_result = git(path.parent, "rev-parse", "--show-toplevel")
+    if root_result.returncode:
+        raise InputError("The file must be inside a Git repository.")
+    root = Path(root_result.stdout.strip()).resolve()
+    relative = path.relative_to(root).as_posix()
+
+    remote_result = git(root, "remote", "get-url", "--", remote_name)
+    if remote_result.returncode:
+        raise InputError(f"Git remote {remote_name!r} was not found; select one with --remote.")
+    repository = github_repository(remote_result.stdout.strip())
+
+    commit_result = git(
+        root, "rev-parse", "--verify", "--end-of-options", f"{revision}^{{commit}}"
+    )
+    if commit_result.returncode:
+        raise InputError(f"Cannot resolve Git revision {revision!r} to a commit.")
+    commit = commit_result.stdout.strip()
+    object_result = git(root, "cat-file", "-t", f"{commit}:{relative}")
+    if object_result.returncode or object_result.stdout.strip() != "blob":
+        raise InputError(f"File is not committed at {revision!r}: {relative}")
+
+    difference = git(root, "diff", "--quiet", "--no-ext-diff", commit, "--", relative)
+    if difference.returncode == 1:
+        print(
+            f"gh-html: local file differs from {revision!r}; the URL shows the committed version.",
+            file=sys.stderr,
+        )
+    elif difference.returncode:
+        raise InputError("Could not compare the local file with its committed version.")
+
+    host = "rawcdn.githack.com" if cdn else "raw.githack.com"
+    return f"https://{host}/{encoded_parts([*repository, commit, *relative.split('/')])}"
+
+
+def from_url(value, cdn):
+    parsed = urlsplit(value)
+    if parsed.scheme not in ("http", "https") or parsed.username or parsed.password:
+        raise InputError("Provide an HTTP(S) GitHub file URL without credentials.")
+    parts = [unquote(part) for part in parsed.path.lstrip("/").split("/")]
+    if parsed.netloc.lower() in ("github.com", "www.github.com"):
+        if len(parts) < 5 or parts[2] not in ("blob", "raw"):
+            raise InputError("Expected a GitHub file URL: https://github.com/OWNER/REPO/blob/REF/FILE")
+        parts = parts[:2] + parts[3:]
+    elif parsed.netloc.lower() != "raw.githubusercontent.com":
+        raise InputError("Supported URL hosts are github.com and raw.githubusercontent.com.")
+    if len(parts) < 4:
+        raise InputError("The URL must contain a repository, revision, and file path.")
+    if cdn and not re.fullmatch(r"[0-9a-fA-F]{40}", parts[2]):
+        raise InputError(
+            "For --cdn, use a URL containing a full commit SHA instead of a branch. "
+            "Local file paths resolve to a commit automatically."
+        )
+    host = "rawcdn.githack.com" if cdn else "raw.githack.com"
+    return urlunsplit(("https", host, "/" + encoded_parts(parts), "", parsed.fragment))
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Print a githack URL for a local Git file or a public GitHub file URL.",
+        epilog="Local paths use a commit SHA. Files must already be pushed to a public GitHub repo. "
+        "This command does not upload, push, or check remote availability.",
+    )
+    parser.add_argument("path", help="Local file path or GitHub blob/raw URL")
+    parser.add_argument("--remote", default="origin", help="Git remote for local paths (default: origin)")
+    parser.add_argument("--ref", help="Git revision for local paths (default: HEAD); resolves to a commit")
+    parser.add_argument("--cdn", action="store_true", help="Use rawcdn.githack.com with a commit SHA")
+    args = parser.parse_args()
+    try:
+        if "://" in args.path:
+            if args.ref is not None:
+                raise InputError("--ref applies to local paths; change the revision in the URL instead.")
+            url = from_url(args.path, args.cdn)
+        else:
+            url = from_file(args.path, args.remote, args.ref or "HEAD", args.cdn)
+    except (InputError, ValueError) as error:
+        print(f"gh-html: {error}", file=sys.stderr)
+        return 1
+    print(url)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
