@@ -23,6 +23,61 @@ function renderError(element, label, source, error) {
   element.replaceChildren(details);
 }
 
+const diagrams = [];
+let diagramGeneration = 0;
+let diagramTask;
+let mermaidImport;
+
+async function drainDiagrams() {
+  let finished = 0;
+  while (finished !== diagramGeneration) {
+    const generation = diagramGeneration;
+    const theme = document.documentElement.dataset.theme;
+    let mermaid, loadError;
+    try {
+      mermaidImport ??= import("./vendor/mermaid.js");
+      mermaid = (await mermaidImport).default;
+      if (generation !== diagramGeneration) continue;
+      // Initialization and rendering share one queue: Mermaid owns global config.
+      mermaid.initialize({
+        startOnLoad: false, securityLevel: "strict",
+        theme: theme === "dark" ? "dark" : "default", suppressErrorRendering: true,
+      });
+    } catch (error) {
+      loadError = error;
+    }
+    for (const { element, source, id } of diagrams) {
+      let svg, renderFailure;
+      try {
+        if (loadError) throw loadError;
+        ({ svg } = await mermaid.render(`${id}-g${generation}`, source));
+      } catch (error) {
+        renderFailure = error;
+      }
+      if (generation !== diagramGeneration) break;
+      const position = { left: scrollX, top: scrollY };
+      if (renderFailure) renderError(element, "Mermaid error", source, renderFailure);
+      else element.innerHTML = svg;
+      window.scrollTo(position);
+    }
+    finished = generation;
+  }
+}
+
+function renderDiagrams() {
+  diagramGeneration += 1;
+  for (const { element } of diagrams) element.setAttribute("aria-busy", "true");
+  diagramTask ??= drainDiagrams().finally(() => {
+    diagramTask = undefined;
+    for (const { element } of diagrams) element.setAttribute("aria-busy", "false");
+  });
+  return diagramTask;
+}
+
+document.addEventListener("serve-html-themechange", () => {
+  if (diagrams.length) void renderDiagrams();
+});
+
 async function renderDocument(source) {
   const slots = [];
   // A per-document marker keeps author HTML from impersonating renderer slots.
@@ -64,33 +119,14 @@ async function renderDocument(source) {
     FORBID_TAGS: ["style"], FORBID_ATTR: ["style"],
   });
 
-  const diagrams = slots.filter((entry) => entry.kind === "mermaid");
-  let mermaid;
-  let mermaidError;
-  if (diagrams.length) {
-    try {
-      mermaid = (await import("./vendor/mermaid.js")).default;
-      mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: "strict",
-        theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
-        suppressErrorRendering: true,
-      });
-    } catch (error) {
-      mermaidError = error;
-    }
-  }
-
   // Render independently: one invalid block must not hide the remaining content.
   for (const [index, { kind, token }] of slots.entries()) {
     const element = content.querySelector(`[data-preview-slot="${marker}-${index}"]`);
     if (!element) continue;
     try {
       if (kind === "mermaid") {
-        if (mermaidError) throw mermaidError;
         element.classList.add("diagram");
-        const { svg } = await mermaid.render(`diagram-${marker}-${index}`, token.text);
-        element.innerHTML = svg;
+        diagrams.push({ element, source: token.text, id: `diagram-${marker}-${index}` });
       } else {
         math.katex.render(token.text, element, {
           displayMode: token.displayMode, throwOnError: true, trust: false,
@@ -100,6 +136,7 @@ async function renderDocument(source) {
       renderError(element, kind === "mermaid" ? "Mermaid error" : "Math error", token.text, error);
     }
   }
+  if (diagrams.length) await renderDiagrams();
 }
 
 try {

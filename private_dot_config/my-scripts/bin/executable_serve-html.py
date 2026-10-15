@@ -2,14 +2,23 @@
 """Serve a directory with Markdown previews and print PC access links until Ctrl+C."""
 
 import argparse
+from collections import deque
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import errno
 from functools import partial
+from html import escape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
+import io
 import json
 import os
 from pathlib import Path
+import re
+import stat
 import subprocess
+import time
+from typing import Optional
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 
@@ -28,6 +37,182 @@ PREVIEW_PREFIX = "/__serve_html__/"
 PREVIEW_ASSETS = Path(__file__).resolve().parent.parent / "share" / "serve-html"
 
 
+@dataclass
+class DirectoryEntry:
+    name: str
+    is_directory: bool = False
+    is_symlink: bool = False
+    modified_ns: Optional[int] = None
+    created: Optional[datetime] = None
+
+
+def birth_times(directory, names, diagnostic=None):
+    """Read optional GNU stat birth times in bounded, byte-framed batches."""
+    batches = deque()
+    batch, size = [], 0
+    for name in names:
+        operand_size = len(os.fsencode(name)) + 3  # ./ prefix and argv terminator
+        if batch and (len(batch) >= 128 or size + operand_size > 32768):
+            batches.append(batch)
+            batch, size = [], 0
+        batch.append(name)
+        size += operand_size
+    if batch:
+        batches.append(batch)
+    found = {}
+    deadline = time.monotonic() + 2
+    environment = {**os.environ, "LC_ALL": "C", "TZ": "UTC0"}
+
+    def report(message):
+        if diagnostic:
+            diagnostic(f"Creation dates: {message}")
+
+    while batches:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            report("lookup deadline reached")
+            break
+        batch = batches.popleft()
+        operands = {b"./" + os.fsencode(name): name for name in batch}
+        try:
+            result = subprocess.run(
+                ["stat", "--dereference", r"--printf=%n\0%w\0", "--",
+                 *("./" + name for name in batch)],
+                cwd=directory, env=environment, capture_output=True, timeout=remaining,
+            )
+        except OSError as error:
+            if error.errno == errno.E2BIG and len(batch) > 1:
+                middle = len(batch) // 2
+                batches.appendleft(batch[middle:])
+                batches.appendleft(batch[:middle])
+                continue
+            report(str(error))
+            break
+        except subprocess.TimeoutExpired:
+            report("lookup timed out")
+            break
+        if result.returncode:
+            report(f"stat exited with status {result.returncode}; preserving valid results")
+        fields = result.stdout.split(b"\0")
+        # A missing operand emits no record; identify every successful row by name.
+        for index in range(0, len(fields) - 2, 2):
+            operand, timestamp = fields[index:index + 2]
+            if operand not in operands or timestamp == b"-":
+                continue
+            try:
+                timestamp = re.sub(rb"(\.\d{6})\d+", rb"\1", timestamp)
+                created = datetime.fromisoformat(timestamp.decode("ascii"))
+                if created.utcoffset() != timedelta(0):
+                    raise ValueError("expected a UTC creation date")
+            except (ValueError, UnicodeDecodeError):
+                report("stat returned an invalid creation date")
+                continue
+            found[operands[operand]] = created
+    return found
+
+
+def directory_entries(path, diagnostic=None):
+    """Describe direct children, following targets while retaining link names."""
+    entries = []
+    with os.scandir(path) as children:
+        for child in children:
+            entry = DirectoryEntry(child.name)
+            try:
+                entry.is_symlink = child.is_symlink()
+                metadata = child.stat()
+                entry.is_directory = stat.S_ISDIR(metadata.st_mode)
+                entry.modified_ns = metadata.st_mtime_ns
+                born_ns = getattr(metadata, "st_birthtime_ns", None)
+                born = born_ns / 1_000_000_000 if born_ns is not None else getattr(metadata, "st_birthtime", None)
+                if born is not None:
+                    try:
+                        entry.created = datetime.fromtimestamp(born, timezone.utc)
+                    except (ValueError, OverflowError, OSError):
+                        pass
+            except OSError:
+                pass  # Keep disappearing entries and dangling links visible.
+            entries.append(entry)
+    missing = [entry.name for entry in entries if entry.created is None]
+    created = birth_times(path, missing, diagnostic) if missing else {}
+    for entry in entries:
+        if entry.created is None:
+            entry.created = created.get(entry.name)
+    return entries
+
+
+def render_directory(entries, request_path, sort_mode, *, has_parent=False):
+    """Return a complete listing without depending on browser JavaScript."""
+    def name_key(entry):
+        return entry.name.casefold(), entry.name
+
+    if sort_mode == "title":
+        entries = sorted(entries, key=name_key)
+    else:
+        entries = sorted(entries, key=lambda entry: (
+            entry.modified_ns is None, -(entry.modified_ns or 0), *name_key(entry),
+        ))
+
+    def date_cell(value):
+        if value is None:
+            return "Unavailable"
+        try:
+            local = value.astimezone()
+            iso = local.isoformat()
+            return f'<time datetime="{iso}" title="{iso}">{local:%Y-%m-%d %H:%M:%S}</time>'
+        except (ValueError, OverflowError, OSError):
+            return "Unavailable"
+
+    title = "Directory listing for " + unquote(request_path, errors="replace")
+    query = "?sort=" + sort_mode
+    rows = []
+    if has_parent:
+        rows.append(f'<tr><td><a href="../{query}">../</a></td><td>—</td><td>—</td></tr>')
+    for entry in entries:
+        label = entry.name + ("@" if entry.is_symlink else "/" if entry.is_directory else "")
+        href = quote(entry.name, safe="", errors="surrogatepass")
+        if entry.is_directory:
+            href += "/" + query
+        modified = None
+        if entry.modified_ns is not None:
+            try:
+                modified = datetime.fromtimestamp(entry.modified_ns / 1_000_000_000, timezone.utc)
+            except (ValueError, OverflowError, OSError):
+                pass
+        rows.append(f'<tr><td><a href="{escape(href, quote=True)}">{escape(label, quote=False)}</a></td>'
+                    f'<td>{date_cell(entry.created)}</td><td>{date_cell(modified)}</td></tr>')
+    active_title = ' aria-current="true"' if sort_mode == "title" else ""
+    active_modified = ' aria-current="true"' if sort_mode == "modified" else ""
+    title_sort = ' aria-sort="ascending"' if sort_mode == "title" else ""
+    modified_sort = ' aria-sort="descending"' if sort_mode == "modified" else ""
+    html = f'''<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light"><title>{escape(title)}</title>
+<style>
+:root {{ color-scheme: light; }}
+body {{ max-width: 1120px; margin: auto; padding: 24px; color: #1f2328; background: #fff; font: 16px system-ui, sans-serif; }}
+h1 {{ font-size: 1.5rem; overflow-wrap: anywhere; }}
+a {{ color: #0969da; }}
+a:focus-visible {{ outline: 2px solid #0969da; outline-offset: 3px; }}
+nav {{ display: flex; flex-wrap: wrap; gap: 16px; }}
+[aria-current] {{ font-weight: 700; }}
+p {{ color: #59636e; }}
+.table-scroll {{ overflow-x: auto; }}
+table {{ border-collapse: collapse; width: 100%; }}
+th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #d1d9e0; }}
+td:first-child {{ min-width: 160px; overflow-wrap: anywhere; }}
+td:not(:first-child) {{ white-space: nowrap; font-variant-numeric: tabular-nums; }}
+@media (max-width: 767px) {{ body {{ padding: 16px; }} }}
+</style></head><body><h1>{escape(title)}</h1>
+<nav aria-label="Sort files"><a href="?sort=modified"{active_modified}>Modified · newest first</a>
+<a href="?sort=title"{active_title}>Title · A–Z</a></nav>
+<p>Times: server local. Creation dates are unavailable when the filesystem does not provide them.</p>
+<div class="table-scroll" role="region" aria-label="Files" tabindex="0"><table>
+<thead><tr><th scope="col"{title_sort}>Title</th><th scope="col">Created</th><th scope="col"{modified_sort}>Modified</th></tr></thead>
+<tbody>{''.join(rows)}</tbody></table></div></body></html>'''
+    return html.encode("utf-8", errors="replace")
+
+
 class PreviewHTTPRequestHandler(SimpleHTTPRequestHandler):
     """List directories and render Markdown at its original URL."""
 
@@ -38,6 +223,26 @@ class PreviewHTTPRequestHandler(SimpleHTTPRequestHandler):
     def log_request(self, code="-", size="-"):
         if self.verbose:
             super().log_request(code, size)
+
+    def list_directory(self, path):
+        diagnostic = (lambda message: self.log_message("%s", message)) if self.verbose else None
+        try:
+            entries = directory_entries(path, diagnostic)
+        except OSError:
+            self.send_error(404, "No permission to list directory")
+            return None
+        request = urlsplit(self.path)
+        values = parse_qs(request.query, keep_blank_values=True).get("sort")
+        sort_mode = values[0] if values in (["title"], ["modified"]) else "modified"
+        encoded = render_directory(entries, request.path, sort_mode,
+                                   has_parent=os.path.abspath(path) != os.path.abspath(self.directory))
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        return io.BytesIO(encoded)
 
     def preview_file(self, path, content_type=None):
         """Share response headers and file opening between GET and HEAD."""

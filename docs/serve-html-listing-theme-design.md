@@ -1,7 +1,8 @@
 # html-serve directory listing and Markdown theme design
 
-Status: proposed design, 2026-10-15. Research and design only; runtime behavior
-has not changed. Based on repository commit `68c90f5`. Supporting primary
+Status: accepted on 2026-10-15; implementation tracked in
+[issue #1](https://github.com/vimkim/dotfiles/issues/1).
+The original design was based on repository commit `68c90f5`. Supporting primary
 sources and experiments are in
 [the research note](serve-html-listing-theme-research.md). This is a local
 review document; implementation specs and tickets belong in
@@ -39,15 +40,16 @@ link stays first. There is no parent link at the serving root. Directory dates
 refer to the directory itself. Editing an existing child's contents does not
 necessarily change its directory's modification time.
 
-## Current implementation and constraints
+## Implementation at design time and constraints
 
+At design time,
 [`PreviewHTTPRequestHandler.send_head()`](../private_dot_config/my-scripts/bin/executable_serve-html.py)
-already forces directory URLs through `list_directory()`, bypassing implicit
-index pages. The inherited Python implementation shows a case-insensitive
+already forced directory URLs through `list_directory()`, bypassing implicit
+index pages. The inherited Python implementation showed a case-insensitive
 filename list without dates. Override that method, keeping the existing
 directory routing and HTTP lifecycle.
 
-The current [viewer HTML](../private_dot_config/my-scripts/share/serve-html/viewer.html),
+The original [viewer HTML](../private_dot_config/my-scripts/share/serve-html/viewer.html),
 [CSS](../private_dot_config/my-scripts/share/serve-html/viewer.css), and
 [JavaScript](../private_dot_config/my-scripts/share/serve-html/viewer.js) each
 contribute to automatic dark mode: the page declares both color schemes, CSS
@@ -189,7 +191,8 @@ later operating-system preference changes.
 Change the [asset build](../tools/serve-html-assets/build.mjs) to generate
 `vendor/github-markdown.css` from the pinned package's fixed
 `github-markdown-light.css` and `github-markdown-dark.css`. Wrap each complete
-variant in its corresponding `:root[data-theme="light|dark"]` nesting rule,
+variant in its corresponding `:where(:root[data-theme="light|dark"])` nesting rule
+(zero added specificity preserves viewer layout overrides),
 then lower nesting using the existing esbuild CSS loader with
 `supported: { nesting: false }` and browser targets such as Chrome 109,
 Firefox 115, and Safari 16. Both palettes then ship in one render-blocking
@@ -223,8 +226,8 @@ Markdown sanitization, and KaTeX's untrusted mode.
 
 ## Change map and verification
 
-These are the prospective source-to-deployment mappings. Only this document
-and its research companion change during the design task.
+These are the implementation source-to-deployment mappings. The original
+design task changed only this document and its research companion.
 
 | Maintained source | Deployed target or role |
 | --- | --- |
@@ -279,4 +282,4 @@ Design feasibility evidence: this Linux host exposes birth dates through GNU
 pinned GitHub CSS 5.9.0 variants and esbuild 0.28.2 produced both explicit
 theme scopes with no operating-system preference rules and no compiler
 warnings. These establish feasibility; implementation HTTP/browser acceptance
-checks above remain future work.
+checks above define the implementation verification requirements.

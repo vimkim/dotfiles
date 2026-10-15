@@ -17,6 +17,34 @@ The wrapper is on PATH in Bash, Zsh, and Nushell and forwards arguments to
 URLs always show a listing, even when `index.html` or `index.htm` exists. Click
 the filename to open that page, or select it explicitly on the command line.
 
+## Directory listing
+
+Listings show **Title**, **Created**, and **Modified** columns. The default
+order is newest modification first. Select **Title · A–Z** to sort by filename,
+including its extension. Names use Unicode case-insensitive character order,
+with case-sensitive ties; digits sort as characters (`report10` before
+`report2`). Files and directories share the order, with `../` first when
+inside the serving root.
+
+Sorting works without JavaScript and is recorded in the directory URL:
+`?sort=title` selects alphabetical order and `?sort=modified` selects newest
+first. Parent and child directory links retain the selected order. A bare
+directory URL always starts newest first. File links retain their normal URLs;
+browser Back returns to the sorted listing, while the Markdown **Files** link
+opens its parent listing in default order.
+
+Dates use the server's local timezone; hover over a date for its ISO timestamp
+and UTC offset. Directory dates describe the directory itself, not its newest
+descendant. Symlink dates follow the target while the visible name retains `@`;
+dangling links remain listed with unavailable dates.
+
+**Created** means the filesystem object's birth date, which can change when
+files are copied or checked out. It is **Unavailable** when the filesystem
+does not supply it. On Linux, optional GNU Coreutils `stat` supplies birth dates
+in bounded batches; missing tools, unsupported filesystems, or lookup timeouts
+leave the listing usable. Metadata-change time is never substituted for birth
+time. Add `--verbose` to see lookup diagnostics.
+
 ## Paths and file selection
 
 | Arguments | Serving directory | Printed link |
@@ -88,7 +116,13 @@ their source and error while the remaining document stays readable.
 
 The toolbar has **Files** and **Raw** links. Add `?raw=1` to a Markdown URL to
 read the original source as UTF-8 plain text. Preview requires JavaScript in a
-modern browser and follows the browser's light/dark preference. Document HTML
+modern browser. It starts in **light mode**, including when the operating
+system prefers dark. Use the toolbar's **Dark mode** toggle to switch either
+way; the chosen theme also updates Mermaid diagrams. The browser remembers the
+choice for the same scheme, host, and port. A different LAN/VPN address or port
+can start light again. If browser storage is unavailable, the toggle still
+works for the current page. Explicit colors inside images and diagram source
+remain controlled by their authors. Document HTML
 is sanitized; Mermaid uses its strict security setting and KaTeX disables
 trusted commands.
 
@@ -193,20 +227,25 @@ worktrees, parent-directory fallback, explicit directory overrides, short and
 long options, and conflicting arguments. CLI integration uses temporary files
 and a deterministic `ip` fixture. No deployed
 files are used. They also cover Markdown routing, raw responses, GET/HEAD,
-SVG content types, asset paths, and rendering with `--verbose`.
+SVG content types, asset paths, and rendering with `--verbose`. Listing checks
+cover nanosecond modification ordering, alphabetical mode and navigation,
+special filenames, symlink dates, birth-date availability, partial lookup
+results, batching, argument-size fallback, and lookup deadlines.
 
 Headless Chromium verification exercises actual clicks from the directory
 listing, direct encoded URLs, relative Markdown links and SVG images, a remote
 SVG image from a second local HTTP origin, Mermaid, LaTeX math, heading IDs,
-sanitization, errors within individual blocks, dark/mobile layout, and existing
-HTML behavior. Network requests outside localhost are blocked in the main
-rendering scenario, and a plain document verifies lazy loading:
+sanitization, errors within individual blocks, light and dark mobile layouts,
+saved themes, denied storage, early theme selection during slow loading,
+rapid toggles during Mermaid loading, directory sorting without JavaScript,
+and existing HTML behavior. Network requests outside localhost are blocked in
+the main rendering scenario, and a plain document verifies lazy loading:
 
 ```sh
 npm --prefix tools/serve-html-assets ci
 # Install a headless test browser if it is not cached already.
 cd tools/serve-html-assets
-npx playwright install chromium
+npx playwright install chromium --only-shell
 npm test
 ```
 
@@ -229,4 +268,7 @@ The build creates the `vendor/` directory, includes third-party license texts,
 and records package versions and file SHA-256 hashes in `vendor/manifest.json`.
 Commit the regenerated files together with dependency changes. The source
 viewer HTML, CSS, and JavaScript live outside `vendor/` and can be edited
-directly. Build tools and test dependencies are excluded from chezmoi deployment.
+directly. `theme.js` applies the saved preference before stylesheets load.
+The build scopes the pinned light-only and dark-only GitHub Markdown styles
+into one stylesheet so theme changes need no additional download. Build tools
+and test dependencies are excluded from chezmoi deployment.

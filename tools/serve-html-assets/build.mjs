@@ -1,5 +1,5 @@
 // Rebuild the committed browser assets; Node/npm are unnecessary at runtime.
-import { build } from "esbuild";
+import { build, transform } from "esbuild";
 import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -26,7 +26,16 @@ const result = await build({
 });
 
 const moduleRoot = path.join(directory, "node_modules");
-await cp(path.join(moduleRoot, "github-markdown-css/github-markdown.css"), path.join(output, "github-markdown.css"));
+const palettes = await Promise.all(["light", "dark"].map(async (theme) => {
+  const css = await readFile(path.join(moduleRoot, `github-markdown-css/github-markdown-${theme}.css`), "utf8");
+  // Keep upstream specificity so viewer.css can still override layout rules.
+  return `:where(:root[data-theme="${theme}"]) {\n${css}\n}`;
+}));
+const stylesheet = await transform(palettes.join("\n"), {
+  loader: "css", target: ["chrome109", "firefox115", "safari16"],
+  supported: { nesting: false }, minify: true,
+});
+await writeFile(path.join(output, "github-markdown.css"), stylesheet.code);
 await cp(path.join(moduleRoot, "katex/dist/katex.min.css"), path.join(output, "katex.css"));
 await cp(path.join(moduleRoot, "katex/dist/fonts"), path.join(output, "fonts"), { recursive: true });
 

@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, utimes, writeFile } from "node:fs/promises";
 import http from "node:http";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -53,6 +53,13 @@ before(async () => {
   await writeFile(path.join(directory, "existing.html"), "<!doctype html><title>Existing HTML</title><h1>Original page</h1>");
   await writeFile(path.join(directory, "index.html"), "<!doctype html><title>Selected index</title><h1>Root index page</h1>");
   await writeFile(path.join(directory, "nested/index.htm"), "<!doctype html><title>Selected nested index</title><h1>Nested index page</h1>");
+  await mkdir(path.join(directory, "ordering/subdir"), { recursive: true });
+  for (const [index, name] of ["Alpha.md", "report10.md", "report2.md", "zebra.md"].entries()) {
+    const file = path.join(directory, "ordering", name);
+    await writeFile(file, "# A heading unrelated to the filename\n");
+    await utimes(file, 1700000000 + index, 1700000000 + index);
+  }
+  await utimes(path.join(directory, "ordering/subdir"), 1600000000, 1600000000);
 
   server = spawn("python3", ["-B", path.join(root, "private_dot_config/my-scripts/bin/executable_serve-html.py"),
     "--directory", directory, "--bind", "127.0.0.1"], { stdio: ["ignore", "pipe", "pipe"] });
@@ -84,6 +91,11 @@ after(async () => {
 async function ready(page) {
   await page.locator('#content[aria-busy="false"]').waitFor();
   assert.equal(await page.locator(".render-error").count(), 0, await page.locator("#content").innerText());
+}
+
+async function diagramsReady(page) {
+  await page.waitForFunction(() => [...document.querySelectorAll(".diagram")]
+    .every((element) => element.getAttribute("aria-busy") === "false"));
 }
 
 async function localOnly(page) {
@@ -119,6 +131,23 @@ test("directories show listings until an index page is clicked", async () => {
   }
 });
 
+test("directory sorting and navigation work without JavaScript on a narrow screen", async () => {
+  const page = await browser.newPage({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
+  const labels = () => page.locator("tbody td:first-child a").allTextContents();
+  try {
+    await page.goto(baseURL + "ordering/");
+    assert.deepEqual(await page.locator("th").allTextContents(), ["Title", "Created", "Modified"]);
+    assert.deepEqual(await labels(), ["../", "zebra.md", "report2.md", "report10.md", "Alpha.md", "subdir/"]);
+    await page.getByRole("link", { name: "Title · A–Z", exact: true }).click();
+    assert.deepEqual(await labels(), ["../", "Alpha.md", "report10.md", "report2.md", "subdir/", "zebra.md"]);
+    await page.getByRole("link", { name: "subdir/", exact: true }).click();
+    assert.equal(new URL(page.url()).searchParams.get("sort"), "title");
+    await page.getByRole("link", { name: "../", exact: true }).click();
+    assert.equal(new URL(page.url()).searchParams.get("sort"), "title");
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  } finally { await page.close(); }
+});
+
 test("clicking a listed Markdown file renders GFM, Mermaid, math and SVGs", async () => {
   const page = await browser.newPage();
   const errors = [];
@@ -129,6 +158,8 @@ test("clicking a listed Markdown file renders GFM, Mermaid, math and SVGs", asyn
     await page.getByRole("link", { name: filename, exact: true }).click();
     await ready(page);
     assert.equal(await page.locator("h1").innerText(), "Markdown preview");
+    const bounds = await page.locator("#content").boundingBox();
+    assert.ok(Math.abs(bounds.x - (page.viewportSize().width - bounds.width) / 2) < 1, "Markdown layout remains centered");
     assert.equal(await page.locator("table tbody td").first().innerText(), "Markdown");
     assert.equal(await page.locator('input[type="checkbox"]:checked').count(), 1);
     assert.equal(await page.locator("del").innerText(), "Deleted");
@@ -194,24 +225,160 @@ test("plain Markdown avoids downloading Mermaid and math bundles", async () => {
     await page.goto(baseURL + "plain.md");
     await ready(page);
     assert.equal(await page.locator("h1").innerText(), "Plain document");
+    await page.getByRole("button", { name: "Dark mode", exact: true }).click();
     assert.equal(urls.some((url) => /\/(mermaid|math)\.js|katex\.css/.test(url)), false);
   } finally {
     await page.close();
   }
 });
 
-test("dark mode and narrow screens render diagrams and equations", async () => {
+test("light defaults override dark OS preference and the toggle persists across pages", async () => {
   const page = await browser.newPage({ colorScheme: "dark", viewport: { width: 390, height: 844 } });
   try {
     await page.goto(baseURL + "nested/" + encodeURIComponent(filename));
     await ready(page);
-    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgb(13, 17, 23)");
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgb(255, 255, 255)");
+    assert.equal(await page.locator(".markdown-body").evaluate((element) => getComputedStyle(element).backgroundColor), "rgb(255, 255, 255)");
     assert.equal(await page.locator(".diagram svg").count(), 2);
     assert.equal(await page.locator(".katex").count(), 2);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    const heading = await page.locator("#storage-layout").elementHandle();
+    const math = await page.locator(".katex").first().elementHandle();
+    const fill = () => page.locator(".diagram .node rect").first().evaluate((element) => getComputedStyle(element).fill);
+    const lightFill = await fill();
+    const button = page.getByRole("button", { name: "Dark mode", exact: true });
+    await button.focus();
+    await button.press("Space");
+    await diagramsReady(page);
+    assert.notEqual(await fill(), lightFill);
+    assert.equal(await button.getAttribute("aria-pressed"), "true");
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgb(13, 17, 23)");
+    assert.equal(await page.locator(".markdown-body").evaluate((element) => getComputedStyle(element).backgroundColor), "rgb(13, 17, 23)");
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    assert.equal(await heading.evaluate((element) => element.isConnected), true);
+    assert.equal(await math.evaluate((element) => element.isConnected), true);
+    assert.equal(await button.evaluate((element) => document.activeElement === element), true);
+    assert.equal(await button.evaluate((element) => getComputedStyle(element).outlineWidth), "2px");
+    await page.getByRole("link", { name: "Next document", exact: true }).click();
+    await ready(page);
+    assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
+    await page.reload();
+    await ready(page);
+    assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
+    await button.click();
+    await page.reload();
+    await ready(page);
+    assert.equal(await page.locator("html").getAttribute("data-theme"), "light");
   } finally {
     await page.close();
   }
+});
+
+test("initial theme and toggle do not wait for the Markdown fetch", { timeout: 30000 }, async () => {
+  for (const saved of [null, "dark"]) {
+    const page = await browser.newPage({ colorScheme: "dark" });
+    let release, requested;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const started = new Promise((resolve) => { requested = resolve; });
+    try {
+      if (saved) await page.addInitScript((value) => localStorage.setItem("serve-html.theme.v1", value), saved);
+      await page.route("**/*", async (route) => {
+        if (new URL(route.request().url()).searchParams.get("raw") === "1") {
+          requested();
+          await gate;
+        }
+        await route.continue();
+      });
+      await page.goto(baseURL + "plain.md", { waitUntil: "commit" });
+      await started;
+      const button = page.getByRole("button", { name: "Dark mode", exact: true });
+      await button.waitFor();
+      assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), saved ? "rgb(13, 17, 23)" : "rgb(255, 255, 255)");
+      await button.click();
+      assert.equal(await button.getAttribute("aria-pressed"), saved ? "false" : "true");
+      release();
+      await ready(page);
+    } finally { release(); await page.close(); }
+  }
+});
+
+test("invalid and denied storage still allow a usable theme toggle", async () => {
+  for (const mode of ["invalid", "read-denied", "write-denied"]) {
+    const page = await browser.newPage({ colorScheme: "dark" });
+    try {
+      await page.addInitScript((mode) => {
+        if (mode === "invalid") localStorage.setItem("serve-html.theme.v1", "system");
+        if (mode === "read-denied") Object.defineProperty(window, "localStorage", { get() { throw new DOMException("Denied", "SecurityError"); } });
+        if (mode === "write-denied") Storage.prototype.setItem = () => { throw new DOMException("Full", "QuotaExceededError"); };
+      }, mode);
+      await page.goto(baseURL + "plain.md");
+      await ready(page);
+      assert.equal(await page.locator("html").getAttribute("data-theme"), "light");
+      const button = page.getByRole("button", { name: "Dark mode", exact: true });
+      await button.click();
+      assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
+      await button.click();
+      assert.equal(await page.locator("html").getAttribute("data-theme"), "light");
+    } finally { await page.close(); }
+  }
+});
+
+test("rapid toggles during delayed Mermaid loading finish in the latest theme", { timeout: 30000 }, async () => {
+  const page = await browser.newPage();
+  let release, requested;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const started = new Promise((resolve) => { requested = resolve; });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    await page.route("**/vendor/mermaid.js", async (route) => {
+      requested();
+      await gate;
+      await route.continue();
+    });
+    await page.goto(baseURL + "nested/" + encodeURIComponent(filename), { waitUntil: "domcontentloaded" });
+    await started;
+    await page.getByRole("button", { name: "Dark mode", exact: true }).evaluate((button) => {
+      button.click(); button.click(); button.click();
+    });
+    release();
+    await ready(page);
+    assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
+    const fill = () => page.locator(".diagram .node rect").first().evaluate((element) => getComputedStyle(element).fill);
+    const darkFill = await fill();
+    const button = page.getByRole("button", { name: "Dark mode", exact: true });
+    await button.click();
+    await diagramsReady(page);
+    assert.notEqual(await fill(), darkFill);
+    await button.evaluate((button) => { for (let i = 0; i < 5; i += 1) button.click(); });
+    await diagramsReady(page);
+    assert.equal(await fill(), darkFill);
+    assert.deepEqual(errors, []);
+  } finally { release(); await page.close(); }
+});
+
+test("diagram errors do not prevent theme changes", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.goto(baseURL + "broken.md");
+    await page.locator('#content[aria-busy="false"]').waitFor();
+    await page.getByRole("button", { name: "Dark mode", exact: true }).click();
+    await diagramsReady(page);
+    assert.equal(await page.locator(".render-error").count(), 2);
+    assert.equal(await page.locator(".diagram svg").count(), 1);
+    assert.match(await page.locator("#content").innerText(), /Final paragraph\./);
+  } finally { await page.close(); }
+});
+
+test("a failed theme script leaves a light preview and hides the inactive toggle", async () => {
+  const page = await browser.newPage({ colorScheme: "dark" });
+  try {
+    await page.route("**/__serve_html__/theme.js", (route) => route.abort());
+    await page.goto(baseURL + "plain.md");
+    await ready(page);
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgb(255, 255, 255)");
+    assert.equal(await page.locator("#theme-toggle").isVisible(), false);
+  } finally { await page.close(); }
 });
 
 test("existing HTML is still served unchanged", async () => {

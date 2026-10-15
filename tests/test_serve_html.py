@@ -1,7 +1,9 @@
 """Verify discovery and the foreground CLI's actual HTTP lifecycle."""
 
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import errno
+from html import unescape
 import importlib.util
 import json
 import os
@@ -14,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from types import SimpleNamespace
 import unittest
 from unittest.mock import call, patch
 from urllib.error import HTTPError
@@ -37,6 +40,122 @@ def interface(name, address, **extra):
 
 
 class ServeHTML(unittest.TestCase):
+    def listing_links(self, body):
+        return [(unescape(href), unescape(label)) for href, label in re.findall(
+            r'<tr><td><a href="([^"]+)">([^<]*)</a>', body,
+        )]
+
+    def test_directory_sorting_dates_navigation_and_special_filenames(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            names = ['-', '.hidden', 'Alpha.md', 'alpha.md', 'report10.md', 'report2.md',
+                     '한글 <tag> & "quote"\n.md']
+            for index, name in enumerate(names):
+                (root / name).write_text(name)
+                os.utime(root / name, ns=(1_700_000_000_000_000_000 + index,) * 2)
+            (root / 'nested').mkdir()
+            os.utime(root / 'nested', ns=(1_600_000_000_000_000_000,) * 2)
+            (root / 'broken').symlink_to('missing')
+            client = build_opener(ProxyHandler({}))
+            with self.server(root, '--bind', '127.0.0.1') as (_, urls, _):
+                for query in ('', '?sort=modified', '?sort=garbage', '?sort=',
+                              '?sort=title&sort=', '?sort=title&sort=title'):
+                    with self.subTest(query=query), client.open(urls[0] + query) as response:
+                        body = response.read().decode()
+                    labels = [label for _, label in self.listing_links(body)]
+                    self.assertEqual(labels, list(reversed(names)) + ['nested/', 'broken@'])
+                    self.assertIn('<th scope="col">Created</th>', body)
+                    self.assertIn('aria-sort="descending"', body)
+                    self.assertIn('<time datetime=', body)
+                    self.assertIn('Unavailable', body)
+                    self.assertNotIn('<tag>', body)
+                    self.assertNotIn('href="../', body)
+                with client.open(urls[0] + '?sort=title') as response:
+                    body = response.read().decode()
+                labels = [label for _, label in self.listing_links(body)]
+                expected = sorted(names + ['nested', 'broken'], key=lambda name: (name.casefold(), name))
+                self.assertEqual(labels, [name + ('/' if name == 'nested' else '@' if name == 'broken' else '') for name in expected])
+                self.assertIn('aria-sort="ascending"', body)
+                self.assertIn(('nested/?sort=title', 'nested/'), self.listing_links(body))
+                for name in names:
+                    self.assertIn((quote(name, safe=''), name), self.listing_links(body))
+                with client.open(urls[0] + 'nested?sort=title') as response:
+                    self.assertTrue(response.url.endswith('/nested/?sort=title'))
+                    self.assertEqual(self.listing_links(response.read().decode()), [('../?sort=title', '../')])
+
+    def test_directory_metadata_follows_links_without_ctime_fallback(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'target').write_text('body')
+            os.utime(root / 'target', ns=(123_456_789,) * 2)
+            (root / 'link').symlink_to('target')
+            (root / 'broken').symlink_to('absent')
+            with patch.object(helper, 'birth_times', return_value={}):
+                rows = {entry.name: entry for entry in helper.directory_entries(root)}
+            self.assertEqual(rows['link'].modified_ns, rows['target'].modified_ns)
+            self.assertTrue(rows['link'].is_symlink)
+            self.assertIsNone(rows['broken'].modified_ns)
+            self.assertIsNone(rows['link'].created)
+            self.assertIsNone(rows['target'].created)
+            rendered = helper.render_directory(list(rows.values()), '/', 'modified').decode()
+            self.assertEqual([label for _, label in self.listing_links(rendered)], ['link@', 'target', 'broken@'])
+
+    def test_native_birth_dates_accept_epoch_zero_and_negative_times(self):
+        for born in (0, -1):
+            metadata = SimpleNamespace(st_mode=0o100644, st_mtime_ns=42, st_birthtime=born)
+            child = SimpleNamespace(name='native', is_symlink=lambda: False, stat=lambda: metadata)
+            with patch.object(helper.os, 'scandir') as scan, patch.object(helper, 'birth_times') as fallback:
+                scan.return_value.__enter__.return_value = iter([child])
+                rows = helper.directory_entries('.')
+            self.assertEqual(rows[0].created, datetime.fromtimestamp(born, timezone.utc))
+            fallback.assert_not_called()
+
+    def test_birth_dates_keep_partial_records_by_name_and_parse_epoch_zero(self):
+        output = (b'./quote\nname\0' b'1970-01-01 00:00:00.123456789 +0000\0'
+                  b'./-\0' b'1970-01-01 00:00:00.000000000 +0000\0'
+                  b'./unknown\0-\0./bad\0not a date\0./truncated\0')
+        diagnostics = []
+        result = subprocess.CompletedProcess([], 1, output, b'one file disappeared')
+        names = ['unknown', '-', 'quote\nname', 'bad', 'missing']
+        with patch.object(helper.subprocess, 'run', return_value=result) as run:
+            found = helper.birth_times('.', names, diagnostics.append)
+        self.assertEqual(set(found), {'-', 'quote\nname'})
+        self.assertEqual(found['-'].timestamp(), 0)
+        self.assertEqual(found['quote\nname'].microsecond, 123456)
+        self.assertEqual(run.call_args.args[0][-len(names):], ['./' + name for name in names])
+        self.assertEqual(run.call_args.kwargs['env']['TZ'], 'UTC0')
+        self.assertTrue(diagnostics)
+
+    def test_birth_lookup_failure_does_not_repeat_for_every_batch(self):
+        for error in (FileNotFoundError(), subprocess.TimeoutExpired('stat', 2)):
+            with self.subTest(error=error), patch.object(helper.subprocess, 'run', side_effect=error) as run:
+                self.assertEqual(helper.birth_times('.', [str(i) for i in range(300)]), {})
+                self.assertEqual(run.call_count, 1)
+
+    def test_birth_lookup_bounds_batches_and_splits_e2big(self):
+        empty = subprocess.CompletedProcess([], 0, b'', b'')
+        names = [f'{i:03d}' + 'x' * 252 for i in range(300)]
+        with patch.object(helper.subprocess, 'run', return_value=empty) as run:
+            helper.birth_times('.', names)
+        self.assertGreater(run.call_count, 1)
+        for invocation in run.call_args_list:
+            operands = invocation.args[0][4:]
+            self.assertLessEqual(len(operands), 128)
+            self.assertLessEqual(sum(len(os.fsencode(name)) + 1 for name in operands), 32768)
+        first = subprocess.CompletedProcess([], 0, b'./a\0' b'1970-01-01 00:00:00 +0000\0', b'')
+        second = subprocess.CompletedProcess([], 0, b'./b\0' b'1970-01-02 00:00:00 +0000\0', b'')
+        with patch.object(helper.subprocess, 'run', side_effect=[OSError(errno.E2BIG, 'too large'), first, second]):
+            self.assertEqual(set(helper.birth_times('.', ['a', 'b'])), {'a', 'b'})
+
+    def test_birth_lookup_deadline_preserves_completed_batches(self):
+        result = subprocess.CompletedProcess([], 0, b'./0\0' b'1970-01-01 00:00:00 +0000\0', b'')
+        with patch.object(helper.time, 'monotonic', side_effect=[0, 0.1, 1.9, 2.1]), \
+                patch.object(helper.subprocess, 'run', return_value=result) as run:
+            found = helper.birth_times('.', [str(i) for i in range(300)])
+        self.assertEqual(set(found), {'0'})
+        self.assertEqual(run.call_count, 2)
+        self.assertAlmostEqual(run.call_args_list[1].kwargs['timeout'], 0.1)
+
     def addresses(self, entries, selected=None):
         result = subprocess.CompletedProcess([], 0, json.dumps(entries), "")
         with patch.object(helper.subprocess, "run", return_value=result):
@@ -385,7 +504,8 @@ class ServeHTML(unittest.TestCase):
                     with client.open(origin + "/assets/drawing.svg", timeout=2) as response:
                         self.assertEqual(response.read(), drawing)
                     with client.open(origin + "/", timeout=2) as response:
-                        self.assertIn(b'href="docs/"', response.read())
+                        self.assertIn(('docs/?sort=modified', 'docs/'),
+                                      self.listing_links(response.read().decode()))
 
             # Explicit roots and --file retain their requested directory inside Git.
             for args in ([str(nested), "-f", document.name],
