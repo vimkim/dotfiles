@@ -13,7 +13,9 @@ chezmoi-apply-unmodified --source /absolute/source/checkout -- /absolute/target/
 ```
 
 The first two forms consider all managed files and symlinks. The third selects
-one file. `--config FILE` selects another chezmoi configuration when needed.
+one file. The helper defaults to chezmoi's configured source checkout, regardless
+of the current directory. Use `--source` only to select a different checkout.
+`--config FILE` selects another chezmoi configuration when needed.
 
 The helper completes `chezmoi status` before applying anything. It reads the
 first status column to identify local changes and checks for recorded last-write
@@ -31,14 +33,14 @@ it does not mean the destination now matches every source file.
 ## Agent deployment
 
 Follow the repository workflow in [AGENTS.md](../AGENTS.md). After an approved
-merge, agents run the helper once with the merged checkout as `--source` and
-no target arguments. Preserve and report skipped targets and any remaining
-differences; a successful helper exit can include skips.
+merge into the configured source checkout, run `chezmoi-apply-unmodified` once.
+Preserve and report skipped targets and any remaining differences; a successful
+helper exit can include skips.
 
 If the helper is not on PATH, run its source directly:
 
 ```bash
-bash <absolute-merged-checkout>/private_dot_config/my-scripts/bin/executable_chezmoi-apply-unmodified --source <absolute-merged-checkout>
+bash <absolute-merged-checkout>/private_dot_config/my-scripts/bin/executable_chezmoi-apply-unmodified
 ```
 
 ## Verification

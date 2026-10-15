@@ -224,8 +224,8 @@ successfully.
 
 `chezmoi-apply-unmodified` (in `~/.config/my-scripts/bin`) applies managed files
 and symlinks while reporting locally changed targets as successful skips.
-Use `--source /absolute/source/checkout` to process all managed files and symlinks
-from a particular checkout. See [usage and verification](docs/chezmoi-apply-unmodified.md).
+Run it without arguments to use chezmoi's configured source checkout; `--source`
+selects a different checkout. See [usage and verification](docs/chezmoi-apply-unmodified.md).
 
 ### HTML review from a remote server
 
