@@ -4,6 +4,10 @@
 # zmodload zsh/zprof
 
 export TMPDIR="$HOME/tmp"
+# Prefer the allocated NVMe directory when its tmp directory can be created.
+if [ -d /mnt/nvme/data-5 ] && command mkdir -p /mnt/nvme/data-5/tmp 2>/dev/null; then
+    export TMPDIR=/mnt/nvme/data-5/tmp
+fi
 
 # set -v
 
