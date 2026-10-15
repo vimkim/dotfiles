@@ -13,6 +13,9 @@ addresses. Open a printed URL from your PC, then press Ctrl+C in the SSH termina
 to stop the server. The port stays bound throughout serving; concurrent runs get
 different ports. The directory includes adjacent CSS, JavaScript, and images.
 
+Each link shows the full URL as its clickable text, followed by a short network
+label such as Tailscale or LAN, making the address easier to copy on mobile.
+
 HTTP access logs, such as GET and HEAD requests, are quiet by default. Startup
 links and errors remain visible. Add `--verbose` to print request logs.
 

@@ -122,7 +122,7 @@ def print_links(directory, port, filename, addresses):
         else:
             label = "LAN"
         url = f"http://{item['address']}:{port}/{filename}"
-        print(f"- [{label} — {name} ({url})](<{url}>)")
+        print(f"- [{url}](<{url}>) — {label}")
     print("\nPress **Ctrl+C** in the SSH terminal when finished.", flush=True)
 
 

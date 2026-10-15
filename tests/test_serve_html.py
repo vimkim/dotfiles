@@ -198,8 +198,11 @@ class ServeHTML(unittest.TestCase):
                 self.assertEqual([item.hostname for item in parsed], ["100.68.111.110", "192.168.4.2"])
                 self.assertEqual([item.port for item in parsed], [port, port])
                 self.assertEqual(parsed[0].path, "/" + quote(html.name, safe=""))
-                self.assertIn("Tailscale — tailscale0", output)
-                self.assertIn("LAN — eno1", output)
+                self.assertEqual(
+                    [line for line in output.splitlines() if line.startswith("- ")],
+                    [f"- [{url}](<{url}>) — {label}"
+                     for url, label in zip(urls, ("Tailscale", "LAN"))],
+                )
                 with socket.socket() as probe:
                     with self.assertRaises(OSError):
                         probe.bind(("0.0.0.0", port))
