@@ -10,3 +10,6 @@ __pycache__/
 
 # Disposable Python lint and formatting cache.
 /.ruff_cache/
+
+# Local browser asset build and headless test dependencies.
+/tools/serve-html-assets/node_modules/

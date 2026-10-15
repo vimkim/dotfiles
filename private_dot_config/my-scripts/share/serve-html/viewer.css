@@ -1,0 +1,21 @@
+:root { color-scheme: light dark; --page-bg: #fff; --border: #d1d9e0; --muted: #59636e; }
+@media (prefers-color-scheme: dark) {
+  :root { --page-bg: #0d1117; --border: #3d444d; --muted: #9198a1; }
+}
+body { margin: 0; background: var(--page-bg); font-family: system-ui, sans-serif; }
+.toolbar { max-width: 980px; box-sizing: border-box; margin: auto; padding: 20px 45px; display: flex; align-items: baseline; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--border); font-size: 14px; }
+#filename { overflow-wrap: anywhere; color: var(--muted); }
+.toolbar nav { display: flex; gap: 20px; flex-shrink: 0; }
+a { color: #0969da; }
+@media (prefers-color-scheme: dark) { a { color: #4493f8; } }
+.markdown-body { box-sizing: border-box; min-width: 200px; max-width: 980px; margin: auto; padding: 36px 45px 64px; }
+.markdown-body img { height: auto; }
+.markdown-body .diagram { overflow-x: auto; margin: 1em 0; text-align: center; }
+.markdown-body .diagram svg { max-width: 100%; height: auto; }
+.markdown-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.4em 0; }
+.markdown-body .render-error { color: var(--muted); border-left: 3px solid var(--border); padding-left: 12px; }
+.render-error > summary { cursor: pointer; }
+@media (max-width: 767px) {
+  .toolbar { padding: 16px; }
+  .markdown-body { padding: 24px 16px 48px; }
+}

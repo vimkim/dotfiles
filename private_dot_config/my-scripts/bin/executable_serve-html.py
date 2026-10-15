@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve an HTML directory and print PC access links until Ctrl+C."""
+"""Serve a directory with Markdown previews and print PC access links until Ctrl+C."""
 
 import argparse
 import errno
@@ -7,9 +7,10 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
 import json
+import os
 from pathlib import Path
 import subprocess
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 
 VPN_PREFIXES = ("tailscale", "tun", "tap", "wg", "ppp", "vpn", "zt")
@@ -22,13 +23,70 @@ BLOCKED_HTTP_PORTS = frozenset({
     1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566,
     6665, 6666, 6667, 6668, 6669, 6679, 6697,
 })
+MARKDOWN_SUFFIXES = (".md", ".markdown")
+PREVIEW_PREFIX = "/__serve_html__/"
+PREVIEW_ASSETS = Path(__file__).resolve().parent.parent / "share" / "serve-html"
 
 
-class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
-    """Suppress HTTP access logs while retaining error diagnostics."""
+class PreviewHTTPRequestHandler(SimpleHTTPRequestHandler):
+    """Render Markdown at its original URL, including links from directory listings."""
+
+    def __init__(self, *args, verbose=False, **kwargs):
+        self.verbose = verbose
+        super().__init__(*args, **kwargs)
 
     def log_request(self, code="-", size="-"):
-        pass
+        if self.verbose:
+            super().log_request(code, size)
+
+    def preview_file(self, path, content_type=None):
+        """Share response headers and file opening between GET and HEAD."""
+        try:
+            stream = path.open("rb")
+        except OSError:
+            self.send_error(404, "File not found")
+            return None
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", content_type or self.guess_type(str(path)))
+            self.send_header("Content-Length", str(os.fstat(stream.fileno()).st_size))
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            return stream
+        except BaseException:
+            stream.close()
+            raise
+
+    def send_head(self):
+        request = urlsplit(self.path)
+        if request.path.startswith(PREVIEW_PREFIX):
+            relative = Path(unquote(request.path[len(PREVIEW_PREFIX):]))
+            assets = PREVIEW_ASSETS.resolve()
+            path = (assets / relative).resolve()
+            if (relative.is_absolute() or ".." in relative.parts
+                    or not path.is_relative_to(assets) or not path.is_file()):
+                self.send_error(404, "Preview asset not found")
+                return None
+            return self.preview_file(path)
+
+        path = Path(self.translate_path(self.path))
+        if (not request.path.endswith("/") and path.suffix.lower() in MARKDOWN_SUFFIXES
+                and path.is_file()):
+            if parse_qs(request.query).get("raw") == ["1"]:
+                return self.preview_file(path, "text/plain; charset=utf-8")
+            # Check readability before returning a viewer for an unreadable document.
+            try:
+                with path.open("rb"):
+                    pass
+            except OSError:
+                self.send_error(404, "File not found")
+                return None
+            if not (PREVIEW_ASSETS / "viewer.html").is_file():
+                self.send_error(500, "Markdown preview assets are missing; reinstall serve-html assets")
+                return None
+            return self.preview_file(PREVIEW_ASSETS / "viewer.html", "text/html; charset=utf-8")
+        return super().send_head()
 
 
 def network_addresses(interface=None):
@@ -88,12 +146,12 @@ def review_file(directory, filename):
     relative = Path(filename)
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError("--file must be a relative path inside --directory")
-    if relative.suffix.lower() not in (".html", ".htm"):
-        raise ValueError("--file must name an .html or .htm file")
-    html = directory / relative
-    if not html.is_file():
-        raise ValueError(f"HTML file does not exist or is not a regular file: {html}")
-    with html.open("rb"):
+    if relative.suffix.lower() not in (".html", ".htm", *MARKDOWN_SUFFIXES):
+        raise ValueError("--file must name an .html, .htm, .md, or .markdown file")
+    document = directory / relative
+    if not document.is_file():
+        raise ValueError(f"file does not exist or is not a regular file: {document}")
+    with document.open("rb"):
         pass
     return directory, quote(relative.as_posix(), safe="/")
 
@@ -195,7 +253,7 @@ def main():
     parser.add_argument("--bind", type=ipv4_address, default="0.0.0.0",
                         help="IPv4 bind address (default: 0.0.0.0)")
     parser.add_argument("--directory", required=True, help="directory to serve, including adjacent assets")
-    parser.add_argument("--file", help="HTML path relative to --directory (default: link to directory root)")
+    parser.add_argument("--file", help="HTML or Markdown path relative to --directory (default: directory root)")
     parser.add_argument("--port", type=port_number, default=0,
                         help="use a fixed port; 0 prefers memorable four-digit ports (default: 0)")
     parser.add_argument("--interface", help="print links for only this active interface")
@@ -205,8 +263,7 @@ def main():
     try:
         directory, filename = review_file(args.directory, args.file)
         addresses = addresses_for_bind(args.bind, args.interface)
-        handler_class = SimpleHTTPRequestHandler if args.verbose else QuietHTTPRequestHandler
-        handler = partial(handler_class, directory=str(directory))
+        handler = partial(PreviewHTTPRequestHandler, directory=str(directory), verbose=args.verbose)
         with create_server(args.bind, args.port, handler) as server:
             print_links(directory, server.server_port, filename, addresses)
             server.serve_forever()

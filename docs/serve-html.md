@@ -1,10 +1,11 @@
-# Serve HTML from an SSH terminal
+# Serve HTML and Markdown from an SSH terminal
 
 Run `html-serve` in an SSH terminal from the directory you want to serve:
 
 ```sh
 html-serve
 html-serve --file review.html
+html-serve --file README.md
 html-serve --port 8080
 html-serve --directory '/another/output directory'
 ```
@@ -13,6 +14,54 @@ The wrapper is on PATH in Bash, Zsh, and Nushell. It supplies `--directory .`
 and forwards all options to `serve-html.py`; an explicit `--directory` overrides
 the current directory. With no `--file`, printed links point to `/`, which
 serves `index.html` or `index.htm` when present and a directory listing otherwise.
+
+## Markdown preview
+
+Click any `.md` or `.markdown` file in the directory listing to read it as a
+rendered page. Direct links and links from other documents also render by
+default, including uppercase extensions. A URL such as `/docs/design.md` stays
+at that address; no preview option or generated `.html` file is needed.
+`html-serve --file README.md` prints links directly to the preview.
+
+The viewer supports GitHub Flavored Markdown tables, task lists, strikethrough,
+heading anchors, and these document features:
+
+````markdown
+```mermaid
+flowchart LR
+    Markdown --> Preview
+```
+
+![Architecture](./figures/architecture.svg)
+![Remote SVG](https://example.com/architecture.svg)
+
+Inline math: $E = mc^2$
+
+$$
+\int_0^1 x^2\,dx = \frac{1}{3}
+$$
+````
+
+Relative image and document links resolve from the Markdown file's original
+directory. Keep referenced files within the directory being served. SVGs are
+displayed as images. LaTeX equations use KaTeX's supported math syntax; ordinary
+code blocks and inline code remain literal. Invalid diagrams or equations show
+their source and error while the remaining document stays readable.
+
+The toolbar has **Files** and **Raw** links. Add `?raw=1` to a Markdown URL to
+read the original source as UTF-8 plain text. Preview requires JavaScript in a
+modern browser and follows the browser's light/dark preference. Document HTML
+is sanitized; Mermaid uses its strict security setting and KaTeX disables
+trusted commands.
+
+Renderer scripts, styles, diagram modules, and math fonts are bundled locally.
+No GitHub request, CDN, Node, npm, or Python package installation is needed to
+serve documents. Remote images still require access to their host. Markdown
+rendering happens in the browser; HTTP clients receive the viewer HTML at the
+default URL and can request `?raw=1` for the document source. The internal URL
+prefix `/__serve_html__/` is reserved for viewer assets.
+
+## Server options
 
 The `serve-html` agent skill can also suggest a command after creating an HTML
 file. Run that command yourself in an SSH terminal:
@@ -56,8 +105,9 @@ the CLI tries the remaining allowed ports from `1024` to `9999`, then asks the
 kernel for an available port if every four-digit choice is unavailable. Each
 attempt binds the actual server and retains the successful socket.
 
-`--file` optionally links directly to an existing `.html` or `.htm` file and can
-name a file in a subdirectory. Without it, no HTML file is required.
+`--file` optionally links directly to an existing `.html`, `.htm`, `.md`, or
+`.markdown` file and can name a file in a subdirectory. Without it, no document
+file is required.
 `--port PORT` with a nonzero value requires that exact port; an occupied port
 fails before any links are printed. `--interface NAME` limits the printed links,
 while `--bind ADDRESS` controls which IPv4 address accepts connections. A
@@ -72,14 +122,20 @@ The maintained sources are
 `private_dot_config/my-scripts/bin/executable_serve-html.py` and
 `private_dot_config/my-scripts/bin/executable_html-serve`. Chezmoi installs them
 as `~/.config/my-scripts/bin/serve-html.py` and
-`~/.config/my-scripts/bin/html-serve` with executable permissions. The
+`~/.config/my-scripts/bin/html-serve` with executable permissions. The viewer
+and its bundled dependencies are maintained in
+`private_dot_config/my-scripts/share/serve-html/` and installed under
+`~/.config/my-scripts/share/serve-html/`. Keep that directory alongside the
+scripts when copying the installation. The
 `vimkim/my-skills` collection maintains only the agent instructions.
 
-Review both targets, then deploy with the repository helper after merge approval:
+Review the scripts and asset directory, then deploy with the repository helper
+after merge approval:
 
 ```bash
 chezmoi diff -- "$HOME/.config/my-scripts/bin/html-serve"
 chezmoi diff -- "$HOME/.config/my-scripts/bin/serve-html.py"
+chezmoi diff -- "$HOME/.config/my-scripts/share/serve-html"
 chezmoi-apply-unmodified
 ```
 
@@ -98,4 +154,41 @@ concurrent servers, occupied fixed ports, Ctrl+C shutdown, encoded HTML paths,
 adjacent assets, and interface discovery. They also verify the wrapper from a
 current directory without an index page and its option forwarding. CLI
 integration uses temporary files and a deterministic `ip` fixture. No deployed
-files or browsers are used.
+files are used. They also cover Markdown routing, raw responses, GET/HEAD,
+SVG content types, asset paths, and rendering with `--verbose`.
+
+Headless Chromium verification exercises actual clicks from the directory
+listing, direct encoded URLs, relative Markdown links and SVG images, a remote
+SVG image from a second local HTTP origin, Mermaid, LaTeX math, heading IDs,
+sanitization, errors within individual blocks, dark/mobile layout, and existing
+HTML behavior. Network requests outside localhost are blocked in the main
+rendering scenario, and a plain document verifies lazy loading:
+
+```sh
+npm --prefix tools/serve-html-assets ci
+# Install a headless test browser if it is not cached already.
+cd tools/serve-html-assets
+npx playwright install chromium
+npm test
+```
+
+Set `SERVE_HTML_CHROMIUM_EXECUTABLE` to use an existing Chromium binary.
+Set `SERVE_HTML_SCREENSHOT` to an absolute PNG path to capture the rendered
+fixture. All browser launches in the test are headless.
+
+## Updating bundled assets
+
+The build dependencies are pinned in `tools/serve-html-assets/package-lock.json`.
+Node 22.12 or later and npm are needed only to rebuild the committed assets or
+run browser tests:
+
+```sh
+npm --prefix tools/serve-html-assets ci
+npm --prefix tools/serve-html-assets run build
+```
+
+The build creates the `vendor/` directory, includes third-party license texts,
+and records package versions and file SHA-256 hashes in `vendor/manifest.json`.
+Commit the regenerated files together with dependency changes. The source
+viewer HTML, CSS, and JavaScript live outside `vendor/` and can be edited
+directly. Build tools and test dependencies are excluded from chezmoi deployment.

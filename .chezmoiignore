@@ -8,3 +8,5 @@ nushell-clip-defect.md
 
 # Repository verification artifacts are not deployed dotfiles.
 tests/**
+tools/serve-html-assets/**
+.gitattributes

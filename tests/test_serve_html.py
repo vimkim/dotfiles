@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import socket
 import subprocess
@@ -17,12 +18,13 @@ import unittest
 from unittest.mock import call, patch
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
-from urllib.request import ProxyHandler, build_opener
+from urllib.request import ProxyHandler, Request, build_opener
 
 
 SCRIPT = (Path(__file__).resolve().parents[1] / "private_dot_config/my-scripts/bin"
           / "executable_serve-html.py")
 WRAPPER = SCRIPT.with_name("executable_html-serve")
+ASSETS = SCRIPT.parent.parent / "share" / "serve-html"
 SPEC = importlib.util.spec_from_file_location("serve_html", SCRIPT)
 helper = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(helper)
@@ -103,7 +105,7 @@ class ServeHTML(unittest.TestCase):
             self.assertNotIn(port, ports)
 
     def test_auto_port_skips_busy_or_permission_denied_candidates(self):
-        handler = helper.QuietHTTPRequestHandler
+        handler = helper.PreviewHTTPRequestHandler
         selected = object()
         for code in (errno.EADDRINUSE, errno.EACCES):
             with self.subTest(errno=code):
@@ -117,7 +119,7 @@ class ServeHTML(unittest.TestCase):
                     ])
 
     def test_auto_port_fallback_retains_a_reserved_socket(self):
-        handler = helper.QuietHTTPRequestHandler
+        handler = helper.PreviewHTTPRequestHandler
         # Simulate unavailable preferred choices without occupying real services.
         constructor = helper.ThreadingHTTPServer
 
@@ -140,7 +142,7 @@ class ServeHTML(unittest.TestCase):
                         probe.bind(("127.0.0.1", server.server_port))
 
     def test_auto_port_reports_unrelated_bind_errors_without_retrying(self):
-        handler = helper.QuietHTTPRequestHandler
+        handler = helper.PreviewHTTPRequestHandler
         error = OSError(errno.EADDRNOTAVAIL, "bind address unavailable")
         with patch.object(helper, "ThreadingHTTPServer", side_effect=error) as constructor:
             with self.assertRaises(OSError) as caught:
@@ -230,6 +232,7 @@ class ServeHTML(unittest.TestCase):
             scripts = home / ".config/my-scripts/bin"
             scripts.mkdir(parents=True)
             (scripts / "serve-html.py").write_bytes(SCRIPT.read_bytes())
+            shutil.copytree(ASSETS, scripts.parent / "share" / "serve-html")
             wrapper = scripts / "html-serve"
             wrapper.write_bytes(WRAPPER.read_bytes())
             wrapper.chmod(0o755)
@@ -237,6 +240,7 @@ class ServeHTML(unittest.TestCase):
             directory = Path(temp) / "current directory"
             directory.mkdir()
             (directory / "notes.txt").write_text("notes")
+            (directory / "notes.md").write_text("# Preview from the wrapper")
             other = Path(temp) / "another output directory"
             other.mkdir()
             html = other / "한글 review #1's ?.html"
@@ -251,6 +255,8 @@ class ServeHTML(unittest.TestCase):
 
             cases = [
                 ([], "/", b"notes.txt"),
+                (["--file", "notes.md", "--bind", "127.0.0.1"],
+                 "/notes.md", b"Markdown preview"),
                 (["--directory", str(other), "--file", html.name,
                   "--bind", "127.0.0.1", "--port", "0"],
                  "/" + quote(html.name, safe=""), b"forwarded options"),
@@ -267,6 +273,78 @@ class ServeHTML(unittest.TestCase):
                             self.assertIn(content, response.read())
                         process.send_signal(signal.SIGINT)
                         self.assertEqual(process.wait(timeout=5), 0)
+
+    def test_markdown_urls_render_by_default_with_raw_and_head_support(self):
+        with tempfile.TemporaryDirectory(prefix="serve-markdown-test-") as temp:
+            directory = Path(temp)
+            nested = directory / "nested"
+            nested.mkdir()
+            name = "한글 notes #1's ?.MD"
+            markdown = "# Hello\n\n![SVG](drawing.svg)\n"
+            (nested / name).write_text(markdown)
+            (directory / "other.markdown").write_text("# Another document")
+            (nested / "drawing.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+            client = build_opener(ProxyHandler({}))
+            for options in ([], ["--verbose"]):
+                with self.subTest(options=options), self.server(
+                    directory, "--bind", "127.0.0.1", *options,
+                ) as (_, urls, _):
+                    root = urls[0]
+                    url = root + "nested/" + quote(name, safe="")
+                    with client.open(root + "nested/", timeout=2) as response:
+                        self.assertIn(quote(name).encode(), response.read())
+                    with client.open(url + "?other=1", timeout=2) as response:
+                        self.assertEqual(response.headers.get_content_type(), "text/html")
+                        viewer = response.read()
+                        self.assertIn(b"/__serve_html__/viewer.js", viewer)
+                    with client.open(Request(url, method="HEAD"), timeout=2) as response:
+                        self.assertEqual(response.headers.get_content_type(), "text/html")
+                        self.assertEqual(int(response.headers["Content-Length"]), len(viewer))
+                        self.assertEqual(response.read(), b"")
+                    with client.open(url + "?raw=1", timeout=2) as response:
+                        self.assertEqual(response.headers.get_content_type(), "text/plain")
+                        self.assertEqual(response.headers.get_content_charset(), "utf-8")
+                        self.assertEqual(response.read().decode(), markdown)
+                    with client.open(root + "other.markdown", timeout=2) as response:
+                        self.assertEqual(response.headers.get_content_type(), "text/html")
+                    with client.open(root + "nested/drawing.svg", timeout=2) as response:
+                        self.assertEqual(response.headers.get_content_type(), "image/svg+xml")
+                    for asset in ("viewer.js", "vendor/markdown.js", "vendor/mermaid.js",
+                                  "vendor/math.js", "vendor/katex.css", "vendor/github-markdown.css"):
+                        with client.open(root + "__serve_html__/" + asset, timeout=2) as response:
+                            self.assertGreater(len(response.read()), 0)
+                    for path in ("missing.md", "other.markdown/", "__serve_html__/../viewer.html",
+                                 "__serve_html__/%2e%2e/viewer.html", "__serve_html__//etc/passwd"):
+                        with self.assertRaises(HTTPError) as error:
+                            client.open(root + path, timeout=2)
+                        self.assertEqual(error.exception.code, 404)
+                        error.exception.close()
+
+    def test_file_option_accepts_markdown_with_an_encoded_link(self):
+        with tempfile.TemporaryDirectory(prefix="serve-markdown-test-") as temp:
+            name = "한글 review #1.md"
+            (Path(temp) / name).write_text("# Direct Markdown")
+            with self.server(temp, "--bind", "127.0.0.1", "--file", name) as (_, urls, _):
+                self.assertEqual(urlsplit(urls[0]).path, "/" + quote(name, safe=""))
+
+    def test_missing_preview_assets_report_an_actionable_error(self):
+        with tempfile.TemporaryDirectory(prefix="serve-markdown-test-") as temp:
+            directory = Path(temp)
+            (directory / "notes.md").write_text("# Notes")
+            # A standalone copied script has no adjacent managed assets.
+            (directory / "bin").mkdir()
+            script = directory / "bin" / "serve-html.py"
+            script.write_bytes(SCRIPT.read_bytes())
+            client = build_opener(ProxyHandler({}))
+            with self.server(directory, "--bind", "127.0.0.1",
+                             command=[sys.executable, str(script), "--directory", temp]) as (_, urls, _):
+                with self.assertRaises(HTTPError) as error:
+                    client.open(urls[0] + "notes.md", timeout=2)
+                self.assertEqual(error.exception.code, 500)
+                self.assertIn(b"preview assets are missing", error.exception.read())
+                error.exception.close()
+                with client.open(urls[0] + "notes.md?raw=1", timeout=2) as response:
+                    self.assertEqual(response.read(), b"# Notes")
 
     def test_concurrent_servers_keep_distinct_free_ports(self):
         with tempfile.TemporaryDirectory(prefix="serve-html-test-") as temp:

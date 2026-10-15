@@ -1,0 +1,22 @@
+{
+  "name": "serve-html-assets",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node ../../tests/test_serve_html_browser.mjs"
+  },
+  "dependencies": {
+    "dompurify": "3.4.17",
+    "github-markdown-css": "5.9.0",
+    "katex": "0.18.10",
+    "marked": "18.1.1",
+    "marked-gfm-heading-id": "4.1.4",
+    "marked-katex-extension": "5.1.13",
+    "mermaid": "12.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright": "1.64.1"
+  }
+}
