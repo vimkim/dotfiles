@@ -226,6 +226,41 @@ class ServeHTML(unittest.TestCase):
                     socket.create_connection(("127.0.0.1", port), timeout=1)
                 self.assertFalse((Path(temp) / "SHOULD_NOT_EXIST").exists())
 
+    def test_directories_list_index_pages_until_explicitly_requested(self):
+        with tempfile.TemporaryDirectory(prefix="serve-html-test-") as temp:
+            directory = Path(temp)
+            nested = directory / "nested directory"
+            nested.mkdir()
+            for folder in (directory, nested):
+                (folder / "index.html").write_bytes(b"<h1>Chosen index.html</h1>")
+                (folder / "index.htm").write_bytes(b"<h1>Chosen index.htm</h1>")
+            client = build_opener(ProxyHandler({}))
+            with self.server(directory, "--bind", "127.0.0.1") as (_, urls, _):
+                root = urls[0]
+                for path in ("", "nested%20directory/", "nested%20directory?sort=name"):
+                    with self.subTest(path=path):
+                        with client.open(root + path, timeout=2) as response:
+                            listing = response.read()
+                            self.assertIn(b"Directory listing for", listing)
+                            self.assertIn(b'href="index.html"', listing)
+                            self.assertIn(b'href="index.htm"', listing)
+                            self.assertNotIn(b"<h1>Chosen", listing)
+                            listing_url = response.url
+                            redirected = urlsplit(listing_url)
+                            self.assertTrue(redirected.path.endswith("/"))
+                            self.assertEqual(redirected.query, urlsplit(path).query)
+                        with client.open(Request(listing_url, method="HEAD"), timeout=2) as response:
+                            self.assertEqual(int(response.headers["Content-Length"]), len(listing))
+                            self.assertEqual(response.read(), b"")
+                for prefix in ("", "nested%20directory/"):
+                    for name in ("index.html", "index.htm"):
+                        with client.open(root + prefix + name, timeout=2) as response:
+                            self.assertEqual(response.read(), f"<h1>Chosen {name}</h1>".encode())
+                # index.htm must not become an implicit page when index.html is absent.
+                (nested / "index.html").unlink()
+                with client.open(root + "nested%20directory/", timeout=2) as response:
+                    self.assertIn(b'href="index.htm"', response.read())
+
     def test_wrapper_serves_current_directory_and_forwards_options(self):
         with tempfile.TemporaryDirectory(prefix="html-serve-test-") as temp:
             home = Path(temp) / "test home's config"
@@ -241,7 +276,8 @@ class ServeHTML(unittest.TestCase):
             directory.mkdir()
             (directory / "notes.txt").write_text("notes")
             (directory / "notes.md").write_text("# Preview from the wrapper")
-            other = Path(temp) / "another output directory"
+            (directory / "index.html").write_text("explicit index page")
+            other = home / "another output directory"
             other.mkdir()
             html = other / "한글 review #1's ?.html"
             html.write_text("forwarded options")
@@ -255,6 +291,21 @@ class ServeHTML(unittest.TestCase):
 
             cases = [
                 ([], "/", b"notes.txt"),
+                (["."], "/", b"notes.txt"),
+                ([str(other)], "/", html.name.encode()),
+                ([os.path.relpath(other, directory)], "/", html.name.encode()),
+                (["~/another output directory"], "/", html.name.encode()),
+                (["notes.md"], "/notes.md", b"Markdown preview"),
+                ([str(html)], "/" + quote(html.name, safe=""), b"forwarded options"),
+                ([os.path.relpath(html, directory)],
+                 "/" + quote(html.name, safe=""), b"forwarded options"),
+                (["-d", str(other)], "/", html.name.encode()),
+                ([str(other), "-f", html.name],
+                 "/" + quote(html.name, safe=""), b"forwarded options"),
+                (["-d", str(other), "-f", html.name],
+                 "/" + quote(html.name, safe=""), b"forwarded options"),
+                (["-f", "notes.txt"], "/notes.txt", b"notes"),
+                (["index.html"], "/index.html", b"explicit index page"),
                 (["--file", "notes.md", "--bind", "127.0.0.1"],
                  "/notes.md", b"Markdown preview"),
                 (["--directory", str(other), "--file", html.name,
@@ -273,6 +324,34 @@ class ServeHTML(unittest.TestCase):
                             self.assertIn(content, response.read())
                         process.send_signal(signal.SIGINT)
                         self.assertEqual(process.wait(timeout=5), 0)
+
+    def test_python_cli_defaults_and_positional_files(self):
+        with tempfile.TemporaryDirectory(prefix="serve-html-test-") as temp:
+            directory = Path(temp)
+            nested = directory / "nested"
+            nested.mkdir()
+            (nested / "page.html").write_text("chosen page")
+            (nested / "style.css").write_text("adjacent asset")
+            client = build_opener(ProxyHandler({}))
+            for args, expected_path, content in (
+                ([], "/", b"nested/"),
+                (["nested"], "/", b"page.html"),
+                (["nested/page.html"], "/page.html", b"chosen page"),
+                (["-d", ".", "-f", "nested/page.html"], "/nested/page.html", b"chosen page"),
+                (["nested/style.css"], "/style.css", b"adjacent asset"),
+            ):
+                with self.subTest(args=args), self.server(
+                    directory, "--bind", "127.0.0.1", *args,
+                    command=[sys.executable, str(SCRIPT)],
+                ) as (_, urls, output):
+                    parsed = urlsplit(urls[0])
+                    self.assertEqual(parsed.path, expected_path)
+                    with client.open(urls[0], timeout=2) as response:
+                        self.assertIn(content, response.read())
+                    if expected_path == "/page.html":
+                        self.assertIn(f"Serving {nested} on port", output)
+                        with client.open(urls[0].replace("page.html", "style.css"), timeout=2) as response:
+                            self.assertEqual(response.read(), b"adjacent asset")
 
     def test_markdown_urls_render_by_default_with_raw_and_head_support(self):
         with tempfile.TemporaryDirectory(prefix="serve-markdown-test-") as temp:
@@ -355,7 +434,7 @@ class ServeHTML(unittest.TestCase):
                     for url in (first[0], second[0]):
                         self.assertEqual(urlsplit(url).path, "/")
                         with build_opener(ProxyHandler({})).open(url, timeout=2) as response:
-                            self.assertEqual(response.read(), b"index")
+                            self.assertIn(b'href="index.html"', response.read())
 
     def test_occupied_explicit_port_fails_without_advertising_links(self):
         with tempfile.TemporaryDirectory(prefix="serve-html-test-") as temp:
@@ -376,6 +455,12 @@ class ServeHTML(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="serve-html-test-") as temp:
             (Path(temp) / "index.html").write_text("index")
             for args in (["--directory", "/nonexistent"],
+                         ["missing.html"],
+                         [str(Path(temp) / "index.html"), "--file", "index.html"],
+                         [temp, "--directory", temp],
+                         ["--directory", temp, temp],
+                         [temp, temp],
+                         ["--directory", str(Path(temp) / "index.html")],
                          ["--directory", temp, "--file", "missing.html"],
                          ["--directory", temp, "--file", "../outside.html"],
                          ["--directory", temp, "--file", "/tmp/page.html"],

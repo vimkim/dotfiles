@@ -51,6 +51,8 @@ before(async () => {
   ].join("\n"));
   await writeFile(path.join(directory, "plain.md"), "# Plain document\n\nNo diagrams or equations.\n");
   await writeFile(path.join(directory, "existing.html"), "<!doctype html><title>Existing HTML</title><h1>Original page</h1>");
+  await writeFile(path.join(directory, "index.html"), "<!doctype html><title>Selected index</title><h1>Root index page</h1>");
+  await writeFile(path.join(directory, "nested/index.htm"), "<!doctype html><title>Selected nested index</title><h1>Nested index page</h1>");
 
   server = spawn("python3", ["-B", path.join(root, "private_dot_config/my-scripts/bin/executable_serve-html.py"),
     "--directory", directory, "--bind", "127.0.0.1"], { stdio: ["ignore", "pipe", "pipe"] });
@@ -97,6 +99,25 @@ async function localOnly(page) {
   });
   return external;
 }
+
+test("directories show listings until an index page is clicked", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.goto(baseURL);
+    assert.equal(await page.getByRole("heading").innerText(), "Directory listing for /");
+    await page.getByRole("link", { name: "index.html", exact: true }).click();
+    assert.equal(await page.title(), "Selected index");
+    assert.equal(await page.locator("h1").innerText(), "Root index page");
+    await page.goto(baseURL + "nested");
+    assert.equal(new URL(page.url()).pathname, "/nested/");
+    assert.equal(await page.getByRole("heading").innerText(), "Directory listing for /nested/");
+    await page.getByRole("link", { name: "index.htm", exact: true }).click();
+    assert.equal(await page.title(), "Selected nested index");
+    assert.equal(await page.locator("h1").innerText(), "Nested index page");
+  } finally {
+    await page.close();
+  }
+});
 
 test("clicking a listed Markdown file renders GFM, Mermaid, math and SVGs", async () => {
   const page = await browser.newPage();

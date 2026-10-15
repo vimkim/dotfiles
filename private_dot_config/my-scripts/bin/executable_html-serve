@@ -1,4 +1,3 @@
 #!/bin/sh
 
-exec python3 -B "$HOME/.config/my-scripts/bin/serve-html.py" \
-    --directory . "$@"
+exec python3 -B "$HOME/.config/my-scripts/bin/serve-html.py" "$@"

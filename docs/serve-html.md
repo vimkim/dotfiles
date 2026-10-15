@@ -4,16 +4,47 @@ Run `html-serve` in an SSH terminal from the directory you want to serve:
 
 ```sh
 html-serve
-html-serve --file review.html
-html-serve --file README.md
+html-serve .
+html-serve '/another/output directory'
+html-serve path/to/review.html
+html-serve README.md
+html-serve -d '/another/output directory' -f review.html
 html-serve --port 8080
-html-serve --directory '/another/output directory'
 ```
 
-The wrapper is on PATH in Bash, Zsh, and Nushell. It supplies `--directory .`
-and forwards all options to `serve-html.py`; an explicit `--directory` overrides
-the current directory. With no `--file`, printed links point to `/`, which
-serves `index.html` or `index.htm` when present and a directory listing otherwise.
+The wrapper is on PATH in Bash, Zsh, and Nushell and forwards arguments to
+`serve-html.py`. Both commands accept the same paths and options. Directory
+URLs always show a listing, even when `index.html` or `index.htm` exists. Click
+the filename to open that page, or select it explicitly on the command line.
+
+## Paths and file selection
+
+| Arguments | Serving directory | Printed link |
+| --- | --- | --- |
+| None, or `.` | Current directory | Directory listing at `/` |
+| `DIR` | `DIR` | Directory listing at `/` |
+| `PATH/FILE` | File's parent directory | The selected file |
+| `-d DIR` or `--directory DIR` | `DIR` | Directory listing at `/` |
+| `-f FILE` or `--file FILE` | Current directory | `FILE` relative to the current directory |
+| `DIR -f FILE` | `DIR` | `FILE` relative to `DIR` |
+| `-d DIR -f FILE` | `DIR` | `FILE` relative to `DIR` |
+
+A positional path can be relative or absolute; quoted `~` paths are expanded.
+It must name an existing directory or regular file. Any regular file can be
+selected: HTML opens as a page, Markdown uses the preview, and other formats
+use the browser's normal behavior. Selecting a file serves its parent directory
+so adjacent assets remain accessible.
+
+`--directory` (`-d`) requires a directory. `--file` (`-f`) requires a file path
+relative to the selected serving directory; absolute paths and `..` components
+are rejected. Use a positional file path to select a file outside the current
+directory, or choose its serving root explicitly with `-d`.
+
+A positional path together with `-d` is an error. A positional file together
+with `-f` is also an error. A positional directory can be combined with `-f`.
+For example, `html-serve docs -f nested/review.html` serves `docs` and prints a
+link to `/nested/review.html`; `html-serve docs/nested/review.html` serves
+`docs/nested` and prints a link to `/review.html`.
 
 ## Markdown preview
 
@@ -105,9 +136,6 @@ the CLI tries the remaining allowed ports from `1024` to `9999`, then asks the
 kernel for an available port if every four-digit choice is unavailable. Each
 attempt binds the actual server and retains the successful socket.
 
-`--file` optionally links directly to an existing `.html`, `.htm`, `.md`, or
-`.markdown` file and can name a file in a subdirectory. Without it, no document
-file is required.
 `--port PORT` with a nonzero value requires that exact port; an occupied port
 fails before any links are printed. `--interface NAME` limits the printed links,
 while `--bind ADDRESS` controls which IPv4 address accepts connections. A
@@ -151,8 +179,9 @@ PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -p 'test_serve_ht
 The tests exercise the CLI's live HTTP lifecycle, preferred port ordering,
 occupied preferred ports, automatic fallback and reservation,
 concurrent servers, occupied fixed ports, Ctrl+C shutdown, encoded HTML paths,
-adjacent assets, and interface discovery. They also verify the wrapper from a
-current directory without an index page and its option forwarding. CLI
+adjacent assets, and interface discovery. They also verify directory listings
+with index pages present, explicit index links, directory redirects, positional
+directories and files, short and long options, and conflicting arguments. CLI
 integration uses temporary files and a deterministic `ip` fixture. No deployed
 files are used. They also cover Markdown routing, raw responses, GET/HEAD,
 SVG content types, asset paths, and rendering with `--verbose`.

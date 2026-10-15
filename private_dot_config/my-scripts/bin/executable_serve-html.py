@@ -29,7 +29,7 @@ PREVIEW_ASSETS = Path(__file__).resolve().parent.parent / "share" / "serve-html"
 
 
 class PreviewHTTPRequestHandler(SimpleHTTPRequestHandler):
-    """Render Markdown at its original URL, including links from directory listings."""
+    """List directories and render Markdown at its original URL."""
 
     def __init__(self, *args, verbose=False, **kwargs):
         self.verbose = verbose
@@ -71,6 +71,15 @@ class PreviewHTTPRequestHandler(SimpleHTTPRequestHandler):
             return self.preview_file(path)
 
         path = Path(self.translate_path(self.path))
+        if path.is_dir():
+            if not request.path.endswith(("/", "%2f", "%2F")):
+                self.send_response(301)
+                self.send_header("Location", request._replace(path=request.path + "/").geturl())
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return None
+            # Bypass SimpleHTTPRequestHandler's implicit index.html/index.htm lookup.
+            return self.list_directory(str(path))
         if (not request.path.endswith("/") and path.suffix.lower() in MARKDOWN_SUFFIXES
                 and path.is_file()):
             if parse_qs(request.query).get("raw") == ["1"]:
@@ -146,14 +155,29 @@ def review_file(directory, filename):
     relative = Path(filename)
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError("--file must be a relative path inside --directory")
-    if relative.suffix.lower() not in (".html", ".htm", *MARKDOWN_SUFFIXES):
-        raise ValueError("--file must name an .html, .htm, .md, or .markdown file")
     document = directory / relative
     if not document.is_file():
         raise ValueError(f"file does not exist or is not a regular file: {document}")
     with document.open("rb"):
         pass
     return directory, quote(relative.as_posix(), safe="/")
+
+
+def serving_target(path=None, directory=None, filename=None):
+    """Resolve a positional file/directory or an explicit root and relative file."""
+    if path is not None:
+        if directory is not None:
+            raise ValueError("PATH and --directory/-d cannot be used together; choose one serving root")
+        target = Path(path).expanduser().absolute()
+        if target.is_dir():
+            directory = target
+        elif target.is_file():
+            if filename is not None:
+                raise ValueError("a positional file and --file/-f cannot be used together; choose one file")
+            directory, filename = target.parent, target.name
+        else:
+            raise ValueError(f"path does not exist or is not a regular file or directory: {target}")
+    return review_file(directory if directory is not None else ".", filename)
 
 
 def addresses_for_bind(bind, interface=None):
@@ -250,10 +274,14 @@ def ipv4_address(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("path", nargs="?", metavar="PATH",
+                        help="directory to list or file to link to (serves its parent); default: current directory")
     parser.add_argument("--bind", type=ipv4_address, default="0.0.0.0",
                         help="IPv4 bind address (default: 0.0.0.0)")
-    parser.add_argument("--directory", required=True, help="directory to serve, including adjacent assets")
-    parser.add_argument("--file", help="HTML or Markdown path relative to --directory (default: directory root)")
+    parser.add_argument("-d", "--directory",
+                        help="directory to serve instead of PATH (default: current directory)")
+    parser.add_argument("-f", "--file",
+                        help="file relative to the serving directory; may accompany a directory PATH (default: listing)")
     parser.add_argument("--port", type=port_number, default=0,
                         help="use a fixed port; 0 prefers memorable four-digit ports (default: 0)")
     parser.add_argument("--interface", help="print links for only this active interface")
@@ -261,7 +289,7 @@ def main():
                         help="print HTTP request logs (disabled by default)")
     args = parser.parse_args()
     try:
-        directory, filename = review_file(args.directory, args.file)
+        directory, filename = serving_target(args.path, args.directory, args.file)
         addresses = addresses_for_bind(args.bind, args.interface)
         handler = partial(PreviewHTTPRequestHandler, directory=str(directory), verbose=args.verbose)
         with create_server(args.bind, args.port, handler) as server:
