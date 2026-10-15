@@ -33,7 +33,9 @@ it does not mean the destination now matches every source file.
 Keep root `AGENTS.md` and `CLAUDE.md` identical when adopting this proposal.
 Replace workflow steps 4–6 with:
 
-> 4. After every approved merge, process each affected dotfile with
+> 4. After every approved merge, complete any explicitly requested push to `main`
+>    before deployment. If that push fails, report the failure before proceeding.
+>    Process each affected dotfile with
 >    `chezmoi-apply-unmodified --source <absolute-merged-checkout> -- <absolute-target>`,
 >    using one absolute file target per invocation. Merge approval authorizes
 >    this deployment. If the helper is not on PATH, invoke the same script with
