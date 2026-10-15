@@ -241,7 +241,6 @@ function cdfile() {
 
 alias cd='cl'
 alias cr='DIR=$(dirs -v | sed "1d" | head -n 20 | awk '\''{print $2}'\'' | fzf --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
-alias ch='DIR=$(cat $HOME/.zdirs | fzf +s --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias co='popd >/dev/null'
 
 alias H='cd ..'
@@ -857,7 +856,6 @@ alias j='just_print'
 alias je='v ./justfile'
 alias jr='print -z "$(just.sh -j $MY_CUBRID/remote/justfile -d .)"'
 alias jre='v $MY_CUBRID/remote/justfile'
-alias nr='jr'
 alias nre='jre'
 
 ####################
@@ -947,7 +945,6 @@ alias jf='CMD=$(just --summary | tr " " "\n" | eval "$JUST_CHOOSER") && print -z
 alias fo='forever'
 alias f='forever'
 
-alias na='print -z $(navi --print)'
 
 # alias a='' #
 alias b='btop'
@@ -971,7 +968,6 @@ alias lofree='lofree-fn-arch.sh'
 alias keyboard_fix='lofree-fn-arch.sh'
 alias m='man' # bat -l man -p
 alias ma='make'
-alias n='j'
 alias ne='je'
 alias ng='jg'
 alias nge='jge'

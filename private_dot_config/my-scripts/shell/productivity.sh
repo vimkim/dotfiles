@@ -1,6 +1,6 @@
 # Shared interactive Bash/Zsh helpers, matching the everyday Nushell shortcuts.
 # Clear old aliases before defining functions (also permits re-sourcing).
-unalias c l ll cl cv mc gr fp cf vc y 2>/dev/null || :
+unalias c l ll cl cv mc gr fp cf vc y ch n nr na nc 2>/dev/null || :
 
 l() {
     [ "$#" -gt 0 ] || set -- .
@@ -75,6 +75,82 @@ alias up='cl ..'
 alias back='cl -'
 alias sl='l'
 alias cz='zi'
+
+# Share Nushell's history store and its picker/maintenance commands.
+ch() {
+    local temporary selected result
+    temporary=$(command mktemp "${TMPDIR:-/tmp}/directory-history.XXXXXX") || return
+    command directory-history.nu --output "$temporary" "$@"
+    result=$?
+    selected=$(command cat "$temporary" && printf '\001')
+    selected=${selected%$'\001'}
+    command rm -f -- "$temporary"
+    [ "$result" -eq 0 ] || return "$result"
+    if [ -n "$selected" ]; then
+        cl -- "$selected"
+    fi
+}
+
+_productivity_record_directory() {
+    local previous_status=$?
+    [ "$PWD" != "${_productivity_last_directory:-}" ] || return "$previous_status"
+    if command directory-history.nu --record "$PWD"; then
+        _productivity_last_directory=$PWD
+    fi
+    return "$previous_status"
+}
+
+# Preserve existing prompt and directory hooks, including when re-sourced.
+if [ -n "${ZSH_VERSION:-}" ]; then
+    case " ${chpwd_functions[*]} " in
+        *' _productivity_record_directory '*) ;;
+        *) chpwd_functions+=(_productivity_record_directory) ;;
+    esac
+    case " ${precmd_functions[*]} " in
+        *' _productivity_record_directory '*) ;;
+        *) precmd_functions+=(_productivity_record_directory) ;;
+    esac
+elif [ -n "${BASH_VERSION:-}" ]; then
+    if ! declare -p PROMPT_COMMAND 2>/dev/null | command grep -q 'declare -a'; then
+        PROMPT_COMMAND=("${PROMPT_COMMAND:-}")
+    fi
+    case " ${PROMPT_COMMAND[*]} " in
+        *' _productivity_record_directory '*) ;;
+        *) PROMPT_COMMAND+=(_productivity_record_directory) ;;
+    esac
+fi
+
+# Zsh can preload the next prompt. Bash offers an editable Readline prompt.
+_productivity_edit_command() {
+    local edited
+    if [ -n "${ZSH_VERSION:-}" ]; then
+        print -z -- "$1"
+    elif [[ $- == *i* ]]; then
+        IFS= read -er -i "$1" -p 'Run: ' edited || return
+        [ -n "$edited" ] || return 0
+        history -s -- "$edited"
+        eval "$edited"
+    else
+        printf '%s\n' "$1"
+    fi
+}
+
+_productivity_pick_recipe() {
+    local justfile=$1 recipe prepared
+    recipe=$(command just-pick-and-print.nu -f "$justfile" -d .) || return
+    [ -n "$recipe" ] || return 0
+    if [ "$justfile" = ./justfile ]; then
+        printf -v prepared 'just %q' "$recipe"
+    else
+        printf -v prepared 'just -f %q -d . %q' "$justfile" "$recipe"
+    fi
+    _productivity_edit_command "$prepared"
+}
+
+n() { _productivity_pick_recipe ./justfile; }
+na() { _productivity_pick_recipe "$HOME/.config/my-scripts/justfile"; }
+nr() { _productivity_pick_recipe "${MY_CUBRID:-$HOME/my-cubrid}/remote-nu.just"; }
+nc() { _productivity_pick_recipe "${MY_CUBRID:-$HOME/my-cubrid}/cubrid-justfiles/justfile"; }
 
 mc() {
     [ "$#" -eq 1 ] || { printf 'Usage: mc DIR\n' >&2; return 2; }

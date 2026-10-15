@@ -161,6 +161,10 @@ These everyday shortcuts also exist in Nushell:
 | `mc DIR` | Create a directory, including parents, and enter it. |
 | `gr`, `gcd`, `pr`, `pcd` | Go to the Git repository root and list it. |
 | `cz` | Open zoxide's interactive directory picker (`zi`). |
+| `ch` | Pick a previously visited directory from the shared Nushell history. |
+| `ch --forget`, `ch --delete`, `ch --prune` | Forget selected entries, confirm moving selected directories to trash, or prune missing paths. |
+| `n`, `na` | Pick a Just recipe from `./justfile` or `~/.config/my-scripts/justfile`. |
+| `nr`, `nc` | Pick from `$MY_CUBRID/remote-nu.just` or `$MY_CUBRID/cubrid-justfiles/justfile` (`MY_CUBRID` defaults to `~/my-cubrid`). |
 | `fp [QUERY]` | Print a selected file's path using `file-picker.sh`. |
 | `cf [QUERY]` | Enter the directory containing a selected file. |
 | `vc [QUERY]` | Edit a selected file from the current directory. |
@@ -176,6 +180,14 @@ the existing managed `dir-picker` / `file-picker.sh` commands and their
 dependencies (Python 3, fzf, and, for files, fd/eza). Cancelling a picker leaves
 the current directory unchanged. Other shortcuts require their named tools;
 they do not install them during shell startup.
+
+The Just pickers prepare an editable command: Zsh preloads the next prompt;
+Bash opens a `Run:` Readline prompt where Enter runs the command and records it
+in history. Noninteractive Bash prints the prepared command. They use the existing
+`just-pick-and-print.nu` helper and require Nushell, Just, and fzf.
+Directory history uses `directory-history.nu` and the managed Nushell history
+module. Bash records directory changes before each prompt; Zsh records them on
+directory changes. Both share `~/.local/share/nu/dirlog.json` with Nushell.
 
 ### Listing helpers
 
