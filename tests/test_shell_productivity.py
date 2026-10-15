@@ -27,7 +27,7 @@ class ShellProductivityTests(unittest.TestCase):
         self.data.mkdir()
         self.bin = self.root / "bin"
         self.bin.mkdir()
-        for name in ("dir-picker", "file-picker.sh", "directory-history.nu"):
+        for name in ("dir-picker", "file-picker.sh", "dir-history", "directory-history.nu"):
             target = self.bin / name
             shutil.copyfile(SCRIPTS / "bin" / ("executable_" + name), target)
             target.chmod(0o755)
@@ -39,7 +39,7 @@ class ShellProductivityTests(unittest.TestCase):
         self.env = {**os.environ, "PATH": f"{self.bin}:{os.environ['PATH']}",
                     "PRODUCTIVITY_SOURCE": str(SOURCE), "TMPDIR": str(self.root),
                     "FZF_DEFAULT_OPTS": "", "FALLBACK_BIN": str(self.bin),
-                    "HOME": str(self.home)}
+                    "HOME": str(self.home), "XDG_STATE_HOME": str(self.root / "state")}
         self.env.pop("FZF_DEFAULT_OPTS_FILE", None)
 
     def shells(self):
@@ -176,13 +176,17 @@ class ShellProductivityTests(unittest.TestCase):
                 self.assert_cwd(shell, 'y', target)
                 self.assertEqual(list(self.root.glob("yazi-cwd.*")), [])
 
-    @unittest.skipUnless(all(shutil.which(tool) for tool in ("nu", "fzf")),
-                         "requires nu and fzf")
+    def history(self):
+        result = subprocess.run([str(self.bin / "dir-history"), "list", "--json"],
+                                env=self.env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    @unittest.skipUnless(shutil.which("fzf"), "requires fzf")
     def test_directory_history_record_pick_cancel_forget_and_prune(self):
         target = self.data / "history directory"
         target.mkdir()
         self.env["TARGET"] = str(target)
-        history = self.home / ".local/share/nu/dirlog.json"
         for shell in self.shells():
             with self.subTest(shell=shell):
                 self.env["FZF_DEFAULT_OPTS"] = "--filter=history"
@@ -194,12 +198,18 @@ class ShellProductivityTests(unittest.TestCase):
                 self.env["FZF_DEFAULT_OPTS"] = "--filter=history"
                 result = self.run_shell(shell, 'ch --forget')
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertNotIn(str(target), json.loads(history.read_text()))
+                self.assertNotIn(str(target), self.history())
                 missing = self.data / "missing directory"
-                history.write_text(json.dumps([str(target), str(missing)]))
+                missing.mkdir()
+                self.env["MISSING"] = str(missing)
+                result = self.run_shell(shell,
+                    'dir-history record -- "$TARGET"; dir-history record -- "$MISSING"')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                missing.rmdir()
                 result = self.run_shell(shell, 'ch --prune')
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(json.loads(history.read_text()), [str(target)])
+                self.assertIn(str(target), self.history())
+                self.assertNotIn(str(missing), self.history())
 
     def install_recipe_picker(self):
         picker = self.bin / "just-pick-and-print.nu"
@@ -213,6 +223,27 @@ class ShellProductivityTests(unittest.TestCase):
         just.write_text(f'#!{sys.executable}\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n')
         just.chmod(0o755)
         self.env["PICKER_LOG"] = str(self.root / "picker.json")
+
+    @unittest.skipUnless(shutil.which("fzf"), "requires fzf")
+    def test_history_navigation_preserves_tabs_and_trailing_newlines(self):
+        target = self.data / " 한글 history\ttab\nnewline\n"
+        target.mkdir()
+        result = subprocess.run([str(self.bin / "dir-history"), "record", "--", str(target)],
+                                env=self.env, capture_output=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.env["FZF_DEFAULT_OPTS"] = "--filter=한글"
+        for shell in self.shells():
+            with self.subTest(shell=shell):
+                self.assert_cwd(shell, 'ch', target)
+
+    @unittest.skipUnless(shutil.which("zsh"), "requires zsh")
+    def test_zsh_records_directory_changes_without_manual_recording(self):
+        target = self.data / "automatically recorded Zsh visit"
+        target.mkdir()
+        self.env["TARGET"] = str(target)
+        result = self.run_shell("zsh", 'builtin cd "$TARGET"')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(str(target), self.history())
 
     def test_just_picker_paths_quoting_cancellation_and_errors(self):
         self.install_recipe_picker()
@@ -270,6 +301,11 @@ class ShellProductivityTests(unittest.TestCase):
             return output
 
         until(b"READY> ")
+        visited = self.data / "automatically recorded Bash visit"
+        visited.mkdir()
+        os.write(master, ('builtin cd "' + str(visited) + '"\n').encode())
+        until(b"READY> ")
+        self.assertIn(str(visited), self.history())
         os.write(master, b"n\n")
         output = until(b"Run: just build")
         self.assertNotIn(b'["build"]', output)

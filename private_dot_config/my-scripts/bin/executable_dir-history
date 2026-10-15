@@ -1,0 +1,329 @@
+#!/usr/bin/env python3
+"""Shared directory history for Bash, Zsh, and Nushell."""
+
+import argparse
+from contextlib import contextmanager
+import errno
+import json
+import os
+from pathlib import Path
+import shutil
+import sqlite3
+import stat
+import subprocess
+import sys
+import time
+
+
+LIMIT = 150
+SCHEMA_VERSION = 1
+
+
+def state_directory():
+    configured = os.environ.get("XDG_STATE_HOME", "")
+    base = Path(configured) if os.path.isabs(configured) else Path.home() / ".local/state"
+    return base / "dir-history"
+
+
+def absolute_path(value):
+    if not os.path.isabs(value) or "\0" in value:
+        raise ValueError("directory paths must be absolute and contain no NUL bytes")
+    return value
+
+
+class History:
+    def __init__(self):
+        directory = state_directory()
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        filename = directory / "history.sqlite3"
+        try:
+            descriptor = os.open(filename, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            os.close(descriptor)
+        self.db = sqlite3.connect(filename, timeout=0.5, isolation_level=None)
+        try:
+            deadline = time.monotonic() + 0.5
+            while True:
+                try:
+                    self.configure()
+                    break
+                except sqlite3.OperationalError as error:
+                    # journal_mode can return BUSY immediately during concurrent startup.
+                    busy = (getattr(error, "sqlite_errorcode", 0) & 0xff) == sqlite3.SQLITE_BUSY
+                    if not busy or time.monotonic() >= deadline:
+                        raise
+                    time.sleep(0.01)
+        except BaseException:
+            self.close()
+            raise
+
+    def close(self):
+        self.db.close()
+
+    def configure(self):
+        version = self.db.execute("PRAGMA user_version").fetchone()[0]
+        if version not in (0, SCHEMA_VERSION):
+            raise ValueError(f"unsupported directory history schema: {version}")
+        if version == 0 and self.db.execute(
+            "SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+        ).fetchone():
+            version = self.db.execute("PRAGMA user_version").fetchone()[0]
+            if version != SCHEMA_VERSION:
+                raise ValueError("unrecognized directory history database; left unchanged")
+        if self.db.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
+            mode = self.db.execute("PRAGMA journal_mode=WAL").fetchone()[0]
+            if mode != "wal":
+                raise ValueError("could not enable SQLite WAL mode")
+        if version == 0:
+            self.initialize()
+        # An incompatible or damaged database must fail instead of being reset.
+        self.db.execute("SELECT path, visit_order FROM directories LIMIT 0")
+
+    @contextmanager
+    def transaction(self):
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            yield
+            self.db.commit()
+        except BaseException:
+            self.db.rollback()
+            raise
+
+    def initialize(self):
+        with self.transaction():
+            # Another process may have initialized it while this one waited.
+            version = self.db.execute("PRAGMA user_version").fetchone()[0]
+            if version == SCHEMA_VERSION:
+                return
+            if version != 0 or self.db.execute(
+                "SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+            ).fetchone():
+                raise ValueError("unrecognized directory history database; left unchanged")
+            paths = self.legacy_paths()
+            self.db.execute("CREATE TABLE directories ("
+                            "path TEXT PRIMARY KEY, visit_order INTEGER NOT NULL UNIQUE)")
+            self.db.execute("CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            # Legacy JSON is newest first; integers retain that order without inventing dates.
+            self.db.executemany("INSERT INTO directories VALUES (?, ?)",
+                                [(path, -index) for index, path in enumerate(paths[:LIMIT])])
+            self.db.execute("INSERT INTO metadata VALUES ('legacy_import_count', ?)",
+                            (str(min(len(paths), LIMIT)),))
+            self.db.execute("INSERT INTO metadata VALUES ('last_visit_order', '0')")
+            self.db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+
+    @staticmethod
+    def legacy_paths():
+        legacy = Path.home() / ".local/share/nu/dirlog.json"
+        try:
+            raw = legacy.read_text()
+        except FileNotFoundError:
+            return []
+        try:
+            values = json.loads(raw)
+        except (ValueError, UnicodeError) as error:
+            raise ValueError(f"cannot import {legacy}: {error}; original left unchanged") from error
+        if not isinstance(values, list):
+            raise ValueError(f"cannot import {legacy}: expected a JSON array")
+        return list(dict.fromkeys(value for value in values if isinstance(value, str)
+                                  and os.path.isabs(value) and "\0" not in value))
+
+    def rows(self):
+        return self.db.execute(
+            "SELECT path, visit_order FROM directories ORDER BY visit_order DESC"
+        ).fetchall()
+
+    def record(self, path):
+        absolute_path(path)
+        if not os.path.isdir(path):
+            raise ValueError(f"not a directory: {display_text(path)}")
+        with self.transaction():
+            # Persist the counter even when every directory is forgotten, so a stale
+            # picker/prune snapshot cannot match a later visit by accident.
+            self.db.execute("UPDATE metadata SET value=CAST(value AS INTEGER)+1 "
+                            "WHERE key='last_visit_order'")
+            order = self.db.execute("SELECT value FROM metadata WHERE key='last_visit_order'").fetchone()[0]
+            self.db.execute(
+                "INSERT INTO directories(path, visit_order) "
+                "VALUES (?, ?) ON CONFLICT(path) DO UPDATE SET visit_order=excluded.visit_order", (path, int(order))
+            )
+            self.db.execute("DELETE FROM directories WHERE path IN "
+                            "(SELECT path FROM directories ORDER BY visit_order DESC LIMIT -1 OFFSET ?)",
+                            (LIMIT,))
+
+    def forget(self, paths):
+        if not paths:
+            return 0
+        with self.transaction():
+            before = self.db.total_changes
+            self.db.executemany("DELETE FROM directories WHERE path=?", [(path,) for path in paths])
+            return self.db.total_changes - before
+
+    def forget_rows(self, rows):
+        # A visit recorded after the snapshot must survive pruning/trash cleanup.
+        if not rows:
+            return 0
+        with self.transaction():
+            before = self.db.total_changes
+            self.db.executemany("DELETE FROM directories WHERE path=? AND visit_order=?", rows)
+            return self.db.total_changes - before
+
+
+def display_text(value):
+    """Escape terminal controls and separators; never decode display text into a path."""
+    escapes = {"\\": "\\\\", "\t": "\\t", "\n": "\\n", "\r": "\\r"}
+    return "".join(escapes.get(char, char if char.isprintable() else f"\\u{ord(char):04x}")
+                   for char in value)
+
+
+def pick_rows(rows, multi=False, header="Directory history (Enter=cd, Ctrl-C=cancel)"):
+    if not rows:
+        print("No directory history found.", file=sys.stderr)
+        return []
+    fzf = shutil.which("fzf")
+    if not fzf:
+        raise FileNotFoundError("fzf is required for directory history selection")
+    result = subprocess.run(
+        [fzf, "--read0", "--print0", "--no-print-query", "--no-expect", "--no-tac",
+         "--no-sort", "--multi" if multi else "--no-multi", "--height=60%", "--reverse",
+         "--delimiter=\t", "--with-nth=2..", "--nth=1..", "--accept-nth=1", "--header=" + header],
+        input=b"".join(os.fsencode(f"{index}\t{display_text(path)}") + b"\0"
+                       for index, (path, _) in enumerate(rows)), stdout=subprocess.PIPE,
+    )
+    if result.returncode in (1, 130, -2):
+        return []
+    if result.returncode:
+        raise RuntimeError(f"fzf failed with status {result.returncode}")
+    indices = result.stdout.removesuffix(b"\0").split(b"\0")
+    choices = {str(index).encode(): row for index, row in enumerate(rows)}
+    if not indices or any(index not in choices for index in indices):
+        raise ValueError("fzf returned an invalid history selection")
+    return [choices[index] for index in dict.fromkeys(indices)]
+
+
+def missing_directory(path):
+    try:
+        return not stat.S_ISDIR(os.stat(path).st_mode)
+    except OSError as error:
+        if error.errno in (errno.ENOENT, errno.ENOTDIR):
+            return True
+        return False
+
+
+def protected_path(path):
+    full = os.path.realpath(path)
+    cwd = os.path.realpath(os.getcwd())
+    return full in (os.path.sep, os.path.realpath(Path.home())) or os.path.commonpath([full, cwd]) == full
+
+
+def trash_rows(history, rows):
+    if not rows:
+        return
+    print("Selected for trash:", file=sys.stderr)
+    for path, _ in rows:
+        print("  " + display_text(path), file=sys.stderr)
+    print(f"Trash {len(rows)} selected path(s)? [y/N] ", end="", file=sys.stderr, flush=True)
+    if sys.stdin.readline().strip().lower() != "y":
+        print("Delete cancelled.", file=sys.stderr)
+        return
+    gio = shutil.which("gio")
+    trash_put = shutil.which("trash-put")
+    failures = []
+    for row in rows:
+        path, _ = row
+        if protected_path(path):
+            print("Skipping protected/current path: " + display_text(path), file=sys.stderr)
+            continue
+        if not os.path.lexists(path):
+            history.forget_rows([row])
+            continue
+        if gio:
+            command = [gio, "trash", "--", path]
+        elif trash_put:
+            command = [trash_put, "--", path]
+        else:
+            raise FileNotFoundError("gio or trash-put is required to move directories to trash")
+        result = subprocess.run(command, stdout=sys.stderr)
+        if result.returncode == 0:
+            history.forget_rows([row])
+        else:
+            failures.append(path)
+    if failures:
+        raise RuntimeError("could not trash: " + ", ".join(display_text(path) for path in failures))
+
+
+def emit(paths, args):
+    if getattr(args, "output", None):
+        # Compatibility with old Bash/Zsh adapters that expect a raw temporary file.
+        Path(args.output).write_bytes(os.fsencode(paths[0]) if paths else b"")
+    elif args.json:
+        print(json.dumps((paths[0] if paths else None) if args.command == "pick" else paths))
+    else:
+        separator = b"\0" if args.null else b"\n"
+        sys.stdout.buffer.write(b"".join(os.fsencode(path) + separator for path in paths))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    record = commands.add_parser("record", help="record one directory visit")
+    record.add_argument("path", type=absolute_path)
+    listing = commands.add_parser("list", help="list newest directories first")
+    picking = commands.add_parser("pick", help="pick a directory or maintain selected entries")
+    actions = picking.add_mutually_exclusive_group()
+    actions.add_argument("--forget", "-f", action="store_true")
+    actions.add_argument("--delete", "-d", action="store_true")
+    actions.add_argument("--prune", "-p", action="store_true")
+    picking.add_argument("--output", help=argparse.SUPPRESS)
+    for command in (listing, picking):
+        output = command.add_mutually_exclusive_group()
+        output.add_argument("--json", action="store_true")
+        output.add_argument("--null", action="store_true")
+    forget = commands.add_parser("forget", help="remove named directories from history only")
+    forget.add_argument("paths", nargs="+", type=absolute_path)
+    commands.add_parser("prune", help="remove missing directory entries")
+    commands.add_parser("migrate", help="initialize and import legacy JSON once, preserving the original")
+    args = parser.parse_args()
+    history = History()
+    try:
+        if args.command == "record":
+            history.record(args.path)
+        elif args.command == "migrate":
+            count = history.db.execute("SELECT value FROM metadata WHERE key='legacy_import_count'").fetchone()[0]
+            print(f"Legacy import completed once ({count} entries); JSON left unchanged.")
+        elif args.command == "forget":
+            print(f"Forgot {history.forget(args.paths)} path(s).", file=sys.stderr)
+        elif args.command == "prune" or (args.command == "pick" and args.prune):
+            stale = [row for row in history.rows() if missing_directory(row[0])]
+            print(f"Pruned {history.forget_rows(stale)} stale path(s).", file=sys.stderr)
+        elif args.command == "list":
+            emit([path for path, _ in history.rows()], args)
+        else:
+            rows = history.rows()
+            if args.forget:
+                selected = pick_rows(rows, multi=True, header="Directory history (TAB=multi, Enter=forget selected)")
+                print(f"Forgot {history.forget([path for path, _ in selected])} path(s).", file=sys.stderr)
+            elif args.delete:
+                trash_rows(history, pick_rows(rows, multi=True,
+                           header="Directory history (TAB=multi, Enter=trash selected dirs)"))
+            else:
+                selected = pick_rows(rows)
+                if selected and missing_directory(selected[0][0]):
+                    history.forget_rows(selected)
+                    print("Removed missing path from history: " + display_text(selected[0][0]), file=sys.stderr)
+                    selected = []
+                emit([path for path, _ in selected], args)
+    finally:
+        history.close()
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except (OSError, sqlite3.Error, ValueError, RuntimeError) as error:
+        print(f"dir-history: {error}", file=sys.stderr)
+        sys.exit(2)

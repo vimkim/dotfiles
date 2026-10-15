@@ -35,7 +35,11 @@ class DirectoryPickerTests(unittest.TestCase):
         self.command = self.bin / "dir-picker"
         shutil.copyfile(SOURCE, self.command)
         self.command.chmod(0o755)
-        self.env = {**os.environ, "PATH": f"{self.bin}:{os.environ['PATH']}"}
+        history = self.bin / "dir-history"
+        shutil.copyfile(REPO / "private_dot_config/my-scripts/bin/executable_dir-history", history)
+        history.chmod(0o755)
+        self.env = {**os.environ, "PATH": f"{self.bin}:{os.environ['PATH']}",
+                    "XDG_STATE_HOME": str(self.root / "state")}
         # Make noninteractive fzf tests independent of the user's UI options.
         self.env.pop("FZF_DEFAULT_OPTS_FILE", None)
         self.env["FZF_DEFAULT_OPTS"] = ""

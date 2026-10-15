@@ -1,6 +1,6 @@
 # Shared interactive Bash/Zsh helpers, matching the everyday Nushell shortcuts.
 # Clear old aliases before defining functions (also permits re-sourcing).
-unalias c l ll cl cv mc gr fp cf vc y ch n nr na nc 2>/dev/null || :
+unalias c l ll cl cv mc gr fp cf vc y ch chf chd chp vh n nr na nc 2>/dev/null || :
 
 l() {
     [ "$#" -gt 0 ] || set -- .
@@ -76,25 +76,39 @@ alias back='cl -'
 alias sl='l'
 alias cz='zi'
 
-# Share Nushell's history store and its picker/maintenance commands.
+# Storage and selection belong to the shared dir-history command.
 ch() {
-    local temporary selected result
-    temporary=$(command mktemp "${TMPDIR:-/tmp}/directory-history.XXXXXX") || return
-    command directory-history.nu --output "$temporary" "$@"
-    result=$?
-    selected=$(command cat "$temporary" && printf '\001')
-    selected=${selected%$'\001'}
-    command rm -f -- "$temporary"
-    [ "$result" -eq 0 ] || return "$result"
-    if [ -n "$selected" ]; then
-        cl -- "$selected"
+    local selected result option
+    for option in "$@"; do
+        case "$option" in
+            -f|--forget|-d|--delete|-p|--prune) ;;
+            -h|--help) command dir-history pick --help; return ;;
+            *) printf 'Usage: ch [--forget|--delete|--prune]\n' >&2; return 2 ;;
+        esac
+    done
+    if selected=$(command dir-history pick "$@" && printf '\001'); then
+        selected=${selected%$'\001'}
+        if [ -n "$selected" ]; then
+            selected=${selected%$'\n'}
+            cl -- "$selected"
+        fi
+    else
+        result=$?
+        case "$result" in
+            130) return 0 ;;
+            *) return "$result" ;;
+        esac
     fi
 }
+alias chf='ch --forget'
+alias chd='ch --delete'
+alias chp='ch --prune'
+alias vh='dir-history list --json'
 
 _productivity_record_directory() {
     local previous_status=$?
     [ "$PWD" != "${_productivity_last_directory:-}" ] || return "$previous_status"
-    if command directory-history.nu --record "$PWD"; then
+    if command dir-history record -- "$PWD"; then
         _productivity_last_directory=$PWD
     fi
     return "$previous_status"
