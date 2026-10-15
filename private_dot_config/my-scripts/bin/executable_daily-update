@@ -35,7 +35,7 @@ if [ "${DAILY_UPDATE_COLLECTION_ORDER:-}" = cubrid-first ]; then
 fi
 # Personal tool checkouts refresh the same way after the collections; their
 # `just sync` reinstalls the tool's commands. They hold no skills.
-PERSONAL_TOOLS=(my-git-utils)
+PERSONAL_TOOLS=(my-git-utils herdr-next-to-current)
 
 if [ -t 1 ]; then
     BOLD=$'\033[1m'
@@ -408,6 +408,23 @@ run_collection() {
         SKIPPED+=("$label")
         return
     fi
+    if [ "$1" = herdr-next-to-current ]; then
+        local origin
+        origin="$(git -C "$repo" config --get remote.origin.url)" || origin=""
+        if [ ! -d "$repo/.git" ] || [ "$branch" != main ] || [ "$upstream" != origin/main ]; then
+            printf '   %s: skipped (requires primary main tracking origin/main)\n' "$label"
+            SKIPPED+=("$label")
+            return
+        fi
+        case "$origin" in
+        https://github.com/vimkim/herdr-next-to-current.git|git@github.com:vimkim/herdr-next-to-current.git) ;;
+        *)
+            printf '   %s: skipped (unexpected origin)\n' "$label"
+            SKIPPED+=("$label")
+            return
+            ;;
+        esac
+    fi
     remote="$(git -C "$repo" config --get "branch.$branch.remote")"
     if [ -z "$remote" ] || [ "$remote" = . ]; then
         printf '   %s: skipped (no published upstream)\n' "$label"
@@ -585,7 +602,8 @@ Each collection proceeds independently. Exit 0 means complete, 2 means skipped
 or partial work, and 1 means a failure. Runs still stamp the day in all cases.
 just sync alone reconciles local contents without fetching source changes.
 DAILY_UPDATE_COLLECTION_ORDER=cubrid-first reverses the default collection order.
-The personal tool checkout ~/gh/my-git-utils refreshes the same way afterwards.
+The personal tools ~/gh/my-git-utils and ~/gh/herdr-next-to-current refresh afterwards.
+Herdr installation requires a clean primary main checkout tracking origin/main.
 Third-party updates use the pinned CLI with an explicit eligible-name filter.
 --prune moves what it removes into a dated trash directory rather than deleting it.
 EOF

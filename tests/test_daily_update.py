@@ -52,10 +52,10 @@ exec "$REAL_GIT" "$@"
         self.repos = {}
         self.tools = {}
         self.seeds = {}
-        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils'):
+        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'herdr-next-to-current'):
             remote = self.root / f'{name}.git'
             seed = self.root / f'{name}-seed'
-            self.git(self.root, 'init', '--bare', str(remote))
+            self.git(self.root, 'init', '--bare', '--initial-branch=main', str(remote))
             self.git(self.root, 'clone', str(remote), str(seed))
             (seed / 'revision').write_text('before')
             (seed / 'justfile').write_text('sync:\n    @printf "%s:%s\\n" "{{justfile_directory()}}" "$(cat revision)" >> "$TEST_LOG"\n    @exit "${SYNC_RESULT:-0}"\n')
@@ -64,7 +64,11 @@ exec "$REAL_GIT" "$@"
             self.git(seed, 'push', '-u', 'origin', 'HEAD')
             repo = self.home / 'gh' / name
             self.git(self.root, 'clone', str(remote), str(repo))
-            (self.tools if name == 'my-git-utils' else self.repos)[name] = repo
+            if name == 'herdr-next-to-current':
+                official = 'https://github.com/vimkim/herdr-next-to-current.git'
+                self.git(repo, 'config', f'url.{remote}.insteadOf', official)
+                self.git(repo, 'config', 'remote.origin.url', official)
+            (self.tools if name in ('my-git-utils', 'herdr-next-to-current') else self.repos)[name] = repo
             self.seeds[name] = seed
 
     def executable(self, name, contents):
@@ -129,6 +133,50 @@ exec "$REAL_GIT" "$@"
         tool = rows.index(f"{self.tools['my-git-utils']}:after")
         self.assertGreater(tool, max(rows.index(f'{repo}:before') for repo in self.repos.values()))
         self.assertIn('tool:my-git-utils: completed', result.stdout)
+
+    def test_herdr_clean_main_refreshes_and_installs(self):
+        self.advance('herdr-next-to-current')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"{self.tools['herdr-next-to-current']}:after", self.logged())
+
+    def test_herdr_topic_and_unexpected_origin_are_preserved(self):
+        repo = self.tools['herdr-next-to-current']
+        self.git(repo, 'switch', '-c', 'topic')
+        self.git(repo, 'branch', '--set-upstream-to=origin/main')
+        before = self.git(repo, 'rev-parse', 'HEAD')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('requires primary main', result.stdout)
+        self.assertNotIn(f'{repo}:', self.logged())
+        self.assertEqual(before, self.git(repo, 'rev-parse', 'HEAD'))
+        self.git(repo, 'switch', 'main')
+        self.git(repo, 'config', 'remote.origin.url', 'https://example.invalid/occupied.git')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('unexpected origin', result.stdout)
+        self.assertNotIn(f'{repo}:', self.logged())
+
+    def test_herdr_linked_worktree_is_preserved(self):
+        repo = self.tools['herdr-next-to-current']
+        primary = self.root / 'primary-herdr'
+        repo.rename(primary)
+        self.git(primary, 'switch', '--detach')
+        self.git(primary, 'worktree', 'add', str(repo), 'main')
+        self.git(repo, 'branch', '--set-upstream-to=origin/main')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('requires primary main', result.stdout)
+        self.assertNotIn(f'{repo}:', self.logged())
+
+    def test_herdr_dirty_checkout_is_preserved(self):
+        repo = self.tools['herdr-next-to-current']
+        (repo / 'scratch').write_text('valuable')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('tool:herdr-next-to-current: skipped (dirty checkout)', result.stdout)
+        self.assertNotIn(f'{repo}:', self.logged())
+        self.assertEqual((repo / 'scratch').read_text(), 'valuable')
 
     def test_dirty_tool_checkout_is_skipped(self):
         (self.tools['my-git-utils'] / 'scratch').write_text('wip')
