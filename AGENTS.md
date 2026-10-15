@@ -1,25 +1,23 @@
 # Chezmoi Dotfiles
 
-Edit chezmoi sources in the checkout selected by `dot_codex/AGENTS.md`.
-Preserve unrelated changes in the source checkout and deployed files.
+Follow `dot_codex/AGENTS.md` for checkout selection and the Git workflow.
+Preserve unrelated source and deployed changes; edit sources only.
 
 ## Workflow
 
-1. Map each affected source to its absolute deployed file path; inspect both and edit only the source.
-2. Review each target with `chezmoi --source <absolute-task-checkout> diff -- <absolute-target>` and run focused checks.
-3. Follow the Git workflow in `dot_codex/AGENTS.md`: commit task changes, then request approval to rebase and fast-forward merge locally.
-4. **After every approved merge, apply every affected dotfile from the merged source checkout:** run `chezmoi --source <absolute-merged-checkout> apply -- <absolute-target>` separately for each file. Merge approval authorizes this deployment; no separate deployment request is needed.
-5. Verify each applied target with `chezmoi --source <absolute-merged-checkout> diff -- <absolute-target>`. Resolve or report remaining differences and any target that could not be applied.
-6. Complete Git cleanup as specified in `dot_codex/AGENTS.md`; report the checkout, branch, commit, checks, applied targets, and any remaining dirt or blockers. Completion requires all affected targets applied and verified, plus Git cleanup.
+1. Map affected sources to absolute deployed targets and inspect both. Review each target with `chezmoi --source <absolute-task-checkout> diff -- <absolute-target>` and run focused checks.
+2. Commit task changes, obtain local merge approval, and merge using the global Git workflow.
+3. After every approved merge, run `chezmoi-apply-unmodified --source <absolute-merged-checkout>` once for all managed files and symlinks. Merge approval authorizes this deployment. See [helper usage and fallback](docs/chezmoi-apply-unmodified.md).
+4. Verify affected targets with `chezmoi --source <absolute-merged-checkout> diff -- <absolute-target>`; an empty diff confirms deployment. Preserve and report helper skips and their remaining differences. Report command failures as blockers.
+5. Complete Git cleanup. Report the checkout, branch, commit, checks, applied and skipped targets, and remaining dirt or blockers. Completion requires every affected target verified or explicitly skipped and reported, plus cleanup.
 
-Use one absolute file target per command. Never run a broad `chezmoi apply`
-or use directory/glob targets. Repository synchronization requires an explicit
-request; it does not authorize a broad apply. Push requires a separate request.
+Use the helper for deployments. Repository synchronization and pushes require
+explicit requests.
 
 ## Guidance sources
 
 - Keep root `CLAUDE.md` identical to this file; both are repository-only guidance.
-- Global guidance lives in `dot_codex/AGENTS.md`. Its targets are `$HOME/.codex/AGENTS.md` and `$HOME/.claude/CLAUDE.md`; verify and apply both separately. `dot_claude/CLAUDE.md.tmpl` includes the source, so edit only `dot_codex/AGENTS.md`.
+- Global guidance lives in `dot_codex/AGENTS.md`, deployed to `$HOME/.codex/AGENTS.md` and `$HOME/.claude/CLAUDE.md`. Edit only that source; `dot_claude/CLAUDE.md.tmpl` includes it.
 
 ## Context
 
