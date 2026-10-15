@@ -29,9 +29,7 @@ alias gdbinit="$CHEZ_EDITOR ~/.config/gdb/gdbinit"
 # alias rm='trash'
 
 alias ls='ls -aF'
-alias l='ls -AF'
 alias la='ls -lAF'
-alias ll='ls -lAF'
 
 # Function to check if a command exists
 function command_exists {
@@ -81,14 +79,10 @@ if (( $+commands[eza] )); then
         # fi
         eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid $@
     }
-    alias ll='my-list-long'
     alias ls='my-list-long'
-    alias l='my-list-long'
 elif (( $+commands[lsd] )); then
     alias ls='lsd -aF'
-    alias l='lsd -aF'
     alias la='lsd -laF'
-    alias ll='lsd -laF'
     alias llg='lsd -laF --git'
 fi
 
@@ -156,19 +150,12 @@ alias ppath='echo "$PATH" | tr ":" "\n" | nl'
 # alias cp='cp -i' # removed: hangs non-interactive shells (claude code)
 # alias mv='mv -i' # removed: hangs non-interactive shells (claude code)
 
-## utility aliases
-mc() {
-    mkdir $@
-    cd $@
-}
-
 ## editor aliases
 alias nv='nvim'
 alias v='nvim'
 alias vim='nvim'
 alias ovim='command vim'
 alias ov='ovim'
-alias vc='$MYBIN/vc.sh'
 alias vv='vc'
 alias vx='FILE=$(fd . -H -I --type f --type l | fzf --height 40% --reverse) && [[ -n $FILE ]] && $EDITOR "$FILE"'
 
@@ -214,12 +201,6 @@ function vxg() {
 }
 alias vxg='vxg'
 
-## Navigation aliases
-function cl() {
-    builtin cd "$@" && my-list-long
-}
-
-
 # Function to compare two directories using diff and delta
 diff_dir() {
     if [[ -d "$1" && -d "$2" ]]; then
@@ -259,26 +240,9 @@ function cdfile() {
 }
 
 alias cd='cl'
-alias cz='DIR=$(zoxide query -l | fzf --exact --height 60% --reverse) && [[ -n $DIR ]] && cd "$DIR"'
-# alias cz='zi'
 alias cr='DIR=$(dirs -v | sed "1d" | head -n 20 | awk '\''{print $2}'\'' | fzf --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias ch='DIR=$(cat $HOME/.zdirs | fzf +s --height 60% --reverse) && [[ -n $DIR ]] && eval cd "$DIR"'
 alias co='popd >/dev/null'
-
-# Shared directory ordering and selection live in dir-picker.
-cv() {
-    # If an argument is provided, act like 'cd' and go to that directory
-    if [[ -n $1 ]]; then
-        cl "$1"
-        return
-    fi
-
-    # NUL framing preserves spaces, tabs, and even trailing newlines in paths.
-    local dir
-    IFS= read -r -d '' dir < <(command dir-picker --null) || return
-    cl "$dir"
-}
-alias c='cv'
 
 alias H='cd ..'
 
@@ -314,7 +278,6 @@ alias aip='ai "read prompt.md and execute"'
 alias cx='codex'
 alias cxp='codex "read prompt.md and execute"'
 
-alias cf='FD_OPS=(-H -I --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
 alias cff='FD_OPS=(-H -I --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
 alias cfh='cd_fzf "$HOME" f'   # Navigate to file-containing directories under $HOME
 alias cfg='cd_fzf "$(relative_gitdir)" f'  # Navigate to file-containing directories under Git root
@@ -325,17 +288,12 @@ alias cb='cd "$(cat ~/.directory_bookmarks | fzf --prompt="Select a directory: "
 
 alias ff='vxg'
 
-alias gcd='cd $(relative_gitdir 2>/dev/null || echo ".")'
 alias cdg='gcd'
-alias pcd='gcd'
 alias cdw='gcd'
 
 alias cg='cargo'
 
-alias back='cd $OLDPWD'                                    # Return to the previous directory
-
 ## Networking and System Information
-alias ports='netstat -tulanp'
 alias ipinfo='curl ipinfo.io' # Quick IP address and network info
 alias myip='curl http://ipecho.net/plain' # External IP address
 
@@ -822,16 +780,7 @@ clip() {
 
 
 # yazi
-function yy() {
-    local tmp="$(mktemp "${TMPDIR:-/tmp}/yazi-cwd.XXXXXX")"
-    yazi "$@" --cwd-file="$tmp"
-    if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
-        cd -- "$cwd"
-    fi
-    /bin/rm -f -- "$tmp"
-}
-
-alias y='yy'
+function yy() { y "$@"; }
 function yazi-plugin-install() {
     ya pack -a Rolv-Apneseth/starship
     ya pack -a yazi-rs/plugins:git
@@ -1010,8 +959,6 @@ alias d='docker'
 # alias e <- nvim
 alias f='fd'
 alias g='git'
-alias h='cd ..'
-alias i='cv'
 alias jo='journalctl'
 alias k='kubectl'
 alias kg='k gets'
@@ -1036,7 +983,6 @@ alias q='exit'
 # alias s='sudo systemctl'
 alias s='send.sh'
 alias send='send.sh'
-alias sl='ls'
 alias st='systemctl-tui'
 alias sudonvim='sudo -E nvim'
 alias sy='systeroid'

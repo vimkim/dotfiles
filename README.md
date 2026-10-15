@@ -145,6 +145,38 @@ The terminal configuration uses Maple Mono. On Fedora, follow
 
 </details>
 
+### Shared Bash and Zsh shortcuts
+
+Interactive Bash and Zsh load `~/.config/my-scripts/shell/productivity.sh`.
+These everyday shortcuts also exist in Nushell:
+
+| Command | Behavior |
+| --- | --- |
+| `c`, `i` | Pick a directory with `dir-picker`, then list its contents. |
+| `c DIR` | Change directly to DIR, then list its contents. |
+| `c [DIR] --query TEXT` | Browse DIR (current directory by default) with an initial name query. |
+| `l`, `sl` | Detailed eza grid with hidden entries, icons, Git state, and modification-time sorting. |
+| `ll` | Detailed eza rows with owners and permissions. |
+| `h`, `up`, `back` | Go to the parent or previous directory and list it. |
+| `mc DIR` | Create a directory, including parents, and enter it. |
+| `gr`, `gcd`, `pr`, `pcd` | Go to the Git repository root and list it. |
+| `cz` | Open zoxide's interactive directory picker (`zi`). |
+| `fp [QUERY]` | Print a selected file's path using `file-picker.sh`. |
+| `cf [QUERY]` | Enter the directory containing a selected file. |
+| `vc [QUERY]` | Edit a selected file from the current directory. |
+| `y` | Run Yazi and enter its exit directory. |
+| `fzfm`, `fda`, `rgall` | Fuzzy finder, fd including hidden/ignored files, and ripgrep including hidden/ignored files. |
+| `conf`, `confd`, `mycub`, `nvimh` | Jump to configuration, CUBRID, or Neovim directories. |
+| `lz`, `lj`, `lzd`, `v`, `py`, `sctl` | Lazygit, lazyjj, lazydocker, Neovim, Python 3, and systemctl. |
+| `ports`, `ports-tcp`, `ports-all` | Existing port listing helper, its TCP view, or somo. |
+
+`cd` retains its existing change-and-list behavior; bare `cd` goes home.
+`l` and `ll` fall back to system `ls` when eza is unavailable. Pickers require
+the existing managed `dir-picker` / `file-picker.sh` commands and their
+dependencies (Python 3, fzf, and, for files, fd/eza). Cancelling a picker leaves
+the current directory unchanged. Other shortcuts require their named tools;
+they do not install them during shell startup.
+
 ### Listing helpers
 
 `ls-by-size`, `ls-by-name`, and `ls-by-time` provide detailed eza listings sorted

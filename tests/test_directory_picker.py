@@ -279,7 +279,7 @@ class DirectoryPickerTests(unittest.TestCase):
             return self.run_nushell("c $env.DIRECT_PATH" if direct else "c")
         code = (
             '_cached_source() { :; }; '
-            'source "$ALIASES_SOURCE"; my-list-long() { :; }; '
+            'source "$ALIASES_SOURCE"; source "$PRODUCTIVITY_SOURCE"; l() { :; }; '
             f"eval 'c{' \"$DIRECT_PATH\"' if direct else ''}'; "
             'python3 -c \'import json, os; print(json.dumps(os.getcwd()))\''
         )
@@ -323,6 +323,7 @@ class DirectoryPickerTests(unittest.TestCase):
         target = self.data / " 한글 space\ttab\nnewline\n"
         target.mkdir()
         self.env["ALIASES_SOURCE"] = str(REPO / "private_dot_config/my-scripts/zsh/aliases.zsh")
+        self.env["PRODUCTIVITY_SOURCE"] = str(REPO / "private_dot_config/my-scripts/shell/productivity.sh")
         self.env["DIRECT_PATH"] = str(target)
         for shell in ["nu", "zsh"]:
             if not shutil.which(shell):

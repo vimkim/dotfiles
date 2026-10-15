@@ -97,15 +97,11 @@ alias vimprofile="$EDITOR ~/.vimrc"
 
 if command -v eza >/dev/null 2>&1; then
     alias ls='eza -aF'
-    alias l='eza -aF'
     alias la='eza -laF'
-    alias ll='eza -laF'
     alias lsd='eza -laF --only-dirs'
 else
     alias ls='ls -aF'
-    alias l='ls -AF'
     alias la='ls -lAF'
-    alias ll='ls -lAF'
     alias lsd='ls -lAF --color=auto --group-directories-first | grep --color=never "^d"'
 fi
 
@@ -119,49 +115,13 @@ fi
 alias cp='cp -i' # confirm before overwriting something
 alias mv='mv -i' # confirm before overwriting something
 
-## utility aliases
-mc() {
-    [ "$#" -eq 1 ] || return 2
-    mkdir -p -- "$1" && cd -- "$1"
-}
-
 ## Navigation aliases
-function cl() {
-    builtin cd "$@" && ls
-}
 alias cd='cl'
-alias c='cd'
-alias up='cd ..'                                            # Move up one directory
-alias back='cd -'                                           # Return to the previous directory
-alias pr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root directory
-alias pcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
-alias gr='cd $(git rev-parse --show-toplevel || echo ".")'  # go to git root directory
-alias gcd='cd $(git rev-parse --show-toplevel || echo ".")' # go to git root directory
 
 if command -v fd >/dev/null 2>&1; then
     _fd_cmd=fd
 elif command -v fdfind >/dev/null 2>&1; then
     _fd_cmd=fdfind
-fi
-
-if command -v fzf >/dev/null 2>&1; then
-    cz() {
-        command -v zoxide >/dev/null 2>&1 || return 127
-        local dir
-        dir=$(zoxide query -l | fzf) && [[ -n $dir ]] && cd "$dir"
-    }
-
-    if [[ -n ${_fd_cmd:-} ]]; then
-        # cx() {
-        #     local dir
-        #     dir=$("$_fd_cmd" --type d | fzf) && [[ -n $dir ]] && cd "$dir"
-        # }
-
-        cf() {
-            local file
-            file=$("$_fd_cmd" . --type f | fzf --height 40% --reverse) && [[ -n $file ]] && cd "$(dirname -- "$file")"
-        }
-    fi
 fi
 
 alias ai='claude --dangerously-skip-permissions'
@@ -180,7 +140,6 @@ function gcx() {
 }
 
 ## Networking and System Information
-alias ports='netstat -tulanp'
 alias ipinfo='curl ipinfo.io'                  # Quick IP address and network info
 alias myip='curl http://ipecho.net/plain echo' # External IP address
 
@@ -331,7 +290,6 @@ export SCM_CHECK=true
 # export BASH_IT_RELOAD_LEGACY=1
 
 # user alias
-alias c='cd'
 alias lz='lazygit'
 alias v='nvim'
 if command -v nu >/dev/null 2>&1; then
@@ -354,3 +312,9 @@ if command -v atuin >/dev/null 2>&1; then
     eval "$(atuin init bash)"
 fi
 . "$HOME/.cargo/env"
+
+# Everyday helpers shared with Zsh, after shell-specific initialization.
+. "$HOME/.config/my-scripts/shell/productivity.sh"
+
+# Hermes Agent command
+case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac

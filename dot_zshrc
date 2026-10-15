@@ -448,6 +448,7 @@ fi
 
 # zsh personal aliases
 source "$MY_SCRIPTS/zsh/aliases.zsh"
+source "$MY_SCRIPTS/shell/productivity.sh"
 alias zalias="$CHEZ_EDITOR $MY_SCRIPTS/zsh/aliases.zsh"
 alias zali='zalias'
 
