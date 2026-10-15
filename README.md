@@ -229,9 +229,12 @@ selects a different checkout. See [usage and verification](docs/chezmoi-apply-un
 
 ### HTML review from a remote server
 
-`~/.config/my-scripts/bin/serve-html.py` serves an HTML directory until Ctrl+C,
-prefers memorable four-digit free ports, and prints Tailscale/VPN and LAN links
-for opening from your PC. See [usage and verification](docs/serve-html.md).
+Run `html-serve` from any directory to serve it until Ctrl+C. It shows an index
+page when present, otherwise a directory listing. Add `--file review.html` to
+link directly to an HTML file, or `--port 8080` to choose a port.
+The wrapper runs `~/.config/my-scripts/bin/serve-html.py`, which prefers memorable
+four-digit free ports and prints Tailscale/VPN and LAN links for opening from
+your PC. See [usage and verification](docs/serve-html.md).
 
 ### Daily AI-toolchain upkeep
 

@@ -22,6 +22,7 @@ from urllib.request import ProxyHandler, build_opener
 
 SCRIPT = (Path(__file__).resolve().parents[1] / "private_dot_config/my-scripts/bin"
           / "executable_serve-html.py")
+WRAPPER = SCRIPT.with_name("executable_html-serve")
 SPEC = importlib.util.spec_from_file_location("serve_html", SCRIPT)
 helper = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(helper)
@@ -148,14 +149,16 @@ class ServeHTML(unittest.TestCase):
             constructor.assert_called_once_with(("192.0.2.1", 7777), handler)
 
     @contextmanager
-    def server(self, directory, *args, env=None):
+    def server(self, directory, *args, env=None, command=None):
+        if command is None:
+            command = [sys.executable, str(SCRIPT), "--directory", str(directory)]
         with tempfile.TemporaryDirectory(prefix="serve-html-output-") as temp:
             output_path = Path(temp) / "stdout"
             error_path = Path(temp) / "stderr"
             with output_path.open("w") as stdout, error_path.open("w") as stderr:
                 process = subprocess.Popen(
-                    [sys.executable, str(SCRIPT), "--directory", str(directory), *args],
-                    env=env, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
+                    [*command, *args], cwd=directory, env=env,
+                    stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
                 )
                 try:
                     deadline = time.monotonic() + 5
@@ -221,6 +224,50 @@ class ServeHTML(unittest.TestCase):
                     socket.create_connection(("127.0.0.1", port), timeout=1)
                 self.assertFalse((Path(temp) / "SHOULD_NOT_EXIST").exists())
 
+    def test_wrapper_serves_current_directory_and_forwards_options(self):
+        with tempfile.TemporaryDirectory(prefix="html-serve-test-") as temp:
+            home = Path(temp) / "test home's config"
+            scripts = home / ".config/my-scripts/bin"
+            scripts.mkdir(parents=True)
+            (scripts / "serve-html.py").write_bytes(SCRIPT.read_bytes())
+            wrapper = scripts / "html-serve"
+            wrapper.write_bytes(WRAPPER.read_bytes())
+            wrapper.chmod(0o755)
+
+            directory = Path(temp) / "current directory"
+            directory.mkdir()
+            (directory / "notes.txt").write_text("notes")
+            other = Path(temp) / "another output directory"
+            other.mkdir()
+            html = other / "한글 review #1's ?.html"
+            html.write_text("forwarded options")
+
+            fake_ip = scripts / "ip"
+            fixture = json.dumps([interface("tailscale0", "100.68.111.110")])
+            fake_ip.write_text(f"#!{sys.executable}\nprint({fixture!r})\n")
+            fake_ip.chmod(0o755)
+            env = {**os.environ, "HOME": str(home),
+                   "PATH": str(scripts) + os.pathsep + os.environ.get("PATH", "")}
+
+            cases = [
+                ([], "/", b"notes.txt"),
+                (["--directory", str(other), "--file", html.name,
+                  "--bind", "127.0.0.1", "--port", "0"],
+                 "/" + quote(html.name, safe=""), b"forwarded options"),
+            ]
+            for args, expected_path, content in cases:
+                with self.subTest(args=args):
+                    with self.server(directory, *args, env=env,
+                                     command=[str(wrapper)]) as (process, urls, output):
+                        parsed = urlsplit(urls[0])
+                        self.assertEqual(parsed.path, expected_path)
+                        client = build_opener(ProxyHandler({}))
+                        url = f"http://127.0.0.1:{parsed.port}{parsed.path}"
+                        with client.open(url, timeout=2) as response:
+                            self.assertIn(content, response.read())
+                        process.send_signal(signal.SIGINT)
+                        self.assertEqual(process.wait(timeout=5), 0)
+
     def test_concurrent_servers_keep_distinct_free_ports(self):
         with tempfile.TemporaryDirectory(prefix="serve-html-test-") as temp:
             (Path(temp) / "index.html").write_text("index")
@@ -228,6 +275,7 @@ class ServeHTML(unittest.TestCase):
                 with self.server(temp, "--bind", "127.0.0.1") as (_, second, _):
                     self.assertNotEqual(urlsplit(first[0]).port, urlsplit(second[0]).port)
                     for url in (first[0], second[0]):
+                        self.assertEqual(urlsplit(url).path, "/")
                         with build_opener(ProxyHandler({})).open(url, timeout=2) as response:
                             self.assertEqual(response.read(), b"index")
 
@@ -254,6 +302,7 @@ class ServeHTML(unittest.TestCase):
                          ["--directory", temp, "--file", "../outside.html"],
                          ["--directory", temp, "--file", "/tmp/page.html"],
                          ["--directory", temp, "--file", "file.txt"],
+                         ["--directory", temp, "--file", ""],
                          ["--directory", temp, "--port", "-1"],
                          ["--directory", temp, "--port", "65536"],
                          ["--directory", temp, "--bind", "::1"]):

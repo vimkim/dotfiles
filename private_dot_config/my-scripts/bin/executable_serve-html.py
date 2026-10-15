@@ -83,6 +83,8 @@ def review_file(directory, filename):
     directory = Path(directory).expanduser().absolute()
     if not directory.is_dir():
         raise ValueError(f"serving directory does not exist: {directory}")
+    if filename is None:
+        return directory, ""
     relative = Path(filename)
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError("--file must be a relative path inside --directory")
@@ -193,7 +195,7 @@ def main():
     parser.add_argument("--bind", type=ipv4_address, default="0.0.0.0",
                         help="IPv4 bind address (default: 0.0.0.0)")
     parser.add_argument("--directory", required=True, help="directory to serve, including adjacent assets")
-    parser.add_argument("--file", default="index.html", help="HTML path relative to --directory (default: index.html)")
+    parser.add_argument("--file", help="HTML path relative to --directory (default: link to directory root)")
     parser.add_argument("--port", type=port_number, default=0,
                         help="use a fixed port; 0 prefers memorable four-digit ports (default: 0)")
     parser.add_argument("--interface", help="print links for only this active interface")
