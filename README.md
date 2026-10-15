@@ -166,6 +166,14 @@ contents and rewrites its `.gitignore`.
 It reports `Created: .handoff/` or `Already exists: .handoff/` after completing
 successfully.
 
+### Apply dotfiles while preserving local changes
+
+`chezmoi-apply-unmodified` (in `~/.config/my-scripts/bin`) applies managed files
+and symlinks while reporting locally changed targets as successful skips.
+Use `--source /absolute/source/checkout -- /absolute/target/file` to process one
+file from a particular checkout. See [usage, verification, and proposed agent
+guidance](docs/chezmoi-apply-unmodified.md).
+
 ### HTML review from a remote server
 
 `~/.config/my-scripts/bin/serve-html.py` serves an HTML directory until Ctrl+C,
