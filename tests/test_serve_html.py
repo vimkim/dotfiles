@@ -319,20 +319,26 @@ class ServeHTML(unittest.TestCase):
             with self.server(directory, "--file", html.name, env=env) as (process, urls, output):
                 parsed = [urlsplit(url) for url in urls]
                 port = parsed[0].port
-                self.assertEqual([item.hostname for item in parsed], ["100.68.111.110", "192.168.4.2"])
-                self.assertEqual([item.port for item in parsed], [port, port])
-                self.assertEqual(parsed[0].path, "/" + quote(html.name, safe=""))
+                self.assertEqual([item.hostname for item in parsed],
+                                 ["100.68.111.110", "192.168.4.2"] * 2)
+                self.assertEqual([item.port for item in parsed], [port] * 4)
+                self.assertEqual([item.path for item in parsed],
+                                 ["/", "/"] + ["/" + quote(html.name, safe="")] * 2)
+                self.assertIn("Root directory:", output)
+                self.assertIn("Selected path:", output)
                 self.assertEqual(
                     [line for line in output.splitlines() if line.startswith("- ")],
                     [f"- {url} — {label}"
-                     for url, label in zip(urls, ("Tailscale", "LAN"))],
+                     for url, label in zip(urls, ("Tailscale", "LAN") * 2)],
                 )
                 with socket.socket() as probe:
                     with self.assertRaises(OSError):
                         probe.bind(("0.0.0.0", port))
                 client = build_opener(ProxyHandler({}))
-                with client.open(f"http://127.0.0.1:{port}{parsed[0].path}", timeout=2) as response:
+                with client.open(f"http://127.0.0.1:{port}{parsed[-1].path}", timeout=2) as response:
                     self.assertEqual(response.read(), content)
+                with client.open(f"http://127.0.0.1:{port}/", timeout=2) as response:
+                    self.assertIn(b"Directory listing for", response.read())
                 with client.open(f"http://127.0.0.1:{port}/style.css", timeout=2) as response:
                     self.assertEqual(response.read(), b"body { color: navy; }")
                 with self.assertRaises(HTTPError) as error:
@@ -435,7 +441,9 @@ class ServeHTML(unittest.TestCase):
                 with self.subTest(args=args):
                     with self.server(directory, *args, env=env,
                                      command=[str(wrapper)]) as (process, urls, output):
-                        parsed = urlsplit(urls[0])
+                        self.assertEqual(urlsplit(urls[0]).path, "/")
+                        self.assertEqual(len(urls), 1 if expected_path == "/" else 2)
+                        parsed = urlsplit(urls[-1])
                         self.assertEqual(parsed.path, expected_path)
                         client = build_opener(ProxyHandler({}))
                         url = f"http://127.0.0.1:{parsed.port}{parsed.path}"
@@ -463,13 +471,14 @@ class ServeHTML(unittest.TestCase):
                     directory, "--bind", "127.0.0.1", *args,
                     command=[sys.executable, str(SCRIPT)],
                 ) as (_, urls, output):
-                    parsed = urlsplit(urls[0])
+                    self.assertEqual(urlsplit(urls[0]).path, "/")
+                    parsed = urlsplit(urls[-1])
                     self.assertEqual(parsed.path, expected_path)
-                    with client.open(urls[0], timeout=2) as response:
+                    with client.open(urls[-1], timeout=2) as response:
                         self.assertIn(content, response.read())
                     if expected_path == "/page.html":
                         self.assertIn(f"Serving {nested} on port", output)
-                        with client.open(urls[0].replace("page.html", "style.css"), timeout=2) as response:
+                        with client.open(urls[-1].replace("page.html", "style.css"), timeout=2) as response:
                             self.assertEqual(response.read(), b"adjacent asset")
 
     @unittest.skipUnless(shutil.which("git"), "Git is unavailable")
@@ -494,13 +503,14 @@ class ServeHTML(unittest.TestCase):
                     command=[sys.executable, str(SCRIPT)],
                 ) as (_, urls, output):
                     expected_path = "/" + quote(document.relative_to(directory).as_posix(), safe="/")
-                    self.assertEqual(urlsplit(urls[0]).path, expected_path)
+                    self.assertEqual(urlsplit(urls[0]).path, "/")
+                    self.assertEqual(urlsplit(urls[-1]).path, expected_path)
                     self.assertIn(f"Serving {directory} on port", output)
-                    with client.open(urls[0], timeout=2) as response:
+                    with client.open(urls[-1], timeout=2) as response:
                         self.assertIn(b"Markdown preview", response.read())
-                    with client.open(urls[0] + "?raw=1", timeout=2) as response:
+                    with client.open(urls[-1] + "?raw=1", timeout=2) as response:
                         self.assertEqual(response.read().decode(), markdown)
-                    origin = urls[0].removesuffix(expected_path)
+                    origin = urls[0].removesuffix("/")
                     with client.open(origin + "/assets/drawing.svg", timeout=2) as response:
                         self.assertEqual(response.read(), drawing)
                     with client.open(origin + "/", timeout=2) as response:
@@ -515,10 +525,49 @@ class ServeHTML(unittest.TestCase):
                     nested, *args, "--bind", "127.0.0.1",
                     command=[sys.executable, str(SCRIPT)],
                 ) as (_, urls, output):
-                    self.assertEqual(urlsplit(urls[0]).path, "/" + quote(document.name, safe=""))
+                    self.assertEqual(urlsplit(urls[0]).path, "/")
+                    self.assertEqual(urlsplit(urls[-1]).path, "/" + quote(document.name, safe=""))
                     self.assertIn(f"Serving {nested} on port", output)
-                    with client.open(urls[0] + "?raw=1", timeout=2) as response:
+                    with client.open(urls[-1] + "?raw=1", timeout=2) as response:
                         self.assertEqual(response.read().decode(), markdown)
+
+    @unittest.skipUnless(shutil.which("git"), "Git is unavailable")
+    def test_positional_directory_prints_root_and_encoded_listing_links(self):
+        with tempfile.TemporaryDirectory(prefix="serve-html-git-test-") as temp:
+            root = Path(temp) / "repository"
+            root.mkdir()
+            subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+            nested = root / "docs/한글 review #1's ?"
+            nested.mkdir(parents=True)
+            (nested / "index.html").write_text("explicit page")
+            (root / "README.md").write_text("# Root")
+            alias = Path(temp) / "directory alias"
+            alias.symlink_to(nested, target_is_directory=True)
+            client = build_opener(ProxyHandler({}))
+            for cwd, path in ((temp, str(nested)), (temp, os.path.relpath(nested, temp)),
+                              (temp, str(alias)), (nested, ".")):
+                with self.subTest(path=path), self.server(
+                    cwd, path, "--bind", "127.0.0.1",
+                    command=[sys.executable, str(SCRIPT)],
+                ) as (_, urls, output):
+                    self.assertEqual([urlsplit(url).path for url in urls],
+                                     ["/", "/" + quote(nested.relative_to(root).as_posix(), safe="/") + "/"])
+                    self.assertIn(f"Serving {root} on port", output)
+                    with client.open(urls[0], timeout=2) as response:
+                        self.assertIn(('README.md', 'README.md'), self.listing_links(response.read().decode()))
+                    with client.open(urls[-1], timeout=2) as response:
+                        self.assertEqual(response.url, urls[-1])
+                        self.assertIn(('index.html', 'index.html'), self.listing_links(response.read().decode()))
+
+            # Current-directory defaults and explicit roots need only one listing URL.
+            for args, serving_root in (([], nested), (["-d", str(nested)], nested), ([str(root)], root)):
+                with self.subTest(args=args), self.server(
+                    nested, *args, "--bind", "127.0.0.1",
+                    command=[sys.executable, str(SCRIPT)],
+                ) as (_, urls, output):
+                    self.assertEqual([urlsplit(url).path for url in urls], ["/"])
+                    self.assertIn(f"Serving {serving_root} on port", output)
+                    self.assertNotIn("Selected path:", output)
 
     @unittest.skipUnless(shutil.which("git"), "Git is unavailable")
     def test_nested_repositories_and_worktrees_use_their_own_roots(self):
@@ -547,6 +596,7 @@ class ServeHTML(unittest.TestCase):
                     document.parent.mkdir()
                     document.write_text("# Review")
                     self.assertEqual(helper.serving_target(document), (root, "docs/review.md"))
+                    self.assertEqual(helper.serving_target(document.parent), (root, "docs/"))
 
     @unittest.skipUnless(shutil.which("git"), "Git is unavailable")
     def test_git_file_paths_preserve_file_symlinks_and_resolve_directory_aliases(self):
@@ -567,7 +617,7 @@ class ServeHTML(unittest.TestCase):
             linked_document.symlink_to(outside)
             self.assertEqual(helper.serving_target(linked_document), (repository, "docs/linked.md"))
 
-    def test_git_discovery_failures_fall_back_to_the_file_parent(self):
+    def test_git_discovery_failures_fall_back_to_the_containing_directory(self):
         with tempfile.TemporaryDirectory(prefix="serve-html-git-test-") as temp:
             directory = Path(temp) / "nested"
             directory.mkdir()
@@ -579,6 +629,7 @@ class ServeHTML(unittest.TestCase):
                 with self.subTest(error=error), patch.object(helper.subprocess, "run", side_effect=error):
                     self.assertEqual(helper.serving_target(document),
                                      (directory, quote(document.name, safe="")))
+                    self.assertEqual(helper.serving_target(directory), (directory, ""))
 
     def test_markdown_urls_render_by_default_with_raw_and_head_support(self):
         with tempfile.TemporaryDirectory(prefix="serve-markdown-test-") as temp:
@@ -631,7 +682,8 @@ class ServeHTML(unittest.TestCase):
             name = "한글 review #1.md"
             (Path(temp) / name).write_text("# Direct Markdown")
             with self.server(temp, "--bind", "127.0.0.1", "--file", name) as (_, urls, _):
-                self.assertEqual(urlsplit(urls[0]).path, "/" + quote(name, safe=""))
+                self.assertEqual([urlsplit(url).path for url in urls],
+                                 ["/", "/" + quote(name, safe="")])
 
     def test_missing_preview_assets_report_an_actionable_error(self):
         with tempfile.TemporaryDirectory(prefix="serve-markdown-test-") as temp:

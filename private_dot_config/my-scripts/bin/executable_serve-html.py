@@ -368,9 +368,10 @@ def review_file(directory, filename):
     return directory, quote(relative.as_posix(), safe="/")
 
 
-def file_serving_target(target):
-    """Use a positional file's Git root, falling back to its parent directory."""
-    parent = target.parent.resolve()
+def path_serving_target(target):
+    """Use a positional path's Git root, falling back to its containing directory."""
+    is_directory = target.is_dir()
+    parent = target.resolve() if is_directory else target.parent.resolve()
     try:
         result = subprocess.run(
             ["git", "-C", str(parent), "rev-parse", "--show-toplevel"],
@@ -379,10 +380,11 @@ def file_serving_target(target):
         root = Path(result.stdout.rstrip("\n"))
         if root.is_absolute():
             # Resolve directory aliases, but preserve the selected file's symlink name.
-            return root, (parent / target.name).relative_to(root)
+            selected = parent if is_directory else parent / target.name
+            return root, selected.relative_to(root)
     except (OSError, subprocess.SubprocessError, ValueError):
         pass
-    return target.parent, target.name
+    return (target, Path(".")) if is_directory else (target.parent, Path(target.name))
 
 
 def serving_target(path=None, directory=None, filename=None):
@@ -392,11 +394,15 @@ def serving_target(path=None, directory=None, filename=None):
             raise ValueError("PATH and --directory/-d cannot be used together; choose one serving root")
         target = Path(path).expanduser().absolute()
         if target.is_dir():
+            if filename is None:
+                root, relative = path_serving_target(target)
+                link = "" if relative == Path(".") else quote(relative.as_posix(), safe="/") + "/"
+                return root, link
             directory = target
         elif target.is_file():
             if filename is not None:
                 raise ValueError("a positional file and --file/-f cannot be used together; choose one file")
-            directory, filename = file_serving_target(target)
+            directory, filename = path_serving_target(target)
         else:
             raise ValueError(f"path does not exist or is not a regular file or directory: {target}")
     return review_file(directory if directory is not None else ".", filename)
@@ -415,21 +421,27 @@ def addresses_for_bind(bind, interface=None):
     return addresses
 
 
-def print_links(directory, port, filename, addresses):
+def print_links(directory, port, selected_path, addresses):
     print(f"Serving {directory} on port {port}\n\nThen open from your PC:\n")
-    for item in addresses:
-        name = item["interface"]
-        if name.startswith("tailscale"):
-            label = "Tailscale"
-        elif name.startswith(VPN_PREFIXES):
-            label = "VPN"
-        elif name == "lo":
-            label = "Local"
-        else:
-            label = "LAN"
-        url = f"http://{item['address']}:{port}/{filename}"
-        print(f"- {url} — {label}")
-    print("\nPress **Ctrl+C** in the SSH terminal when finished.", flush=True)
+    links = [("Root directory", "")]
+    if selected_path:
+        links.append(("Selected path", selected_path))
+    for title, path in links:
+        print(f"{title}:")
+        for item in addresses:
+            name = item["interface"]
+            if name.startswith("tailscale"):
+                label = "Tailscale"
+            elif name.startswith(VPN_PREFIXES):
+                label = "VPN"
+            elif name == "lo":
+                label = "Local"
+            else:
+                label = "LAN"
+            url = f"http://{item['address']}:{port}/{path}"
+            print(f"- {url} — {label}")
+        print()
+    print("Press **Ctrl+C** in the SSH terminal when finished.", flush=True)
 
 
 def port_preference(port):
@@ -497,8 +509,8 @@ def ipv4_address(value):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path", nargs="?", metavar="PATH",
-                        help="directory to list or file to link to (serves its Git root, "
-                             "or parent outside Git); default: current directory")
+                        help="directory or file to link to (serves its Git root, "
+                             "or containing directory outside Git); default: current directory")
     parser.add_argument("--bind", type=ipv4_address, default="0.0.0.0",
                         help="IPv4 bind address (default: 0.0.0.0)")
     parser.add_argument("-d", "--directory",
@@ -512,11 +524,11 @@ def main():
                         help="print HTTP request logs (disabled by default)")
     args = parser.parse_args()
     try:
-        directory, filename = serving_target(args.path, args.directory, args.file)
+        directory, selected_path = serving_target(args.path, args.directory, args.file)
         addresses = addresses_for_bind(args.bind, args.interface)
         handler = partial(PreviewHTTPRequestHandler, directory=str(directory), verbose=args.verbose)
         with create_server(args.bind, args.port, handler) as server:
-            print_links(directory, server.server_port, filename, addresses)
+            print_links(directory, server.server_port, selected_path, addresses)
             server.serve_forever()
     except KeyboardInterrupt:
         print("\nServer stopped.", flush=True)

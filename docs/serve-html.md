@@ -47,25 +47,27 @@ time. Add `--verbose` to see lookup diagnostics.
 
 ## Paths and file selection
 
-| Arguments | Serving directory | Printed link |
+| Arguments | Serving directory | Printed links |
 | --- | --- | --- |
-| None, or `.` | Current directory | Directory listing at `/` |
-| `DIR` | `DIR` | Directory listing at `/` |
-| `PATH/FILE` | File's Git repository root, or parent directory outside Git | The selected file relative to the serving directory |
+| None | Current directory | Directory listing at `/` |
+| `DIR` (including `.`) | Directory's Git repository root, or `DIR` outside Git | Root listing and the selected directory listing |
+| `PATH/FILE` | File's Git repository root, or parent directory outside Git | Root listing and the selected file |
 | `-d DIR` or `--directory DIR` | `DIR` | Directory listing at `/` |
-| `-f FILE` or `--file FILE` | Current directory | `FILE` relative to the current directory |
-| `DIR -f FILE` | `DIR` | `FILE` relative to `DIR` |
-| `-d DIR -f FILE` | `DIR` | `FILE` relative to `DIR` |
+| `-f FILE` or `--file FILE` | Current directory | Root listing and `FILE` relative to the current directory |
+| `DIR -f FILE` | `DIR` | Root listing and `FILE` relative to `DIR` |
+| `-d DIR -f FILE` | `DIR` | Root listing and `FILE` relative to `DIR` |
 
 A positional path can be relative or absolute; quoted `~` paths are expanded.
 It must name an existing directory or regular file. Any regular file can be
 selected: HTML opens as a page, Markdown uses the preview, and other formats
-use the browser's normal behavior. Selecting a file serves its enclosing Git
-repository root, so links and assets elsewhere in the repository remain
-accessible. Detection starts from the file's directory, regardless of your
-current directory. Nested repositories and linked worktrees use their own roots.
-Outside a repository, or if Git is unavailable or detection fails, the file's
-parent directory is served instead.
+use the browser's normal behavior. Selecting a positional directory or file
+serves its enclosing Git repository root, so links and assets elsewhere in the
+repository remain accessible. Detection starts from the selected directory or
+the file's directory, regardless of your current directory. Nested repositories
+and linked worktrees use their own roots.
+Outside a repository, or if Git is unavailable or detection fails, the selected
+directory or the file's parent directory is served instead. With no path argument,
+the current directory is served without Git discovery.
 
 `--directory` (`-d`) requires a directory. `--file` (`-f`) requires a file path
 relative to the selected serving directory; absolute paths and `..` components
@@ -77,9 +79,11 @@ with `-f` is also an error. A positional directory can be combined with `-f`.
 For example, from a repository root, `html-serve docs -f nested/review.html`
 serves `docs` and prints a link to `/nested/review.html`;
 `html-serve docs/nested/review.html` serves the repository root and prints a
-link to `/docs/nested/review.html`. Outside Git it serves `docs/nested` and links to
-`/review.html`. To explicitly serve only the file's parent directory, use
-`html-serve docs/nested -f review.html`.
+link to `/docs/nested/review.html` alongside the root listing link.
+`html-serve docs/nested` serves the repository root and also prints a link to
+`/docs/nested/`. Outside Git, selecting the file serves `docs/nested` and links to
+`/review.html` alongside `/`. To explicitly serve only the file's parent
+directory, use `html-serve docs/nested -f review.html`.
 
 ## Markdown preview
 
@@ -148,9 +152,13 @@ addresses. Open a printed URL from your PC, then press Ctrl+C in the SSH termina
 to stop the server. The port stays bound throughout serving; concurrent runs get
 different ports. The directory includes adjacent CSS, JavaScript, and images.
 
-Each address appears once as a plain URL, followed by a short network label
-such as Tailscale or LAN. The output needs no Markdown renderer, and terminals
-that recognize URLs can make them clickable.
+The **Root directory** section prints a plain root URL for each address, followed
+by a short network label such as Tailscale or LAN. When a selected directory or
+file has a different URL, **Selected path** prints its direct URL for every
+address too. Directory links end in `/`; spaces, Unicode, and special characters
+are URL-encoded. A selection that is already the root uses the root URLs without
+duplicates. The output needs no Markdown renderer, and terminals that recognize
+URLs can make them clickable.
 
 HTTP access logs, such as GET and HEAD requests, are quiet by default. Startup
 links and errors remain visible. Add `--verbose` to print request logs.
@@ -222,8 +230,9 @@ occupied preferred ports, automatic fallback and reservation,
 concurrent servers, occupied fixed ports, Ctrl+C shutdown, encoded HTML paths,
 adjacent assets, and interface discovery. They also verify directory listings
 with index pages present, explicit index links, directory redirects, positional
-directories and files, Git root discovery for nested repositories and linked
-worktrees, parent-directory fallback, explicit directory overrides, short and
+directories and files, root and direct links on each network, Git root discovery
+for nested repositories and linked worktrees, parent-directory fallback,
+explicit directory overrides, short and
 long options, and conflicting arguments. CLI integration uses temporary files
 and a deterministic `ip` fixture. No deployed
 files are used. They also cover Markdown routing, raw responses, GET/HEAD,
