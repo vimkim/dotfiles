@@ -84,6 +84,18 @@ An unrelated collection still proceeds after a failure or partial result. Set
 `DAILY_UPDATE_COLLECTION_ORDER=cubrid-first` to process the same two collections in
 reverse order.
 
+`~/gh/dirpick` (`vimkim/dirpick`) runs after these tools as `tool:dirpick`.
+It requires a clean, independent primary checkout on `main` tracking
+`origin/main`, with the expected GitHub origin. Symlinks and linked worktrees
+are skipped. Its fetch requests remote `main` explicitly, so deletion cannot
+leave a stale reference eligible for installation. After the same ancestor
+check and fast-forward, `~/.config/my-scripts/bin/install-dirpick` installs
+the locked Cargo package into `~/.local/bin`. Dirpick needs Rust/Cargo, without
+a `justfile`. An unchanged checkout still reinstalls, allowing a failed build
+to be retried. Missing installers and failed builds report failure while
+independent steps continue. See [Dirpick setup](dirpick.md) for bootstrap and
+Nushell integration.
+
 `just sync` alone reconciles the current source contents with installed skills;
 it does not refresh Git. The sync engine remains responsible for ownership,
 conflicts, verification, migration, pruning and recovery. Missing peer evidence
@@ -130,6 +142,7 @@ personal collection skip.
 bash -n private_dot_config/my-scripts/bin/executable_daily-update
 shellcheck private_dot_config/my-scripts/bin/executable_daily-update
 python3 -B -m unittest discover -s tests -p test_daily_update.py -v
+python3 -B -m unittest discover -s tests -p test_install_dirpick.py -v
 ```
 
 The public-entry-point tests invoke the Bash source using disposable homes,

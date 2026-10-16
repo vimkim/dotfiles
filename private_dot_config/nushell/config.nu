@@ -107,6 +107,12 @@ source ~/.config/nushell/alias.nu
 source ~/.config/nushell/clip.nu
 source ~/.config/nushell/file-picker.nu
 source ~/.config/nushell/dir-history.nu
+const dirpick_module = if ('~/.config/nushell/dirpick.nu' | path expand | path exists) {
+  '~/.config/nushell/dirpick.nu'
+} else {
+  null
+}
+use $dirpick_module *
 const my_cubrid_aliases = if ('~/my-cubrid/aliases.nu' | path expand | path exists) {
   '~/my-cubrid/aliases.nu'
 } else {

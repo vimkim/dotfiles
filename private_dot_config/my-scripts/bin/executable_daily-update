@@ -35,8 +35,9 @@ if [ "${DAILY_UPDATE_COLLECTION_ORDER:-}" = cubrid-first ]; then
     PERSONAL_COLLECTIONS=(my-cubrid-skills my-skills)
 fi
 # Personal tool checkouts refresh the same way after the collections; their
-# `just sync` reinstalls the tool's commands. They hold no skills.
-PERSONAL_TOOLS=(my-git-utils herdr-next-to-current html-serve)
+# `just sync` reinstalls the tool's commands; Dirpick uses install-dirpick.
+# These checkouts hold no skills.
+PERSONAL_TOOLS=(my-git-utils herdr-next-to-current html-serve dirpick)
 
 if [ -t 1 ]; then
     BOLD=$'\033[1m'
@@ -494,10 +495,10 @@ run_collection() {
         SKIPPED+=("$label")
         return
     fi
-    if [ "$1" = herdr-next-to-current ] || [ "$1" = html-serve ]; then
+    if [ "$1" = herdr-next-to-current ] || [ "$1" = html-serve ] || [ "$1" = dirpick ]; then
         local origin
         origin="$(git -C "$repo" config --get remote.origin.url)" || origin=""
-        if [ ! -d "$repo/.git" ] || [ "$branch" != main ] || [ "$upstream" != origin/main ]; then
+        if [ ! -d "$repo/.git" ] || [ -L "$repo" ] || [ "$branch" != main ] || [ "$upstream" != origin/main ]; then
             printf '   %s: skipped (requires primary main tracking origin/main)\n' "$label"
             SKIPPED+=("$label")
             return
@@ -517,7 +518,12 @@ run_collection() {
         SKIPPED+=("$label")
         return
     fi
-    if ! git -C "$repo" fetch -- "$remote"; then
+    local fetch_args=("$remote")
+    # A deleted remote main must not authorize a Dirpick install from stale refs.
+    if [ "$1" = dirpick ]; then
+        fetch_args+=(refs/heads/main:refs/remotes/origin/main)
+    fi
+    if ! git -C "$repo" fetch -- "${fetch_args[@]}"; then
         printf '   %s: FAILED (fetch); sync skipped\n' "$label"
         FAILED+=("$label")
         return
@@ -530,6 +536,19 @@ run_collection() {
     if ! git -C "$repo" merge --ff-only -- "$upstream"; then
         printf '   %s: FAILED (fast-forward); sync skipped\n' "$label"
         FAILED+=("$label")
+        return
+    fi
+    if [ "$1" = dirpick ]; then
+        local installer="$HOME/.config/my-scripts/bin/install-dirpick"
+        if [ ! -x "$installer" ]; then
+            printf '   %s: FAILED (missing install-dirpick); apply dotfiles first\n' "$label"
+            FAILED+=("$label")
+        elif "$installer"; then
+            printf '   %s: completed\n' "$label"
+        else
+            printf '   %s: FAILED (installation)\n' "$label"
+            FAILED+=("$label")
+        fi
         return
     fi
     # Own the cwd so just cannot discover a recipe in a parent directory.

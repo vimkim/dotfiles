@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Shared by the chezmoi bootstrap and daily-update. Build only primary main.
+set -eu
+
+checkout="$HOME/gh/dirpick"
+retry() {
+    printf 'dirpick: %s\n' "$1" >&2
+    printf 'Retry after correcting it: %s/.config/my-scripts/bin/install-dirpick\n' "$HOME" >&2
+    exit 1
+}
+
+command -v git >/dev/null || retry 'install git first'
+if cargo_bin="$(command -v cargo)"; then
+    :
+elif [ -x "$HOME/.cargo/bin/cargo" ]; then
+    cargo_bin="$HOME/.cargo/bin/cargo"
+    # Noninteractive chezmoi scripts may not inherit the Rust proxy PATH.
+    export PATH="$HOME/.cargo/bin:$PATH"
+else
+    retry 'install Rust and Cargo first: https://rustup.rs'
+fi
+
+if [ ! -e "$checkout" ] && [ ! -L "$checkout" ]; then
+    mkdir -p "$(dirname "$checkout")"
+    git clone --quiet --branch main https://github.com/vimkim/dirpick.git "$checkout" ||
+        retry 'clone failed; inspect any partial checkout before retrying'
+fi
+[ -d "$checkout/.git" ] && [ ! -L "$checkout" ] || retry 'occupied path or linked worktree; preserved'
+root="$(git -C "$checkout" rev-parse --show-toplevel)" || retry 'cannot inspect checkout'
+[ "$root" = "$(cd "$checkout" && pwd -P)" ] || retry 'path is not an independent checkout'
+branch="$(git -C "$checkout" symbolic-ref --quiet --short HEAD)" || retry 'detached checkout; preserved'
+[ "$branch" = main ] || retry 'checkout is not on main; preserved'
+origin="$(git -C "$checkout" config --get remote.origin.url)" || retry 'missing origin; preserved'
+case "$origin" in
+https://github.com/vimkim/dirpick.git|git@github.com:vimkim/dirpick.git) ;;
+*) retry 'unexpected origin; preserved' ;;
+esac
+status="$(git -C "$checkout" status --porcelain --untracked-files=all)" || retry 'cannot inspect status'
+[ -z "$status" ] || retry 'dirty checkout; preserved'
+[ -f "$checkout/Cargo.toml" ] && [ -f "$checkout/Cargo.lock" ] || retry 'missing Cargo.toml or Cargo.lock'
+
+# Explicit root ignores CARGO_INSTALL_ROOT and uses the PATH shared by our shells.
+# Keep Cargo's ownership tracking; an unrelated existing binary must not be forced.
+(cd "$checkout" && "$cargo_bin" install --locked --path . --root "$HOME/.local" --bin dirpick) ||
+    retry 'installation failed'
+"$HOME/.local/bin/dirpick" --version || retry 'installed command failed its version check'

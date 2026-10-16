@@ -260,10 +260,21 @@ The standalone project in `~/gh/html-serve` installs the command with
 and LAN links for opening from your PC. Bootstrap and `daily-update` maintain
 the installation; old script paths forward to it. See [usage and verification](docs/serve-html.md).
 
+### Dirpick
+
+Chezmoi installs [Dirpick](https://github.com/vimkim/dirpick) from `~/gh/dirpick`
+into `~/.local/bin`, which Bash, Zsh, and Nushell already include on PATH.
+Git and a current Rust/Cargo toolchain are prerequisites. The first
+`chezmoi init --apply` installs it once. `daily-update` maintains the installation.
+
+Run `dirpick` to open the terminal workbench. In Nushell, run `dp` to also change
+the shell directory with Ctrl-G. The default scope is Project root. F7 switches
+between Project root and the launch CWD. See [installation and updates](docs/dirpick.md).
+
 ### Daily AI-toolchain upkeep
 
-`daily-update` (in `~/.config/my-scripts/bin`) upgrades Codex, Claude Code, and
-the globally installed agent skills in one go:
+`daily-update` (in `~/.config/my-scripts/bin`) updates dotfiles, personal tools
+including Dirpick, Codex, Claude Code, and globally installed agent skills:
 
 ```bash
 daily-update            # run everything, report stale skills, mark today done

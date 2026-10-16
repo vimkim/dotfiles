@@ -57,24 +57,39 @@ exec "$REAL_GIT" "$@"
         self.repos = {}
         self.tools = {}
         self.seeds = {}
-        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'herdr-next-to-current', 'html-serve'):
+        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'herdr-next-to-current', 'html-serve', 'dirpick'):
             remote = self.root / f'{name}.git'
             seed = self.root / f'{name}-seed'
             self.git(self.root, 'init', '--bare', '--initial-branch=main', str(remote))
             self.git(self.root, 'clone', str(remote), str(seed))
             (seed / 'revision').write_text('before')
             (seed / 'justfile').write_text('sync:\n    @printf "%s:%s\\n" "{{justfile_directory()}}" "$(cat revision)" >> "$TEST_LOG"\n    @exit "${SYNC_RESULT:-0}"\n')
+            if name == 'dirpick':
+                (seed / 'Cargo.toml').write_text('[package]\nname = "dirpick"\nversion = "0.1.0"\n')
+                (seed / 'Cargo.lock').write_text('version = 4\n')
             self.git(seed, 'add', '.')
             self.git(seed, 'commit', '-m', 'initial')
             self.git(seed, 'push', '-u', 'origin', 'HEAD')
             repo = self.home / 'gh' / name
             self.git(self.root, 'clone', str(remote), str(repo))
-            if name in ('herdr-next-to-current', 'html-serve'):
+            if name in ('herdr-next-to-current', 'html-serve', 'dirpick'):
                 official = f'https://github.com/vimkim/{name}.git'
                 self.git(repo, 'config', f'url.{remote}.insteadOf', official)
                 self.git(repo, 'config', 'remote.origin.url', official)
-            (self.tools if name in ('my-git-utils', 'herdr-next-to-current', 'html-serve') else self.repos)[name] = repo
+            (self.tools if name in ('my-git-utils', 'herdr-next-to-current', 'html-serve', 'dirpick') else self.repos)[name] = repo
             self.seeds[name] = seed
+
+        installer = self.home / '.config/my-scripts/bin/install-dirpick'
+        installer.parent.mkdir(parents=True)
+        shutil.copyfile(SCRIPT.with_name('executable_install-dirpick'), installer)
+        installer.chmod(0o755)
+        self.executable('cargo', '''
+printf 'dirpick:%s:%s\n' "$PWD" "$(cat revision)" >>"$TEST_LOG"
+[ "${FAIL_DIRPICK_INSTALL:-0}" = 0 ] || exit 1
+mkdir -p "$HOME/.local/bin"
+printf '#!/bin/sh\\nprintf "dirpick 0.1.0\\\\n"\\n' >"$HOME/.local/bin/dirpick"
+chmod +x "$HOME/.local/bin/dirpick"
+''')
 
         remote = self.root / 'dotfiles.git'
         seed = self.root / 'dotfiles-seed'
@@ -437,6 +452,97 @@ exit "${FAIL_APPLY:-0}"
         self.assertIn('tool:html-serve: skipped (dirty checkout)', result.stdout)
         self.assertNotIn(f'{repo}:', self.logged())
         self.assertEqual((repo / 'scratch').read_text(), 'valuable')
+
+    def test_dirpick_refreshes_and_reinstalls_without_a_justfile(self):
+        repo = self.tools['dirpick']
+        seed = self.seeds['dirpick']
+        self.git(seed, 'rm', 'justfile')
+        self.git(seed, 'commit', '-m', 'cargo tool needs no justfile')
+        self.advance('dirpick')
+        for _ in range(2):
+            self.log.unlink(missing_ok=True)
+            result = self.run_daily()
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn(f'dirpick:{repo}:after', self.logged())
+            self.assertIn('tool:dirpick: completed', result.stdout)
+            self.assertEqual(self.git(repo, 'rev-parse', 'HEAD'),
+                             self.git(seed, 'rev-parse', 'HEAD'))
+
+    def test_dirpick_preserves_dirty_topic_wrong_origin_and_symlink(self):
+        repo = self.tools['dirpick']
+        (repo / 'scratch').write_text('valuable')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertNotIn(f'dirpick:{repo}:', self.logged())
+        self.assertEqual((repo / 'scratch').read_text(), 'valuable')
+        (repo / 'scratch').unlink()
+        self.git(repo, 'switch', '-c', 'topic')
+        self.git(repo, 'branch', '--set-upstream-to=origin/main')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertNotIn(f'dirpick:{repo}:', self.logged())
+        self.git(repo, 'switch', 'main')
+        self.git(repo, 'config', 'remote.origin.url', 'https://example.invalid/occupied.git')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('unexpected origin', result.stdout)
+        self.assertNotIn(f'dirpick:{repo}:', self.logged())
+        self.git(repo, 'config', 'remote.origin.url', 'https://github.com/vimkim/dirpick.git')
+        primary = self.root / 'primary-dirpick'
+        repo.rename(primary)
+        repo.symlink_to(primary, target_is_directory=True)
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertNotIn(f'dirpick:{repo}:', self.logged())
+
+    def test_dirpick_ahead_and_linked_worktrees_are_skipped(self):
+        repo = self.tools['dirpick']
+        (repo / 'revision').write_text('unpublished')
+        self.git(repo, 'commit', '-am', 'local work')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertNotIn(f'dirpick:{repo}:', self.logged())
+        self.assertEqual((repo / 'revision').read_text(), 'unpublished')
+        primary = self.root / 'primary-dirpick'
+        repo.rename(primary)
+        self.git(primary, 'switch', '--detach')
+        self.git(primary, 'worktree', 'add', str(repo), 'main')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('requires primary main', result.stdout)
+        self.assertNotIn(f'dirpick:{repo}:', self.logged())
+
+    def test_dirpick_fetch_merge_and_install_failures_allow_other_steps(self):
+        repo = self.tools['dirpick']
+        self.advance('dirpick')
+        for failure in ({'FAIL_FETCH': str(repo)}, {'FAIL_FF': str(repo)},
+                        {'FAIL_DIRPICK_INSTALL': '1'}):
+            with self.subTest(failure=failure):
+                self.log.unlink(missing_ok=True)
+                result = self.run_daily(**failure)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn('tool:dirpick: FAILED', result.stdout)
+                self.assertIn('codex update', self.logged())
+                self.assertIn(f"{self.repos['my-skills']}:before", self.logged())
+                if 'FAIL_DIRPICK_INSTALL' not in failure:
+                    self.assertNotIn(f'dirpick:{repo}:', self.logged())
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_dirpick_missing_installer_is_a_reported_failure(self):
+        (self.home / '.config/my-scripts/bin/install-dirpick').unlink()
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('missing install-dirpick', result.stdout)
+
+    def test_dirpick_deleted_remote_main_never_installs_from_stale_ref(self):
+        repo = self.tools['dirpick']
+        remote = self.root / 'dirpick.git'
+        self.git(remote, 'update-ref', '-d', 'refs/heads/main')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('tool:dirpick: FAILED (fetch)', result.stdout)
+        self.assertNotIn(f'dirpick:{repo}:', self.logged())
 
     def test_dirty_tool_checkout_is_skipped(self):
         (self.tools['my-git-utils'] / 'scratch').write_text('wip')
