@@ -5,9 +5,11 @@ on PATH. It applies files and symlinks that remain unchanged since chezmoi's las
 write. It reports a local edit or deletion as
 `Skipped locally changed target: ...`. Skips return success. The helper also
 preserves existing destinations without last-write history and reports a separate
-skip message. It applies previously managed destinations that already match the
-source to refresh last-write history. This records a reviewed local edit adopted
-into the source. Later source updates can then deploy normally.
+skip message.
+
+The helper leaves destinations alone when they already match the source.
+Copying a local edit into the source does not change chezmoi's last-write history.
+If the source changes again, the helper still protects that local edit and skips the destination.
 
 ```bash
 chezmoi-apply-unmodified
@@ -20,15 +22,15 @@ one file. The helper defaults to chezmoi's configured source checkout, regardles
 of the current directory. Use `--source` only to select a different checkout.
 `--config FILE` selects another chezmoi configuration when needed.
 
-The helper completes `chezmoi status` and a NUL-delimited `chezmoi managed`
-inventory before applying anything. It reads the first status column to identify
+The helper completes `chezmoi status` before applying anything.
+It reads the first status column to identify
 local changes and checks for recorded last-write history before applying an
-existing destination. The inventory includes matching files omitted from status.
+existing destination. Matching destinations do not appear in status.
 It then invokes chezmoi separately for each remaining target and creates missing
 parent directories. Each apply checks for conflicts again. An edit made after
 the scan can still cause an error that preserves the destination. A failed scan
 or apply returns nonzero. The helper does not support filenames containing
-newlines. It rejects malformed status output and unsupported managed paths before
+newlines. It rejects malformed status output before
 applying any target. Each apply includes files, symlinks, and their parent
 directories only. The helper preserves existing parent directory permissions.
 
@@ -63,5 +65,6 @@ python3 -m unittest discover -s tests -p test_chezmoi_apply_unmodified.py -v
 The integration tests use real chezmoi with disposable source, destination,
 configuration, cache, and state files. They cover normal updates, local edits,
 deletions, pre-existing files, nested paths, symlinks, and explicit targets.
-They also cover accepted baselines, concurrent edits, script exclusion, empty
+They also check that matching sources do not authorize later overwrites of local edits.
+Other checks cover concurrent edits, script exclusion, empty
 selections, and failures before deployment.

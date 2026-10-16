@@ -58,7 +58,7 @@ and [Codex configuration documentation](https://learn.chatgpt.com/docs/config-fi
 
 The managed `.gitconfig` includes `~/.gitconfig.local`.
 Git treats that include as user configuration.
-The migration preserves `/home/dev/cubrid-dev2-server` as a `safe.directory` exception.
+Before deployment, preserve `/home/dev/cubrid-dev2-server` as a `safe.directory` exception in the local file.
 
 Write future machine-specific settings to the local file:
 
@@ -71,44 +71,34 @@ git config --global --includes --show-origin --get-all safe.directory
 Use `--file` for local edits.
 See [Git includes](https://git-scm.com/docs/git-config#_includes).
 
-## Deploy the migration in two stages
+## Deploy the configuration split
 
-Obtain approval for both local merge checkpoints before deployment.
-Keep both deployment checkpoints when rebasing or squashing the commits.
-Use the configured source checkout for each helper invocation.
+The helper does not accept local edits automatically when they match the source.
+Keep skipped targets protected throughout this migration.
 
-1. Merge the first commit, which adopts the reviewed Git and lazygit contents.
-   This commit also fixes baseline recording and creates a Git local seed.
-2. Run the merged helper once for all managed files and symlinks.
-   Invoke its source directly so this run uses the fixed helper:
+1. Check `~/.gitconfig.local` and preserve the required Git exception there before deployment.
+   Use the command syntax above if the exception is missing.
+   Preserve all other local settings in that file.
+2. Obtain approval to merge the complete branch.
+   Do not deploy intermediate commits from this branch.
+3. Run the helper once for all managed files and symlinks in the configured source checkout:
 
    ```bash
    bash <absolute-merged-checkout>/private_dot_config/my-scripts/bin/executable_chezmoi-apply-unmodified
    ```
 
-3. Check the Git and lazygit diffs.
-   Check that `.gitconfig.local` preserves the required exception:
+4. Check the managed targets with `chezmoi diff`.
+   Check that the three unmanaged files retain their contents.
+   Check the local and effective Git exceptions:
 
    ```bash
-   chezmoi diff -- "$HOME/.gitconfig" "$HOME/.config/lazygit/config.yml" "$HOME/.gitconfig.local"
    git config --file "$HOME/.gitconfig.local" --get-all safe.directory
+   git config --global --includes --show-origin --get-all safe.directory
    ```
 
-4. Stop before stage two if the helper skips either reviewed target or the required exception is missing.
-   Preserve any new local changes for review.
-5. Merge the second commit, which separates agent defaults and adds Git's local include.
-   This commit removes the Git local seed from the source.
-   The existing `.gitconfig.local` remains on disk and becomes unmanaged.
-   The commit also changes lazygit's `colorArgs` key to `colorArg`.
-6. Run the helper once for all managed files and symlinks.
-7. Check the managed targets with `chezmoi diff`.
-   Check that the three unmanaged files retain their contents.
-   Check the effective Git exception with `--includes`.
-   Preserve and report any helper skips.
-8. Complete the task's Git cleanup.
-
-The first helper run records matching Git and lazygit files as accepted baselines.
-This permits the second run to deploy their source updates without forced overwrites.
-The helper still preserves new local changes made between the two stages.
+5. Preserve and report every helper skip and any missing Git exception.
+   A skipped `.gitconfig` leaves the include migration incomplete.
+   Do not reset chezmoi state or force an overwrite to complete the migration.
+6. Complete the task's Git cleanup after the required deployment checks.
 
 See [helper behavior and checks](chezmoi-apply-unmodified.md).

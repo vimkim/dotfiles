@@ -112,44 +112,47 @@ class ChezmoiApplyUnmodifiedTest(unittest.TestCase):
         self.assertEqual(selected.read_text(), 'local edit\n')
         self.assertEqual(other.read_text(), 'original\n')
 
-    def test_adopted_file_refreshes_baseline_for_the_next_update(self):
+    def test_matching_source_does_not_authorize_overwriting_local_file(self):
         for explicit in (False, True):
             with self.subTest(explicit=explicit):
-                source, target = self.applied_file(f'adopted-{explicit}')
-                target.write_text('accepted local edit\n')
+                source, target = self.applied_file(f'local-file-{explicit}')
+                target.write_text('local edit\n')
                 source.write_text(target.read_text())
 
                 result = self.run_wrapper(*(['--', target] if explicit else []))
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(target.read_text(), 'accepted local edit\n')
+                self.assertEqual(target.read_text(), 'local edit\n')
                 source.write_text('next source update\n')
 
                 result = self.run_wrapper('--', target)
 
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(target.read_text(), 'next source update\n')
-                self.assertNotIn('Skipped', result.stdout)
+                self.assertEqual(target.read_text(), 'local edit\n')
+                self.assertIn(f'Skipped locally changed target: {target}', result.stdout)
 
-    def test_adopted_symlink_refreshes_baseline_for_the_next_update(self):
-        source = self.source_file('symlink_adopted-link', 'old-target\n')
-        target = self.destination / 'adopted-link'
-        subprocess.run([CHEZMOI, *self.options, 'apply', '--', str(target)],
-                       capture_output=True, text=True, check=True, timeout=10)
-        target.unlink()
-        target.symlink_to('accepted-local-target')
-        source.write_text('accepted-local-target\n')
+    def test_matching_source_does_not_authorize_overwriting_local_symlink(self):
+        for explicit in (False, True):
+            with self.subTest(explicit=explicit):
+                name = f'local-link-{explicit}'
+                source = self.source_file(f'symlink_{name}', 'old-target\n')
+                target = self.destination / name
+                subprocess.run([CHEZMOI, *self.options, 'apply', '--', str(target)],
+                               capture_output=True, text=True, check=True, timeout=10)
+                target.unlink()
+                target.symlink_to('local-target')
+                source.write_text('local-target\n')
 
-        result = self.run_wrapper()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        source.write_text('next-source-target\n')
+                result = self.run_wrapper(*(['--', target] if explicit else []))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                source.write_text('next-source-target\n')
 
-        result = self.run_wrapper()
+                result = self.run_wrapper('--', target)
 
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(os.readlink(target), 'next-source-target')
-        self.assertNotIn('Skipped', result.stdout)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(os.readlink(target), 'local-target')
+                self.assertIn(f'Skipped locally changed target: {target}', result.stdout)
 
-    def test_matching_preexisting_file_is_not_adopted_without_history(self):
+    def test_matching_preexisting_file_keeps_its_protection(self):
         source = self.source_file('preexisting-match', 'same\n')
         target = self.destination / 'preexisting-match'
         target.write_text('same\n')
@@ -173,8 +176,9 @@ class ChezmoiApplyUnmodifiedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(target.read_text(), 'original\n')
 
-    def test_edit_after_scan_is_preserved_for_a_matching_file(self):
-        _, target = self.applied_file('race')
+    def test_edit_after_scan_is_preserved(self):
+        source, target = self.applied_file('race')
+        source.write_text('source update\n')
         commands = self.root / 'commands'
         commands.mkdir()
         proxy = commands / 'chezmoi'
@@ -196,33 +200,24 @@ class ChezmoiApplyUnmodifiedTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(target.read_text(), 'concurrent local edit\n')
 
-    def test_matching_filename_with_newline_fails_before_applying(self):
-        source, clean = self.applied_file('aaa-clean')
-        source.write_text('source update\n')
-        self.applied_file('matching\nfile')
-
-        result = self.run_wrapper()
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(clean.read_text(), 'original\n')
-        self.assertIn('unsupported managed path', result.stderr)
-
-    def test_empty_inventory_succeeds(self):
+    def test_empty_source_succeeds(self):
         result = self.run_wrapper()
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, '')
 
-    def test_matching_file_does_not_reapply_parent_directory_permissions(self):
-        self.source_file('private_existing/file', 'same\n')
+    def test_file_update_does_not_reapply_parent_directory_permissions(self):
+        source = self.source_file('private_existing/file', 'same\n')
         target = self.destination / 'existing/file'
         subprocess.run([CHEZMOI, *self.options, 'apply', '--parent-dirs', '--', str(target)],
                        capture_output=True, text=True, check=True, timeout=10)
         target.parent.chmod(0o750)
+        source.write_text('source update\n')
 
         result = self.run_wrapper()
 
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(target.read_text(), 'source update\n')
         self.assertEqual(target.parent.stat().st_mode & 0o777, 0o750)
 
     def test_does_not_run_scripts_and_succeeds_without_file_changes(self):
