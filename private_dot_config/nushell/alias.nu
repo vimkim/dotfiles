@@ -183,13 +183,13 @@ $env.config.keybindings = (
 ###############################################################################
 
 alias ali = nvim ~/.local/share/chezmoi/private_dot_config/nushell/alias.nu
-alias ai = claude --settings (($env.CLAUDE_CONFIG_DIR? | default ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json") --dangerously-skip-permissions
+alias ai = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json") --dangerously-skip-permissions
 alias aip = ai "read prompt.md and execute"
 alias battery = do { upower -e | fzf --preview='upower -i {}' }
 alias c = cl
-alias cla = claude --settings (($env.CLAUDE_CONFIG_DIR? | default ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json")
-alias cyo = claude --settings (($env.CLAUDE_CONFIG_DIR? | default ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json") --dangerously-skip-permissions
-alias cds = claude --settings (($env.CLAUDE_CONFIG_DIR? | default ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json") --dangerously-skip-permissions
+alias cla = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json")
+alias cyo = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json") --dangerously-skip-permissions
+alias cds = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json") --dangerously-skip-permissions
 alias crc = crc.sh
 # alias cx = cl (fd -H -I -t d | fzfm)
 alias cx = codex --profile dotfiles

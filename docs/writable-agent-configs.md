@@ -5,7 +5,10 @@ Chezmoi preserves those writes by leaving these files unmanaged:
 
 - `~/.claude/settings.json`
 - `~/.codex/config.toml`
-- `~/.gitconfig.local`
+
+Chezmoi creates `~/.gitconfig.local` only when the file is missing.
+Its `create_` source leaves existing contents unchanged.
+Future edits belong in this local file.
 
 Removing a source entry leaves its existing destination in place.
 The migration does not add these files to `.chezmoiremove`.
@@ -19,6 +22,7 @@ Codex keeps project trust, hook approvals, plugin choices, and UI state.
 | `dot_claude/private_dotfiles-settings.json` | `~/.claude/dotfiles-settings.json` | Shared Claude defaults, including `opus` |
 | `dot_codex/private_dotfiles.config.toml` | `~/.codex/dotfiles.config.toml` | Shared Codex defaults, including `gpt-6.1-sol` and `xhigh` |
 | `dot_gitconfig` | `~/.gitconfig` | Shared Git settings and the local include |
+| `create_private_dot_gitconfig.local` | `~/.gitconfig.local` | Initial Git exceptions, created only if missing |
 | `private_dot_config/lazygit/config.yml` | `~/.config/lazygit/config.yml` | Current lazygit schema |
 
 Claude and Codex default files contain preferences that the repository controls.
@@ -58,7 +62,9 @@ and [Codex configuration documentation](https://learn.chatgpt.com/docs/config-fi
 
 The managed `.gitconfig` includes `~/.gitconfig.local`.
 Git treats that include as user configuration.
-Before deployment, preserve `/home/dev/cubrid-dev2-server` as a `safe.directory` exception in the local file.
+The initial local file contains `/home/dev/cubrid-dev2-server` as a `safe.directory` exception.
+An existing local file keeps its contents.
+Report any missing exception instead of overwriting that file.
 
 Write future machine-specific settings to the local file:
 
@@ -76,9 +82,8 @@ See [Git includes](https://git-scm.com/docs/git-config#_includes).
 The helper does not accept local edits automatically when they match the source.
 Keep skipped targets protected throughout this migration.
 
-1. Check `~/.gitconfig.local` and preserve the required Git exception there before deployment.
-   Use the command syntax above if the exception is missing.
-   Preserve all other local settings in that file.
+1. Inspect existing settings and Git exceptions before deployment.
+   Preserve all local contents.
 2. Obtain approval to merge the complete branch.
    Do not deploy intermediate commits from this branch.
 3. Run the helper once for all managed files and symlinks in the configured source checkout:
@@ -88,7 +93,8 @@ Keep skipped targets protected throughout this migration.
    ```
 
 4. Check the managed targets with `chezmoi diff`.
-   Check that the three unmanaged files retain their contents.
+   Check that both unmanaged agent files retain their contents.
+   Check that an existing `~/.gitconfig.local` retains its contents.
    Check the local and effective Git exceptions:
 
    ```bash

@@ -1,0 +1,3 @@
+# Machine-local Git overrides. Existing files are never overwritten.
+[safe]
+	directory = /home/dev/cubrid-dev2-server

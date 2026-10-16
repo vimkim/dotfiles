@@ -206,6 +206,35 @@ class ChezmoiApplyUnmodifiedTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, '')
 
+    def test_git_local_seed_creates_missing_file_and_preserves_existing_edits(self):
+        seed = (ROOT / 'create_private_dot_gitconfig.local').read_text()
+        self.source_file('create_private_dot_gitconfig.local', seed)
+        target = self.destination / '.gitconfig.local'
+
+        result = self.run_wrapper()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(target.read_text(), seed)
+        target.write_text(seed + '[user]\n\tname = Local User\n')
+        saved = target.read_bytes()
+
+        result = self.run_wrapper()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(target.read_bytes(), saved)
+
+    def test_git_local_seed_preserves_preexisting_file_without_history(self):
+        seed = (ROOT / 'create_private_dot_gitconfig.local').read_text()
+        self.source_file('create_private_dot_gitconfig.local', seed)
+        target = self.destination / '.gitconfig.local'
+        target.write_text('[user]\n\tname = Existing User\n')
+        saved = target.read_bytes()
+
+        result = self.run_wrapper()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(target.read_bytes(), saved)
+
     def test_file_update_does_not_reapply_parent_directory_permissions(self):
         source = self.source_file('private_existing/file', 'same\n')
         target = self.destination / 'existing/file'
