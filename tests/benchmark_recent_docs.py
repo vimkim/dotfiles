@@ -119,7 +119,7 @@ def main():
     successful = all(sample["exit_code"] == 0 for runs in samples.values() for sample in runs)
     if args.fixture:
         successful = successful and report["identical_final_output"] and all(
-            count == 30 for count in report["files_displayed"].values())
+            count == 3000 for count in report["files_displayed"].values())
     return 0 if successful else 1
 
 

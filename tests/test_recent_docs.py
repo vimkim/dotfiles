@@ -94,16 +94,18 @@ class RecentDocsTests(unittest.TestCase):
                 self.assert_success(result, backend)
                 self.assertEqual(self.paths(result), [str(newer), str(older)])
 
-    def test_returns_exactly_30_newest_files_with_nanosecond_ordering(self):
+    def test_returns_all_files_with_nanosecond_ordering(self):
         files = [
             self.create_file(f"gh/{i:02}.md", BASE_NS + i)
             for i in range(45)
         ]
         for backend in BACKENDS:
-            with self.subTest(backend=backend):
-                result = self.run_script(backend, self.gh)
-                self.assert_success(result, backend)
-                self.assertEqual(self.paths(result), list(map(str, files[-30:][::-1])))
+            for program in (self.script, self.wrapper):
+                with self.subTest(backend=backend, program=program.name):
+                    directories = (self.gh,) if program == self.script else ()
+                    result = self.run_script(backend, *directories, program=program)
+                    self.assert_success(result, backend)
+                    self.assertEqual(self.paths(result), list(map(str, files[::-1])))
 
     def test_excludes_hidden_and_dependency_trees_without_ignore_files(self):
         selected = self.create_file("gh/selected.md")

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# List the 30 newest regular .html/.md files. Usage: recent-docs.sh [directory ...]
+# List all regular .html/.md files, newest first. Usage: recent-docs.sh [directory ...]
 # With no directories, search the caller's working directory. Requires Python 3.9+.
 # Prefer fd; otherwise use find, pruning hidden entries and node_modules.
 # The dependency-free fallback reads ancestor/nested .gitignore, .ignore and
@@ -11,7 +11,6 @@ set -euo pipefail
 exec python3 - "$@" <<'PY'
 import datetime
 import fnmatch
-import heapq
 import os
 import re
 import shutil
@@ -179,8 +178,7 @@ def main():
                    "-o", "(", "-type", "f", "!", "-name", ".*", "(", "-iname", "*.html",
                    "-o", "-iname", "*.md", ")", "-print0", ")"]
     with subprocess.Popen(command, stdout=subprocess.PIPE) as process:
-        # Candidate storage stays bounded; ignore contexts are cached per directory.
-        newest = heapq.nlargest(30, candidates(process.stdout, ignores))
+        newest = sorted(candidates(process.stdout, ignores), reverse=True)
         status = process.wait()
     if status:
         return status if status > 0 else 128 - status

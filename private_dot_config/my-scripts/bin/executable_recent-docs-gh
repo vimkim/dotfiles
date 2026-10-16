@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# List the 30 newest .html/.md files under ~/gh.
+# List all .html/.md files under ~/gh, newest first.
 set -euo pipefail
 
 case ${BASH_SOURCE[0]} in
