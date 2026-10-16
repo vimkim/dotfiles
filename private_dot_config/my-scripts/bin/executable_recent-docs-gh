@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# List the 30 newest .html/.md files under ~/gh.
+set -euo pipefail
+
+case ${BASH_SOURCE[0]} in
+  */*) script_dir=${BASH_SOURCE[0]%/*} ;;
+  *) script_dir=. ;;
+esac
+
+exec "$script_dir/recent-docs.sh" "$HOME/gh"
