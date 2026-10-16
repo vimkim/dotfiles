@@ -6,6 +6,7 @@ usage() {
 Usage: chezmoi-apply-unmodified [--source DIR] [--config FILE] [-- ABSOLUTE_FILE...]
 
 Apply managed files and symlinks whose destinations have no local changes.
+Refresh last-write history when a previously managed target matches its source.
 Without targets, consider all managed files and symlinks. Explicit targets
 are not traversed recursively. Locally changed targets are reported as skipped;
 existing targets without last-write history are also skipped. Skips succeed,
@@ -68,12 +69,13 @@ fi
 
 # Finish the scan before applying anything, so a failed scan cannot produce a
 # partial deployment. The first status column compares disk to the last write.
-status_file=$(mktemp "${TMPDIR:-/tmp}/chezmoi-apply-unmodified.XXXXXX")
-trap 'rm -f -- "$status_file"' EXIT
-chezmoi "${chezmoi_options[@]}" status "${status_options[@]}" -- "${targets[@]}" > "$status_file"
+scan_dir=$(mktemp -d "${TMPDIR:-/tmp}/chezmoi-apply-unmodified.XXXXXX")
+trap 'rm -rf -- "$scan_dir"' EXIT
+chezmoi "${chezmoi_options[@]}" status "${status_options[@]}" -- "${targets[@]}" > "$scan_dir/status"
+chezmoi "${chezmoi_options[@]}" managed --include=files,symlinks --path-style=absolute \
+    --nul-path-separator -- "${targets[@]}" > "$scan_dir/managed"
 
-apply_targets=()
-skip_messages=()
+declare -A local_changes=()
 while IFS= read -r status_line || [[ -n $status_line ]]; do
     if [[ ${#status_line} -lt 4 || ${status_line:2:2} != ' /' ]]; then
         printf '%s\n' 'chezmoi-apply-unmodified: unexpected status output; no targets applied' >&2
@@ -81,6 +83,28 @@ while IFS= read -r status_line || [[ -n $status_line ]]; do
     fi
     target=${status_line:3}
     if [[ ${status_line:0:1} != ' ' ]]; then
+        local_changes["$target"]=1
+    fi
+done < "$scan_dir/status"
+
+apply_targets=()
+skip_messages=()
+while IFS= read -r -d '' target; do
+    if [[ $target != /* || $target == *$'\n'* ]]; then
+        printf '%s\n' 'chezmoi-apply-unmodified: unsupported managed path; no targets applied' >&2
+        exit 1
+    fi
+    if ((${#targets[@]})); then
+        selected=false
+        for requested in "${targets[@]}"; do
+            if [[ $target == "$requested" || $target -ef $requested ]]; then
+                selected=true
+                break
+            fi
+        done
+        "$selected" || continue
+    fi
+    if [[ -n ${local_changes["$target"]-} ]]; then
         skip_messages+=("Skipped locally changed target: $target")
         continue
     fi
@@ -94,7 +118,7 @@ while IFS= read -r status_line || [[ -n $status_line ]]; do
         fi
     fi
     apply_targets+=("$target")
-done < "$status_file"
+done < "$scan_dir/managed"
 
 for message in "${skip_messages[@]}"; do
     printf '%s\n' "$message"
@@ -102,5 +126,12 @@ done
 
 for target in "${apply_targets[@]}"; do
     # Each call names one file. Check again for edits made after the scan.
-    chezmoi "${chezmoi_options[@]}" apply --parent-dirs --recursive=false --error-on-conflict -- "$target"
+    # Status omits already matching targets. Applying those as well records an
+    # accepted local edit as the baseline for the next source update.
+    parent_options=()
+    if [[ ! -d ${target%/*} ]]; then
+        parent_options+=(--parent-dirs)
+    fi
+    chezmoi "${chezmoi_options[@]}" apply --include=files,symlinks,dirs "${parent_options[@]}" \
+        --recursive=false --error-on-conflict -- "$target"
 done
