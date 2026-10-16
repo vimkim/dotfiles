@@ -252,12 +252,13 @@ The Python 3 command lives in `~/.config/my-scripts/bin`; see
 
 ### HTML review from a remote server
 
-Run `html-serve` from any directory to serve it until Ctrl+C. It shows an index
-page when present, otherwise a directory listing. Add `--file review.html` to
+Run `html-serve` from any directory to serve it until Ctrl+C. It shows a directory
+listing with clickable Title, Created, and Modified column headers. Add `--file review.html` to
 link directly to an HTML file, or `--port 8080` to choose a port.
-The wrapper runs `~/.config/my-scripts/bin/serve-html.py`, which prefers memorable
-four-digit free ports and prints Tailscale/VPN and LAN links for opening from
-your PC. See [usage and verification](docs/serve-html.md).
+The standalone project in `~/gh/html-serve` installs the command with
+`just sync`. It prefers memorable four-digit free ports and prints Tailscale/VPN
+and LAN links for opening from your PC. Bootstrap and `daily-update` maintain
+the installation; old script paths forward to it. See [usage and verification](docs/serve-html.md).
 
 ### Daily AI-toolchain upkeep
 

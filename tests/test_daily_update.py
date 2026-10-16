@@ -57,7 +57,7 @@ exec "$REAL_GIT" "$@"
         self.repos = {}
         self.tools = {}
         self.seeds = {}
-        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'herdr-next-to-current'):
+        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'herdr-next-to-current', 'html-serve'):
             remote = self.root / f'{name}.git'
             seed = self.root / f'{name}-seed'
             self.git(self.root, 'init', '--bare', '--initial-branch=main', str(remote))
@@ -69,11 +69,11 @@ exec "$REAL_GIT" "$@"
             self.git(seed, 'push', '-u', 'origin', 'HEAD')
             repo = self.home / 'gh' / name
             self.git(self.root, 'clone', str(remote), str(repo))
-            if name == 'herdr-next-to-current':
-                official = 'https://github.com/vimkim/herdr-next-to-current.git'
+            if name in ('herdr-next-to-current', 'html-serve'):
+                official = f'https://github.com/vimkim/{name}.git'
                 self.git(repo, 'config', f'url.{remote}.insteadOf', official)
                 self.git(repo, 'config', 'remote.origin.url', official)
-            (self.tools if name in ('my-git-utils', 'herdr-next-to-current') else self.repos)[name] = repo
+            (self.tools if name in ('my-git-utils', 'herdr-next-to-current', 'html-serve') else self.repos)[name] = repo
             self.seeds[name] = seed
 
         remote = self.root / 'dotfiles.git'
@@ -391,6 +391,50 @@ exit "${FAIL_APPLY:-0}"
         result = self.run_daily()
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn('tool:herdr-next-to-current: skipped (dirty checkout)', result.stdout)
+        self.assertNotIn(f'{repo}:', self.logged())
+        self.assertEqual((repo / 'scratch').read_text(), 'valuable')
+
+    def test_html_serve_clean_main_refreshes_and_installs(self):
+        self.advance('html-serve')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"{self.tools['html-serve']}:after", self.logged())
+
+    def test_html_serve_topic_and_unexpected_origin_are_preserved(self):
+        repo = self.tools['html-serve']
+        self.git(repo, 'switch', '-c', 'topic')
+        self.git(repo, 'branch', '--set-upstream-to=origin/main')
+        before = self.git(repo, 'rev-parse', 'HEAD')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('requires primary main', result.stdout)
+        self.assertNotIn(f'{repo}:', self.logged())
+        self.assertEqual(before, self.git(repo, 'rev-parse', 'HEAD'))
+        self.git(repo, 'switch', 'main')
+        self.git(repo, 'config', 'remote.origin.url', 'https://example.invalid/occupied.git')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('unexpected origin', result.stdout)
+        self.assertNotIn(f'{repo}:', self.logged())
+
+    def test_html_serve_linked_worktree_is_preserved(self):
+        repo = self.tools['html-serve']
+        primary = self.root / 'primary-html-serve'
+        repo.rename(primary)
+        self.git(primary, 'switch', '--detach')
+        self.git(primary, 'worktree', 'add', str(repo), 'main')
+        self.git(repo, 'branch', '--set-upstream-to=origin/main')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('requires primary main', result.stdout)
+        self.assertNotIn(f'{repo}:', self.logged())
+
+    def test_html_serve_dirty_checkout_is_preserved(self):
+        repo = self.tools['html-serve']
+        (repo / 'scratch').write_text('valuable')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('tool:html-serve: skipped (dirty checkout)', result.stdout)
         self.assertNotIn(f'{repo}:', self.logged())
         self.assertEqual((repo / 'scratch').read_text(), 'valuable')
 

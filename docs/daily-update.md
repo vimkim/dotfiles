@@ -74,7 +74,11 @@ After the collections, the personal tool checkout `~/gh/my-git-utils`
 (`vimkim/my-git-utils`) goes through the same checks, fast-forward, and
 `just sync`, which reinstalls its commands with `uv tool install --editable`.
 It is reported as `tool:my-git-utils` and holds no skills, so stale-skill
-detection ignores it.
+detection ignores it. `~/gh/html-serve` (`vimkim/html-serve`) is refreshed as
+`tool:html-serve` using the same editable installation pattern. Like
+`herdr-next-to-current`, it requires a primary main checkout tracking origin/main
+and the expected origin; a task checkout is preserved and skipped. A locally
+created repository without a published upstream is skipped until publication.
 Fetch can update remote-tracking refs even when a diverged checkout is skipped.
 An unrelated collection still proceeds after a failure or partial result. Set
 `DAILY_UPDATE_COLLECTION_ORDER=cubrid-first` to process the same two collections in

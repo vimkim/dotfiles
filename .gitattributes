@@ -1,2 +1,0 @@
-# Preserve upstream whitespace inside generated JavaScript templates and licenses.
-/private_dot_config/my-scripts/share/serve-html/vendor/** -whitespace linguist-vendored=true linguist-generated=true
