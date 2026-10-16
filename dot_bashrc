@@ -128,10 +128,10 @@ elif command -v fdfind >/dev/null 2>&1; then
     _fd_cmd=fdfind
 fi
 
-alias ai='claude --dangerously-skip-permissions'
+alias ai='claude --settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/dotfiles-settings.json" --dangerously-skip-permissions'
 alias aip='ai "read prompt.md and execute"'
-alias cx='codex'
-alias cxp='codex "read prompt.md and execute"'
+alias cx='codex --profile dotfiles'
+alias cxp='codex --profile dotfiles "read prompt.md and execute"'
 
 function gcx() {
     local gitRoot=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")

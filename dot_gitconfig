@@ -41,5 +41,5 @@
 [credential "https://gist.github.com"]
 	helper = 
 	helper = !/home/linuxbrew/.linuxbrew/bin/gh auth git-credential
-[safe]
-	directory = /home/dev/cubrid-dev2-server
+[include]
+	path = ~/.gitconfig.local

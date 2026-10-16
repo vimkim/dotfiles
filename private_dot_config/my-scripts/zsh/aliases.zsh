@@ -268,10 +268,10 @@ alias cxx='FD_OPS=(-H -I --type d --type l) cd_fzf .'          # Navigate to dir
 alias cxh='cd_fzf "$HOME" d'   # Navigate to directories under $HOME
 alias cxg='cd_fzf "$(relative_gitdir)" d'  # Navigate to directories under Git root
 
-alias ai='claude --dangerously-skip-permissions'
+alias ai='claude --settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/dotfiles-settings.json" --dangerously-skip-permissions'
 alias aip='ai "read prompt.md and execute"'
-alias cx='codex'
-alias cxp='codex "read prompt.md and execute"'
+alias cx='codex --profile dotfiles'
+alias cxp='codex --profile dotfiles "read prompt.md and execute"'
 
 alias cff='FD_OPS=(-H -I --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
 alias cfh='cd_fzf "$HOME" f'   # Navigate to file-containing directories under $HOME

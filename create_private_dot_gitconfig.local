@@ -1,3 +1,0 @@
-# Machine-local Git overrides. Future edits belong in this file.
-[safe]
-	directory = /home/dev/cubrid-dev2-server

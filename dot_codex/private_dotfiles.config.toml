@@ -1,0 +1,19 @@
+# Shared preferences selected by `codex --profile dotfiles`.
+# Project trust, plugin choices, UI notices, and hook approvals stay in config.toml.
+model = "gpt-6.1-sol"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+model_reasoning_effort = "xhigh"
+
+[tui]
+alternate_screen = "always"
+status_line = ["model-with-reasoning", "pull-request-number", "context-used", "five-hour-limit", "weekly-limit", "task-progress", "approval-mode", "current-dir", "git-branch"]
+status_line_use_colors = true
+
+[agents]
+max_threads = 6
+max_depth = 2
+
+[features]
+hooks = true
+goals = true
