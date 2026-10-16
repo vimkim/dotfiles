@@ -91,7 +91,7 @@
       "/home/vimkim/gh"
     ]
   },
-  "model": "claude-fable-5-1[1m]",
+  "model": "opus",
   "statusLine": {
     "type": "command",
     "command": "bash ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/statusline.sh"
@@ -105,5 +105,30 @@
   "theme": "dark",
   "remoteControlAtStartup": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear|compact|fork)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/home/vimkim/.claude/hooks/herdr-agent-state.sh' session",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "claudeMdExcludes": [
+    "/home/vimkim/gh/cb/*/CLAUDE.md",
+    "/home/vimkim/gh/cb/*/AGENTS.md"
+  ],
+  "pluginConfigs": {
+    "cc-plugin-agents-md@builtin": {
+      "options": {
+        "instructionFiles": "claude-md-and-agents-md"
+      }
+    }
+  }
 }
