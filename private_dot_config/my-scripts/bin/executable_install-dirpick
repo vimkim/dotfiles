@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared by the chezmoi bootstrap and daily-update. Build only primary main.
+# Bootstrap Dirpick through its sync recipe. Install only primary main.
 set -eu
 
 checkout="$HOME/gh/dirpick"
@@ -10,10 +10,10 @@ retry() {
 }
 
 command -v git >/dev/null || retry 'install git first'
-if cargo_bin="$(command -v cargo)"; then
+command -v just >/dev/null || retry 'install just first'
+if command -v cargo >/dev/null 2>&1; then
     :
 elif [ -x "$HOME/.cargo/bin/cargo" ]; then
-    cargo_bin="$HOME/.cargo/bin/cargo"
     # Noninteractive chezmoi scripts may not inherit the Rust proxy PATH.
     export PATH="$HOME/.cargo/bin:$PATH"
 else
@@ -38,9 +38,8 @@ esac
 status="$(git -C "$checkout" status --porcelain --untracked-files=all)" || retry 'cannot inspect status'
 [ -z "$status" ] || retry 'dirty checkout; preserved'
 [ -f "$checkout/Cargo.toml" ] && [ -f "$checkout/Cargo.lock" ] || retry 'missing Cargo.toml or Cargo.lock'
+[ -f "$checkout/justfile" ] || retry 'missing local justfile; update the clean main checkout first'
 
-# Explicit root ignores CARGO_INSTALL_ROOT and uses the PATH shared by our shells.
-# Keep Cargo's ownership tracking; an unrelated existing binary must not be forced.
-(cd "$checkout" && "$cargo_bin" install --locked --path . --root "$HOME/.local" --bin dirpick) ||
+# Use the checkout's installation recipe without discovering a parent justfile.
+(cd "$checkout" && just --justfile ./justfile sync) ||
     retry 'installation failed'
-"$HOME/.local/bin/dirpick" --version || retry 'installed command failed its version check'

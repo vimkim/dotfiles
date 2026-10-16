@@ -14,9 +14,11 @@ MODULE = ROOT / 'private_dot_config/nushell/dirpick.nu'
 OFFICIAL = 'https://github.com/vimkim/dirpick.git'
 CHEZMOI = shutil.which('chezmoi')
 CARGO = shutil.which('cargo')
+JUST = shutil.which('just')
 NU = shutil.which('nu')
 
 
+@unittest.skipUnless(JUST, 'just required')
 class InstallDirpick(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -51,6 +53,7 @@ printf '#!/bin/sh\\nprintf "dirpick 0.1.0\\\\n"\\n' >"$HOME/.local/bin/dirpick"
 chmod +x "$HOME/.local/bin/dirpick"
 ''')
         cargo.chmod(0o755)
+        (self.bin / 'just').symlink_to(JUST)
         self.seed = self.root / 'seed'
         self.git(self.root, 'init', '--initial-branch=main', str(self.seed))
         (self.seed / '.gitignore').write_text('/target/\n')
@@ -58,6 +61,10 @@ chmod +x "$HOME/.local/bin/dirpick"
             '[package]\nname = "dirpick"\nversion = "0.1.0"\nedition = "2024"\n')
         (self.seed / 'Cargo.lock').write_text(
             'version = 4\n\n[[package]]\nname = "dirpick"\nversion = "0.1.0"\n')
+        (self.seed / 'justfile').write_text(
+            'sync:\n'
+            '    cargo install --locked --path . --root "$HOME/.local" --bin dirpick\n'
+            '    "$HOME/.local/bin/dirpick" --version\n')
         (self.seed / 'src').mkdir()
         (self.seed / 'src/main.rs').write_text('fn main() { println!("dirpick old"); }\n')
         self.git(self.seed, 'add', '.')
@@ -139,6 +146,24 @@ chmod +x "$HOME/.local/bin/dirpick"
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(binary.read_bytes(), before)
         self.assertEqual(self.install().returncode, 0)
+
+    def test_missing_just_or_local_recipe_reports_retry(self):
+        (self.bin / 'just').unlink()
+        result = self.install()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('install just first', result.stderr)
+        self.assertFalse(self.checkout.exists())
+        (self.bin / 'just').symlink_to(JUST)
+        self.assertEqual(self.install().returncode, 0)
+        self.log.unlink()
+        self.git(self.checkout, 'rm', 'justfile')
+        self.git(self.checkout, 'commit', '-m', 'missing recipe')
+        (self.checkout.parent / 'justfile').write_text('sync:\n    exit 0\n')
+        result = self.install()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('missing local justfile', result.stderr)
+        self.assertIn('Retry after correcting it:', result.stderr)
+        self.assertFalse(self.log.exists())
 
     @unittest.skipUnless(CHEZMOI, 'chezmoi required')
     def test_real_chezmoi_deploys_installer_and_retries_run_once(self):

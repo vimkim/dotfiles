@@ -35,7 +35,7 @@ if [ "${DAILY_UPDATE_COLLECTION_ORDER:-}" = cubrid-first ]; then
     PERSONAL_COLLECTIONS=(my-cubrid-skills my-skills)
 fi
 # Personal tool checkouts refresh the same way after the collections; their
-# `just sync` reinstalls the tool's commands; Dirpick uses install-dirpick.
+# `just sync` reinstalls each tool's commands.
 # These checkouts hold no skills.
 PERSONAL_TOOLS=(my-git-utils herdr-next-to-current html-serve dirpick)
 
@@ -538,19 +538,6 @@ run_collection() {
         FAILED+=("$label")
         return
     fi
-    if [ "$1" = dirpick ]; then
-        local installer="$HOME/.config/my-scripts/bin/install-dirpick"
-        if [ ! -x "$installer" ]; then
-            printf '   %s: FAILED (missing install-dirpick); apply dotfiles first\n' "$label"
-            FAILED+=("$label")
-        elif "$installer"; then
-            printf '   %s: completed\n' "$label"
-        else
-            printf '   %s: FAILED (installation)\n' "$label"
-            FAILED+=("$label")
-        fi
-        return
-    fi
     # Own the cwd so just cannot discover a recipe in a parent directory.
     if [ ! -f "$repo/justfile" ]; then
         printf '   %s: FAILED (missing local justfile)\n' "$label"
@@ -714,8 +701,9 @@ Each collection proceeds independently. Exit 0 means complete, 2 means skipped
 or partial work, and 1 means a failure. Runs still stamp the day in all cases.
 just sync alone reconciles local contents without fetching source changes.
 DAILY_UPDATE_COLLECTION_ORDER=cubrid-first reverses the default collection order.
-The personal tools ~/gh/my-git-utils, ~/gh/herdr-next-to-current and ~/gh/html-serve refresh afterwards.
-Herdr installation requires a clean primary main checkout tracking origin/main.
+The personal tools ~/gh/my-git-utils, ~/gh/herdr-next-to-current, ~/gh/html-serve,
+and ~/gh/dirpick refresh afterwards and run their own just sync recipes.
+Herdr, HTML Serve, and Dirpick require a clean primary main checkout tracking origin/main.
 Third-party updates use the pinned CLI with an explicit eligible-name filter.
 --prune moves what it removes into a dated trash directory rather than deleting it.
 EOF

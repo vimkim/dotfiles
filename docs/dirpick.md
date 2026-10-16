@@ -7,7 +7,7 @@ directory where Dirpick was launched.
 
 ## Initialize once
 
-Install Git and a current Rust/Cargo toolchain before applying these dotfiles.
+Install Git, Just, and a current Rust/Cargo toolchain before applying these dotfiles.
 Rust builds also require a system C compiler and linker. The repository's
 other bootstrap scripts have their own prerequisites.
 
@@ -21,11 +21,11 @@ The installer clones `vimkim/dirpick` into `~/gh/dirpick` when that path is abse
 It runs this command from the checkout:
 
 ```sh
-cargo install --locked --path . --root "$HOME/.local" --bin dirpick
+just --justfile ./justfile sync
 ```
 
 The resulting `~/.local/bin/dirpick` is on the managed Bash, Zsh, and Nushell PATH.
-The explicit installation root also overrides `CARGO_INSTALL_ROOT`.
+The recipe's explicit installation root also overrides `CARGO_INSTALL_ROOT`.
 The installer finds Cargo on PATH, or in `~/.cargo/bin` before shell initialization.
 It builds a release binary and checks `dirpick --version`.
 
@@ -76,8 +76,10 @@ daily-update
 
 The `tool:dirpick` step fetches published `main`, requires a clean primary
 checkout tracking `origin/main`, and requires the expected GitHub origin.
-It skips ahead or diverged history. After a fast-forward, it invokes the same
-installer. Cargo rebuilds changed sources even if the crate version is unchanged.
+It skips ahead or diverged history. After a fast-forward, it runs the checkout's
+`just sync` recipe through the same path used by other personal tools.
+The installer is only needed for bootstrap. Cargo rebuilds changed sources even
+if the crate version is unchanged.
 A build failure retains the previously installed binary. A later run retries
 installation even when no new commits are available.
 

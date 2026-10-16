@@ -89,11 +89,12 @@ It requires a clean, independent primary checkout on `main` tracking
 `origin/main`, with the expected GitHub origin. Symlinks and linked worktrees
 are skipped. Its fetch requests remote `main` explicitly, so deletion cannot
 leave a stale reference eligible for installation. After the same ancestor
-check and fast-forward, `~/.config/my-scripts/bin/install-dirpick` installs
-the locked Cargo package into `~/.local/bin`. Dirpick needs Rust/Cargo, without
-a `justfile`. An unchanged checkout still reinstalls, allowing a failed build
-to be retried. Missing installers and failed builds report failure while
-independent steps continue. See [Dirpick setup](dirpick.md) for bootstrap and
+check and fast-forward, the checkout's `just sync` recipe installs the locked
+Cargo package into `~/.local/bin`, through the same sync path as other tools.
+Dirpick needs Just and Rust/Cargo. An unchanged checkout still runs sync, allowing
+a failed build to be retried. Missing justfiles and failed builds report failure
+while independent steps continue. `install-dirpick` is only used for bootstrap.
+See [Dirpick setup](dirpick.md) for bootstrap and
 Nushell integration.
 
 `just sync` alone reconciles the current source contents with installed skills;

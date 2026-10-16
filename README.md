@@ -264,8 +264,9 @@ the installation; old script paths forward to it. See [usage and verification](d
 
 Chezmoi installs [Dirpick](https://github.com/vimkim/dirpick) from `~/gh/dirpick`
 into `~/.local/bin`, which Bash, Zsh, and Nushell already include on PATH.
-Git and a current Rust/Cargo toolchain are prerequisites. The first
-`chezmoi init --apply` installs it once. `daily-update` maintains the installation.
+Git, Just, and a current Rust/Cargo toolchain are prerequisites. The first
+`chezmoi init --apply` installs it once. `daily-update` maintains the installation
+through the checkout's `just sync` recipe.
 
 Run `dirpick` to open the terminal workbench. In Nushell, run `dp` to also change
 the shell directory with Ctrl-G. The default scope is Project root. F7 switches
