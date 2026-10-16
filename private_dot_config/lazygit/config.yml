@@ -1,9 +1,9 @@
 git:
   log:
   # showWholeGraph: true
-  pagers:
-    - colorArgs: always
-      pager: delta --dark --paging=never
+  diffRenderers:
+    - colorArg: always
+      command: delta --dark --paging=never
 customCommands:
   - key: "N"
     description: "Create a new branch without checking it out"
