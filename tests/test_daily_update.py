@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -11,6 +12,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'private_dot_config/my-scripts/bi
 GIT = shutil.which('git')
 JUST = shutil.which('just')
 JQ = shutil.which('jq')
+CHEZMOI = shutil.which('chezmoi')
 
 
 @unittest.skipUnless(GIT and JUST and JQ, 'git, just and jq required')
@@ -42,7 +44,10 @@ class DailyUpdateTest(unittest.TestCase):
         self.executable('brew', 'exit 1\n')
         self.executable('gh', 'exit 1\n')
         self.executable('git', '''
+printf 'git:%s\n' "$*" >>"$TEST_LOG"
 case "$*" in
+  *" status "*) [ "${FAIL_STATUS:-}" != "$2" ] || exit 9 ;;
+  *" fetch "*) [ "${FAIL_FETCH:-}" != "$2" ] || exit 9 ;;
   *" merge --ff-only "*) [ "${FAIL_FF:-}" != "$2" ] || exit 9 ;;
 esac
 exec "$REAL_GIT" "$@"
@@ -70,6 +75,33 @@ exec "$REAL_GIT" "$@"
                 self.git(repo, 'config', 'remote.origin.url', official)
             (self.tools if name in ('my-git-utils', 'herdr-next-to-current') else self.repos)[name] = repo
             self.seeds[name] = seed
+
+        remote = self.root / 'dotfiles.git'
+        seed = self.root / 'dotfiles-seed'
+        self.git(self.root, 'init', '--bare', '--initial-branch=main', str(remote))
+        self.git(self.root, 'clone', str(remote), str(seed))
+        (seed / 'revision').write_text('before')
+        self.git(seed, 'add', '.')
+        self.git(seed, 'commit', '-m', 'initial')
+        self.git(seed, 'push', '-u', 'origin', 'HEAD')
+        self.dotfiles = self.home / 'configured dotfiles'
+        self.git(self.root, 'clone', str(remote), str(self.dotfiles))
+        official = 'https://github.com/vimkim/dotfiles.git'
+        self.git(self.dotfiles, 'config', f'url.{remote}.insteadOf', official)
+        self.git(self.dotfiles, 'config', 'remote.origin.url', official)
+        self.seeds['dotfiles'] = seed
+        self.env['TEST_DOTFILES'] = str(self.dotfiles)
+        self.executable('chezmoi', '''
+[ "$*" = source-path ] || exit 8
+[ "${FAIL_SOURCE_PATH:-0}" = 0 ] || exit 9
+printf '%s\n' "${TEST_SOURCE:-$TEST_DOTFILES}"
+''')
+        self.executable('chezmoi-apply-unmodified', '''
+[ "$#" = 2 ] && [ "$1" = --source ] && [ "$2" = "$TEST_DOTFILES" ] || exit 8
+printf 'dotfiles:%s\n' "$(cat "$2/revision")" >>"$TEST_LOG"
+[ -z "${APPLY_OUTPUT:-}" ] || printf '%s\n' "$APPLY_OUTPUT"
+exit "${FAIL_APPLY:-0}"
+''')
 
     def executable(self, name, contents):
         path = self.bin / name
@@ -104,6 +136,190 @@ exec "$REAL_GIT" "$@"
         other = 'my-cubrid-skills' if bad == 'my-skills' else 'my-skills'
         self.assertIn(f'{self.repos[other]}:before', self.logged())
         self.assertNotIn(f'{self.repos[bad]}:', self.logged())
+
+    def assert_dotfiles_skipped(self, result, code=2):
+        self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+        self.assertNotIn('dotfiles:before', self.logged())
+        self.assertNotIn('dotfiles:after', self.logged())
+        self.assertIn('codex update', self.logged())
+        self.assertIn(f"{self.repos['my-skills']}:before", self.logged())
+
+    def test_dotfiles_refresh_and_apply_precede_upgrades_even_when_unchanged(self):
+        self.advance('dotfiles')
+        for _ in range(2):
+            self.log.unlink(missing_ok=True)
+            result = self.run_daily()
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            rows = self.logged().splitlines()
+            self.assertLess(rows.index('dotfiles:after'), rows.index('codex update'))
+            self.assertIn('dotfiles: completed', result.stdout)
+            self.assertEqual(self.git(self.dotfiles, 'rev-parse', 'HEAD'),
+                             self.git(self.seeds['dotfiles'], 'rev-parse', 'HEAD'))
+
+    def test_dotfiles_dirty_work_is_preserved_without_fetch(self):
+        self.advance('dotfiles')
+        tip = self.git(self.dotfiles, 'rev-parse', 'origin/main')
+        for kind in ('unstaged', 'staged', 'untracked'):
+            with self.subTest(kind=kind):
+                self.log.unlink(missing_ok=True)
+                path = self.dotfiles / ('scratch' if kind == 'untracked' else 'revision')
+                path.write_text('valuable')
+                if kind == 'staged':
+                    self.git(self.dotfiles, 'add', 'revision')
+                before = self.git(self.dotfiles, 'status', '--porcelain')
+                result = self.run_daily()
+                self.assert_dotfiles_skipped(result)
+                self.assertIn('dotfiles: skipped (dirty checkout)', result.stdout)
+                self.assertEqual(before, self.git(self.dotfiles, 'status', '--porcelain'))
+                self.assertEqual(path.read_text(), 'valuable')
+                self.assertEqual(tip, self.git(self.dotfiles, 'rev-parse', 'origin/main'))
+                if kind == 'untracked':
+                    path.unlink()
+                else:
+                    self.git(self.dotfiles, 'restore', '--staged', '--worktree', 'revision')
+
+    def test_dotfiles_ahead_and_diverged_skip_deployment(self):
+        (self.dotfiles / 'local').write_text('valuable')
+        self.git(self.dotfiles, 'add', '.')
+        self.git(self.dotfiles, 'commit', '-m', 'local')
+        tip = self.git(self.dotfiles, 'rev-parse', 'HEAD')
+        for diverged in (False, True):
+            with self.subTest(diverged=diverged):
+                self.log.unlink(missing_ok=True)
+                if diverged:
+                    self.advance('dotfiles')
+                result = self.run_daily()
+                self.assert_dotfiles_skipped(result)
+                self.assertIn('dotfiles: skipped (ahead or diverged checkout)', result.stdout)
+                self.assertEqual(tip, self.git(self.dotfiles, 'rev-parse', 'HEAD'))
+
+    def test_dotfiles_topic_detached_and_no_upstream_skip_before_fetch(self):
+        self.advance('dotfiles')
+        self.git(self.dotfiles, 'switch', '-c', 'topic')
+        self.git(self.dotfiles, 'branch', '--set-upstream-to=origin/main')
+        for state in ('topic', 'detached', 'no-upstream'):
+            with self.subTest(state=state):
+                self.log.unlink(missing_ok=True)
+                if state == 'detached':
+                    self.git(self.dotfiles, 'switch', '--detach')
+                elif state == 'no-upstream':
+                    self.git(self.dotfiles, 'switch', 'main')
+                    self.git(self.dotfiles, 'branch', '--unset-upstream')
+                result = self.run_daily()
+                self.assert_dotfiles_skipped(result)
+                self.assertIn('requires main tracking origin/main', result.stdout)
+                self.assertNotIn(f'git:-C {self.dotfiles} fetch', self.logged())
+
+    def test_dotfiles_unexpected_origin_is_preserved(self):
+        self.git(self.dotfiles, 'remote', 'set-url', 'origin', 'https://example.invalid/other.git')
+        result = self.run_daily()
+        self.assert_dotfiles_skipped(result)
+        self.assertIn('dotfiles: skipped (unexpected origin)', result.stdout)
+        self.assertNotIn(f'git:-C {self.dotfiles} fetch', self.logged())
+
+    def test_dotfiles_missing_or_nested_source_never_refreshes_parent(self):
+        nested = self.dotfiles / 'nested'
+        nested.mkdir()
+        for source in (self.root / 'missing', nested):
+            with self.subTest(source=source):
+                self.log.unlink(missing_ok=True)
+                result = self.run_daily(TEST_SOURCE=str(source))
+                self.assert_dotfiles_skipped(result)
+                self.assertIn('missing independent source checkout', result.stdout)
+                self.assertNotIn(f'git:-C {source} fetch', self.logged())
+
+    def test_dotfiles_failures_skip_apply_and_allow_other_updates(self):
+        self.advance('dotfiles')
+        for failure in ('FAIL_STATUS', 'FAIL_FETCH', 'FAIL_FF'):
+            with self.subTest(failure=failure):
+                self.log.unlink(missing_ok=True)
+                tip = self.git(self.dotfiles, 'rev-parse', 'HEAD')
+                result = self.run_daily(**{failure: str(self.dotfiles)})
+                self.assert_dotfiles_skipped(result, code=1)
+                self.assertIn('dotfiles: FAILED', result.stdout)
+                self.assertEqual(tip, self.git(self.dotfiles, 'rev-parse', 'HEAD'))
+        result = self.run_daily(FAIL_SOURCE_PATH='1')
+        self.assert_dotfiles_skipped(result, code=1)
+        self.assertIn('cannot locate configured source', result.stdout)
+
+    def test_dotfiles_deleted_remote_main_never_uses_stale_tracking_ref(self):
+        self.git(self.seeds['dotfiles'], 'config', 'remote.origin.receivepack',
+                 'git -c receive.denyDeleteCurrent=ignore receive-pack')
+        self.git(self.seeds['dotfiles'], 'push', 'origin', '--delete', 'main')
+        result = self.run_daily()
+        self.assert_dotfiles_skipped(result, code=1)
+        self.assertIn('dotfiles: FAILED (fetch)', result.stdout)
+
+    def test_dotfiles_apply_failure_is_reported_and_independent(self):
+        result = self.run_daily(FAIL_APPLY='2', APPLY_OUTPUT='apply failed')
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('dotfiles: FAILED (apply exit 2)', result.stdout)
+        self.assertIn('apply failed', result.stdout)
+        self.assertIn('claude update', self.logged())
+        self.assertIn(f"{self.repos['my-skills']}:before", self.logged())
+        self.assertEqual(self.run_daily('--remind').stdout, '')
+
+    def test_dotfiles_helper_skips_are_partial_and_visible_in_summary(self):
+        for message in ('Skipped locally changed target: /home/test/local',
+                        'Skipped pre-existing target without last-write state: /home/test/local'):
+            with self.subTest(message=message):
+                result = self.run_daily(APPLY_OUTPUT=message)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn(message, result.stdout)
+                self.assertIn('dotfiles: partial/skipped', result.stdout)
+                self.assertIn('skipped: dotfiles', result.stdout)
+                self.assertEqual(self.run_daily('--remind').stdout, '')
+
+    def test_dotfiles_missing_helper_skips_and_non_run_modes_do_not_refresh(self):
+        (self.bin / 'chezmoi-apply-unmodified').unlink()
+        result = self.run_daily()
+        self.assert_dotfiles_skipped(result)
+        self.assertIn('requires chezmoi, git and chezmoi-apply-unmodified', result.stdout)
+        self.log.unlink()
+        for mode in ('--remind', '--status', '--help', '--stale', '--prune', '--reset'):
+            result = self.run_daily(mode)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(self.logged(), '')
+
+    @unittest.skipUnless(CHEZMOI, 'chezmoi required')
+    def test_dotfiles_with_real_helper_updates_clean_targets_and_preserves_edits(self):
+        seed = self.seeds['dotfiles']
+        (seed / '.chezmoiignore').write_text('revision\n')
+        for name in ('clean', 'dirty', 'deleted'):
+            (seed / name).write_text('before')
+        self.git(seed, 'add', '.')
+        self.git(seed, 'commit', '-m', 'managed files')
+        self.git(seed, 'push')
+        self.git(self.dotfiles, 'pull', '--ff-only')
+        dest = self.root / 'destination'
+        dest.mkdir()
+        config = self.root / 'chezmoi.json'
+        config.write_text(json.dumps({
+            'sourceDir': str(self.dotfiles), 'destDir': str(dest),
+            'persistentState': str(self.root / 'state.boltdb'),
+            'cacheDir': str(self.root / 'chezmoi-cache'),
+        }))
+        self.executable('chezmoi', f'exec {shlex.quote(CHEZMOI)} --config {shlex.quote(str(config))} "$@"\n')
+        helper = SCRIPT.with_name('executable_chezmoi-apply-unmodified')
+        self.executable('chezmoi-apply-unmodified', f'exec bash {shlex.quote(str(helper))} "$@"\n')
+        subprocess.run([str(self.bin / 'chezmoi'), 'apply'], env=self.env,
+                       check=True, capture_output=True, text=True)
+        (dest / 'dirty').write_text('valuable')
+        (dest / 'deleted').unlink()
+        (dest / 'preexisting').write_text('valuable')
+        for name in ('clean', 'dirty', 'deleted', 'preexisting'):
+            (seed / name).write_text('after')
+        self.git(seed, 'add', '.')
+        self.git(seed, 'commit', '-m', 'update managed files')
+        self.git(seed, 'push')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertEqual((dest / 'clean').read_text(), 'after')
+        self.assertEqual((dest / 'dirty').read_text(), 'valuable')
+        self.assertFalse((dest / 'deleted').exists())
+        self.assertEqual((dest / 'preexisting').read_text(), 'valuable')
+        self.assertIn('dotfiles: partial/skipped', result.stdout)
+        self.assertIn('skipped: dotfiles', result.stdout)
 
     def test_clean_refresh_before_sync_both_orders(self):
         for name in self.repos:

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Daily AI-toolchain upkeep: codex, claude, and the globally installed skills.
+# Daily upkeep: dotfiles, codex, claude, and the globally installed skills.
 #
 # Reminder semantics:
 #   --remind  prints the pending block on EVERY interactive shell start, for as
 #             long as today's upkeep is outstanding, and prints nothing once it
 #             has been done today. Shell rc files call this.
-#   (no args) runs upgrades and collection sync, then stamps ~/.cache/daily-update.stamp
+#   (no args) refreshes/applies dotfiles, runs upgrades and collection sync,
+#             then stamps ~/.cache/daily-update.stamp
 #             with today's date, which silences --remind for the rest of that
 #             calendar day.
 #
@@ -381,6 +382,91 @@ run_codex_upgrade() {
     fi
 }
 
+run_dotfiles() {
+    local repo root status branch upstream origin helper output rc
+    printf '\n%s── dotfiles ──%s\n' "$BOLD" "$RESET"
+    if ! command -v chezmoi >/dev/null 2>&1 ||
+        ! command -v git >/dev/null 2>&1 ||
+        ! helper="$(command -v chezmoi-apply-unmodified)"; then
+        printf '   dotfiles: skipped (requires chezmoi, git and chezmoi-apply-unmodified)\n'
+        SKIPPED+=(dotfiles)
+        return
+    fi
+    if ! repo="$(chezmoi source-path)"; then
+        printf '   dotfiles: FAILED (cannot locate configured source); apply skipped\n'
+        FAILED+=(dotfiles)
+        return
+    fi
+    if [[ $repo != /* ]] || [ ! -d "$repo" ] ||
+        ! root="$(git -C "$repo" rev-parse --show-toplevel 2>/dev/null)" ||
+        [ "$root" != "$(cd "$repo" && pwd -P)" ]; then
+        printf '   dotfiles: skipped (missing independent source checkout)\n'
+        SKIPPED+=(dotfiles)
+        return
+    fi
+    if ! status="$(git -C "$repo" status --porcelain --untracked-files=all)"; then
+        printf '   dotfiles: FAILED (cannot inspect checkout); apply skipped\n'
+        FAILED+=(dotfiles)
+        return
+    fi
+    if [ -n "$status" ]; then
+        printf '   dotfiles: skipped (dirty checkout); apply skipped\n'
+        SKIPPED+=(dotfiles)
+        return
+    fi
+    if ! branch="$(git -C "$repo" symbolic-ref --quiet --short HEAD)" ||
+        ! upstream="$(git -C "$repo" rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)" ||
+        [ "$branch" != main ] || [ "$upstream" != origin/main ]; then
+        printf '   dotfiles: skipped (requires main tracking origin/main); apply skipped\n'
+        SKIPPED+=(dotfiles)
+        return
+    fi
+    origin="$(git -C "$repo" config --get remote.origin.url)" || origin=""
+    case "$origin" in
+    https://github.com/vimkim/dotfiles|https://github.com/vimkim/dotfiles.git|git@github.com:vimkim/dotfiles|git@github.com:vimkim/dotfiles.git) ;;
+    *)
+        printf '   dotfiles: skipped (unexpected origin); apply skipped\n'
+        SKIPPED+=(dotfiles)
+        return
+        ;;
+    esac
+    # Request main explicitly: a removed remote branch must fail rather than
+    # letting a stale origin/main authorize deployment.
+    if ! git -C "$repo" fetch -- origin refs/heads/main:refs/remotes/origin/main; then
+        printf '   dotfiles: FAILED (fetch); apply skipped\n'
+        FAILED+=(dotfiles)
+        return
+    fi
+    # --ff-only alone also succeeds for an ahead checkout. Avoid deploying
+    # unpublished local commits by requiring HEAD <= the fetched origin/main.
+    if ! git -C "$repo" merge-base --is-ancestor HEAD origin/main; then
+        printf '   dotfiles: skipped (ahead or diverged checkout); apply skipped\n'
+        SKIPPED+=(dotfiles)
+        return
+    fi
+    if ! git -C "$repo" merge --ff-only -- origin/main; then
+        printf '   dotfiles: FAILED (fast-forward); apply skipped\n'
+        FAILED+=(dotfiles)
+        return
+    fi
+    if output="$("$helper" --source "$repo" 2>&1)"; then
+        [ -z "$output" ] || printf '%s\n' "$output"
+        # The helper deliberately returns success for preserved local files.
+        # Keep those skips visible in this run's summary and exit status.
+        if printf '%s\n' "$output" | grep -E '^Skipped (locally changed target|pre-existing target without last-write state): ' >/dev/null; then
+            printf '   dotfiles: partial/skipped (preserved local targets)\n'
+            SKIPPED+=(dotfiles)
+        else
+            printf '   dotfiles: completed\n'
+        fi
+    else
+        rc=$?
+        [ -z "$output" ] || printf '%s\n' "$output"
+        printf '   dotfiles: FAILED (apply exit %d)\n' "$rc"
+        FAILED+=(dotfiles)
+    fi
+}
+
 run_collection() {
     local repo="$HOME/gh/$1" status branch upstream remote rc root
     local label="${2:-collection}:$1"
@@ -489,6 +575,7 @@ run_third_party_updates() {
 run_upgrades() {
     mkdir -p "$(dirname "$STAMP")"
 
+    run_dotfiles
     run_codex_upgrade
     run_step claude claude update
     local collection
@@ -577,10 +664,10 @@ prune_stale() {
 
 usage() {
     cat <<'EOF'
-daily-update — daily upkeep for codex, claude, and the global agent skills
+daily-update — daily upkeep for dotfiles, codex, claude, and the global agent skills
 
 usage:
-  daily-update            upgrade tools, refresh/sync collections, stamp the day
+  daily-update            refresh/apply dotfiles, upgrade tools, sync, stamp the day
   daily-update --remind   print the pending block, or nothing if done today
   daily-update --status   print current state either way
   daily-update --stale    list stale skills without changing anything
@@ -591,6 +678,12 @@ usage:
 The reminder prints on every interactive shell until a run stamps the day.
 Upgrades target ~/.local/bin first, whatever the calling shell's PATH. If the
 resolved Codex belongs to Homebrew, it is upgraded through Homebrew instead.
+
+Dotfiles run first, using chezmoi's configured source checkout. Require a clean
+main tracking origin/main from vimkim/dotfiles, fetch main, fast-forward, then
+run chezmoi-apply-unmodified against that source. Ahead/diverged checkouts skip
+deployment. Local target edits are preserved and reported as partial work.
+Dotfiles failures still allow independent tool and collection updates.
 
 A skill counts as stale only when the lock file claims it and it was deleted
 from its source repository, or its installed directory or symlink is broken.

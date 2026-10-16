@@ -8,13 +8,53 @@ Edit the source in a topic worktree. Review its rendered diff with:
 chezmoi --source /absolute/path/to/task-worktree diff -- ~/.config/my-scripts/bin/daily-update
 ```
 
-A local merge, publishing the dotfiles repository, and deploying that concrete
-target are separate actions. This change does not deploy the script.
+After review and an approved local merge, the repository workflow deploys with
+`chezmoi-apply-unmodified`. Publishing the dotfiles repository requires a separate
+request.
 
-## Refresh policy
+## Dotfiles refresh and deployment
 
-A normal `daily-update` preserves Codex/Claude upgrade behavior, then coordinates
-these explicit personal checkouts:
+A normal `daily-update` starts with the configured dotfiles source checkout,
+resolved with `chezmoi source-path`, regardless of the calling directory. It
+requires an independent Git checkout with no tracked or untracked changes, on
+`main` tracking `origin/main`, with `origin` identifying `vimkim/dotfiles` through
+an HTTPS or GitHub SSH URL. Missing tools or source checkouts, other branches,
+detached HEAD, missing upstreams and unexpected origins are reported as skips.
+
+After those checks, it runs:
+
+```sh
+git -C "$source" fetch -- origin refs/heads/main:refs/remotes/origin/main
+git -C "$source" merge-base --is-ancestor HEAD origin/main
+git -C "$source" merge --ff-only -- origin/main
+chezmoi-apply-unmodified --source "$source"
+```
+
+Each command depends on the previous command succeeding. Fetch requests `main`
+explicitly so a deleted remote branch fails instead of leaving an old
+`origin/main` to authorize deployment. The ancestor check skips ahead or diverged
+checkouts; `--ff-only` alone can succeed when local commits are ahead. Local
+commits must be published before a subsequent daily run will deploy them.
+
+The helper runs even when the source is already current, so a retry can finish
+an earlier deployment. It considers all managed files and symlinks, preserves
+locally edited/deleted targets and existing targets without last-write history,
+and excludes run scripts and directory removals. Its skip messages remain visible
+and make the daily run partial (exit 2), although the helper itself returns
+success for skips. A helper error, failed source lookup, failed Git inspection,
+fetch failure or fast-forward failure counts as failed work (exit 1). Independent
+tool and collection updates still proceed after any dotfiles result.
+
+This treats `origin/main` as a trusted deployment source. Applying a new version
+of `daily-update` updates its file; the current invocation continues with the
+functions it already loaded, and the next invocation uses the new version.
+`--remind`, `--status`, `--stale`, `--prune`, `--reset` and `--help` do not run the
+dotfiles step.
+
+## Collection and tool refresh
+
+After dotfiles, `daily-update` preserves Codex/Claude upgrade behavior, then
+coordinates these explicit personal checkouts:
 
 1. `~/gh/my-skills` (`vimkim/my-skills`).
 2. `~/gh/my-cubrid-skills` (`vimkim/my-cubrid-skills`).
@@ -88,12 +128,18 @@ shellcheck private_dot_config/my-scripts/bin/executable_daily-update
 python3 -B -m unittest discover -s tests -p test_daily_update.py -v
 ```
 
-The 13 public-entry-point tests invoke the Bash source using disposable homes,
+The public-entry-point tests invoke the Bash source using disposable homes,
 Git checkouts and bare remotes. They use real Git/just/jq plus controlled failures;
 Codex, Claude, npm, GitHub and Homebrew commands are contained substitutes, so
-verification does not upgrade tools or touch installed skills. Configuration and
-caches are confined to the disposable home. Coverage includes both processing
-orders, refresh-before-sync, staged/untracked dirty work, ahead/diverged history,
+verification does not upgrade tools or touch installed skills. A real chezmoi
+and helper integration test verifies deployment to a disposable destination;
+other tests substitute the helper to exercise orchestration failures.
+Configuration and caches are confined to the disposable home. Dotfiles coverage
+includes refresh/apply before upgrades, configured source paths containing spaces,
+unchanged-source retries, branch/origin/cleanliness guards, unpublished local
+commits, deleted remote `main`, failed Git steps, helper failures and partial
+deployment, and preserved local target edits/deletions. Coverage also includes both
+processing orders, refresh-before-sync, staged/untracked dirty work, ahead/diverged history,
 fetch/fast-forward/sync failures, partial sync, missing/detached/untracked branches,
 nested Git directories, failed first scans, protected personal GitHub/local
 entries and name collisions, malformed locks, and reminder/status/reset behavior.
