@@ -278,7 +278,7 @@ alias cfh='cd_fzf "$HOME" f'   # Navigate to file-containing directories under $
 alias cfg='cd_fzf "$(relative_gitdir)" f'  # Navigate to file-containing directories under Git root
 
 alias ca='FD_OPS=(-H -I -tf -td -tl) cd_fzf .'              # Navigate to either files or directories
-alias cb='cd "$(cat ~/.directory_bookmarks | fzf --prompt="Select a directory: ") || echo "No directory selected." >&2"'
+alias cb='bm'
 
 
 alias ff='vxg'

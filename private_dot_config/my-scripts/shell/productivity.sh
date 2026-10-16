@@ -1,6 +1,6 @@
 # Shared interactive Bash/Zsh helpers, matching the everyday Nushell shortcuts.
 # Clear old aliases before defining functions (also permits re-sourcing).
-unalias c l ll cl cv mc gr fp cf vc y ch chf chd chp vh n nr na nc 2>/dev/null || :
+unalias c l ll cl cv mc gr fp cf vc y ch chf chd chp vh bm n nr na nc 2>/dev/null || :
 
 l() {
     [ "$#" -gt 0 ] || set -- .
@@ -104,6 +104,34 @@ alias chf='ch --forget'
 alias chd='ch --delete'
 alias chp='ch --prune'
 alias vh='dir-history list --json'
+
+# Python owns bookmark storage and selection; cd must run in this shell.
+bm() {
+    local selected result
+    case "${1:-}" in
+        add|a|-a) shift; command dir-bookmark add "$@"; return ;;
+        del|delete|d|-d) shift; command dir-bookmark delete "$@"; return ;;
+        list|l) shift; command dir-bookmark list "$@"; return ;;
+        -h|--help) command dir-bookmark --help; return ;;
+        pick) shift ;;
+    esac
+    if selected=$(command dir-bookmark pick "$@" && printf '\001'); then
+        selected=${selected%$'\001'}
+        if [ -n "$selected" ]; then
+            selected=${selected%$'\n'}
+            cl -- "$selected"
+        fi
+    else
+        result=$?
+        case "$result" in
+            130) return 0 ;;
+            *) return "$result" ;;
+        esac
+    fi
+}
+alias ba='bm add'
+alias bd='bm del'
+alias bl='bm list'
 
 _productivity_record_directory() {
     local previous_status=$?
@@ -210,7 +238,11 @@ alias fda='fd -H -I'
 alias rgall='rg --hidden --no-ignore'
 alias conf='cl ~/.config'
 alias confd='cl ~/.config'
-alias tmpd='cd "$TMPDIR"'
+alias dir-chez='cl -- "$HOME/.local/share/chezmoi"'
+alias dir-gh='cl -- "$HOME/gh"'
+alias dir-works='cl -- "$HOME/works"'
+alias dir-tmp='cl -- "$TMPDIR"'
+alias tmpd='dir-tmp'
 alias mycub='cl ~/my-cubrid'
 alias nvimh='cl ~/.config/nvim'
 alias lz='lazygit'

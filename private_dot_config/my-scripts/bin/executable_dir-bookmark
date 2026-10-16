@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""Named directory bookmarks shared by Bash, Zsh, and Nushell."""
+
+import argparse
+from contextlib import contextmanager
+import fcntl
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+
+
+def bookmark_file():
+    configured = os.environ.get("XDG_DATA_HOME", "")
+    base = Path(configured) if os.path.isabs(configured) else Path.home() / ".local/share"
+    return base / "dir-bookmark/bookmarks.json"
+
+
+def validate_rows(rows):
+    if not isinstance(rows, list):
+        raise ValueError("bookmarks must be a list of name/path records")
+    names = set()
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != {"name", "path"}:
+            raise ValueError("each bookmark must contain a name and a path")
+        name, path = row["name"], row["path"]
+        if not isinstance(name, str) or not name or "\0" in name:
+            raise ValueError("bookmark names must be nonempty strings without NUL bytes")
+        if not isinstance(path, str) or not os.path.isabs(path) or "\0" in path:
+            raise ValueError("bookmark paths must be absolute strings without NUL bytes")
+        if name in names:
+            raise ValueError(f"duplicate bookmark name: {display(name)}")
+        names.add(name)
+    return rows
+
+
+def legacy_bookmarks():
+    legacy = Path.home() / ".bookmarks.nuon"
+    if not legacy.exists():
+        return []
+    nu = shutil.which("nu")
+    if not nu:
+        raise RuntimeError(f"Nushell is required once to import {legacy}; original left unchanged")
+    result = subprocess.run(
+        [nu, "--no-config-file", "--no-history", "-c",
+         "open --raw $env.DIR_BOOKMARK_LEGACY | from nuon | to json --raw"],
+        env={**os.environ, "DIR_BOOKMARK_LEGACY": str(legacy)},
+        capture_output=True, text=True, timeout=10,
+    )
+    if result.returncode:
+        raise ValueError(f"cannot import {legacy}: {result.stderr.strip()}; original left unchanged")
+    rows = json.loads(result.stdout)
+    if not isinstance(rows, list):
+        raise ValueError(f"cannot import {legacy}: expected a list of bookmarks")
+    # The old manager allowed repeated names. Keep every record with a unique label.
+    names = set()
+    imported = []
+    for row in rows:
+        validate_rows([row])
+        name = row["name"]
+        suffix = 2
+        while name in names:
+            name = f"{row['name']}-{suffix}"
+            suffix += 1
+        names.add(name)
+        imported.append({"name": name, "path": row["path"]})
+    return imported
+
+
+class Bookmarks:
+    def __init__(self):
+        self.filename = bookmark_file()
+
+    @contextmanager
+    def transaction(self):
+        directory = self.filename.parent
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        descriptor = os.open(directory / ".lock", os.O_CREAT | os.O_RDWR, 0o600)
+        with os.fdopen(descriptor, "a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                with self.filename.open(encoding="utf-8") as source:
+                    document = json.load(source)
+            except FileNotFoundError:
+                rows = legacy_bookmarks()
+                original = None
+            else:
+                if not isinstance(document, dict) or document.get("version") != 1:
+                    raise ValueError(f"unsupported bookmark format in {self.filename}; left unchanged")
+                rows = validate_rows(document.get("bookmarks"))
+                original = json.dumps(rows)
+            yield rows
+            if original != json.dumps(rows):
+                self.save(rows)
+
+    def save(self, rows):
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self.filename.parent,
+                prefix=".bookmarks-", delete=False,
+            ) as output:
+                temporary = output.name
+                json.dump({"version": 1, "bookmarks": validate_rows(rows)}, output, indent=2)
+                output.write("\n")
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, self.filename)
+        finally:
+            if temporary is not None and os.path.exists(temporary):
+                os.unlink(temporary)
+
+    def rows(self):
+        with self.transaction() as rows:
+            return [dict(row) for row in rows]
+
+    def add(self, name, path, replace=False):
+        validate_rows([{"name": name, "path": path}])
+        if not os.path.isdir(path):
+            raise ValueError(f"not a directory: {display(path)}")
+        with self.transaction() as rows:
+            existing = next((row for row in rows if row["name"] == name), None)
+            if existing is not None:
+                if existing["path"] != path and not replace:
+                    raise ValueError(f"bookmark already exists: {display(name)}; use --replace to update it")
+                existing["path"] = path
+            else:
+                rows.append({"name": name, "path": path})
+
+    def delete(self, names):
+        with self.transaction() as rows:
+            missing = set(names) - {row["name"] for row in rows}
+            if missing:
+                raise ValueError("unknown bookmark: " + ", ".join(map(display, sorted(missing))))
+            rows[:] = [row for row in rows if row["name"] not in names]
+
+    def delete_selected(self, selected):
+        # Preserve a name that another shell reassigned while the picker was open.
+        with self.transaction() as rows:
+            rows[:] = [row for row in rows if row not in selected]
+
+
+def display(value):
+    escapes = {"\\": "\\\\", "\t": "\\t", "\n": "\\n", "\r": "\\r"}
+    return "".join(escapes.get(char, char if char.isprintable() else f"\\u{ord(char):04x}")
+                   for char in value)
+
+
+def pick(rows, multi=False):
+    if not rows:
+        print("No bookmarks. Use 'bm add NAME' to save the current directory.", file=sys.stderr)
+        return []
+    fzf = shutil.which("fzf")
+    if not fzf:
+        raise FileNotFoundError("fzf is required for bookmark selection")
+    result = subprocess.run(
+        [fzf, "--read0", "--print0", "--no-print-query", "--no-expect", "--no-tac",
+         "--multi" if multi else "--no-multi", "--height=60%", "--reverse",
+         "--delimiter=\t", "--with-nth=2..", "--nth=1..", "--accept-nth=1",
+         "--header=" + ("Select bookmarks to remove (TAB=multi-select)" if multi
+                        else "Bookmarks (Enter=cd, Ctrl-C=cancel)")],
+        input=b"".join(os.fsencode(f"{index}\t{display(row['name'])}  {display(row['path'])}") + b"\0"
+                       for index, row in enumerate(rows)), stdout=subprocess.PIPE,
+    )
+    if result.returncode in (1, 130, -2):
+        return []
+    if result.returncode:
+        raise RuntimeError(f"fzf failed with status {result.returncode}")
+    indices = result.stdout.removesuffix(b"\0").split(b"\0")
+    choices = {str(index).encode(): row for index, row in enumerate(rows)}
+    if not indices or any(index not in choices for index in indices):
+        raise ValueError("fzf returned an invalid bookmark selection")
+    return [choices[index] for index in dict.fromkeys(indices)]
+
+
+def output_path(path, args):
+    if args.json:
+        print(json.dumps(path))
+    elif path is not None:
+        sys.stdout.buffer.write(os.fsencode(path) + (b"\0" if args.null else b"\n"))
+
+
+def current_directory():
+    logical = os.environ.get("PWD", "")
+    if os.path.isabs(logical):
+        try:
+            if os.path.samefile(logical, os.getcwd()):
+                return logical
+        except OSError:
+            pass
+    return os.getcwd()
+
+
+def parser():
+    result = argparse.ArgumentParser(
+        description=__doc__,
+        epilog="Use bm [NAME] in your shell to change directory. The CLI prints the destination.",
+    )
+    commands = result.add_subparsers(dest="command", required=True)
+    add = commands.add_parser("add", aliases=["a"], help="save a directory (defaults to the current one)")
+    add.add_argument("name", nargs="?")
+    add.add_argument("directory", nargs="?")
+    add.add_argument("--replace", action="store_true", help="update an existing name")
+    delete = commands.add_parser("delete", aliases=["del", "d"], help="remove names, or select with fzf")
+    delete.add_argument("names", nargs="*")
+    listing = commands.add_parser("list", aliases=["l"], help="list saved bookmarks")
+    listing.add_argument("--json", action="store_true")
+    select = commands.add_parser("pick", help="print a named destination, or select with fzf")
+    select.add_argument("name", nargs="?")
+    output = select.add_mutually_exclusive_group()
+    output.add_argument("--json", action="store_true")
+    output.add_argument("--null", action="store_true")
+    commands.add_parser("migrate", help="initialize storage, importing old Nu bookmarks once")
+    commands.add_parser("path", help="print the bookmark storage file")
+    return result
+
+
+def main():
+    arguments = sys.argv[1:] or ["pick"]
+    args = parser().parse_args(arguments)
+    store = Bookmarks()
+    if args.command == "path":
+        print(store.filename)
+    elif args.command in ("add", "a"):
+        directory = args.directory if args.directory is not None else current_directory()
+        path = os.path.normpath(os.path.join(current_directory(), os.path.expanduser(directory)))
+        name = args.name if args.name is not None else (os.path.basename(path) or "/")
+        store.add(name, path, args.replace)
+    elif args.command in ("delete", "del", "d"):
+        if args.names:
+            store.delete(args.names)
+        else:
+            selected = pick(store.rows(), multi=True)
+            if selected:
+                store.delete_selected(selected)
+    elif args.command in ("list", "l"):
+        rows = store.rows()
+        if args.json:
+            print(json.dumps(rows))
+        else:
+            for row in rows:
+                print(f"{display(row['name'])}\t{display(row['path'])}")
+    elif args.command == "pick":
+        rows = store.rows()
+        if args.name is not None:
+            selected = [row for row in rows if row["name"] == args.name]
+            if not selected:
+                raise ValueError(f"unknown bookmark: {display(args.name)}")
+        else:
+            selected = pick(rows)
+        path = selected[0]["path"] if selected else None
+        if path is not None and not os.path.isdir(path):
+            raise ValueError(f"bookmark directory is missing: {display(path)}; bookmark kept")
+        output_path(path, args)
+    else:
+        rows = store.rows()
+        print(f"{len(rows)} bookmark(s) available in {store.filename}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as error:
+        print(f"dir-bookmark: {error}", file=sys.stderr)
+        sys.exit(2)
+    except KeyboardInterrupt:
+        sys.exit(130)

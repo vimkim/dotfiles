@@ -5,7 +5,6 @@ alias fzfm = fzf --height 60% --reverse
 ###############################################################################
 
 alias l = ezam
-alias tmpd = cd $env.TMPDIR
 def --env cl [
   dir?: string # Optional argument
   --query: string # Open the picker with an initial name query
@@ -36,6 +35,12 @@ def --env cl [
 
   ezam
 }
+
+alias dir-chez = cl ~/.local/share/chezmoi
+alias dir-gh = cl ~/gh
+alias dir-works = cl ~/works
+alias dir-tmp = cl $env.TMPDIR
+alias tmpd = dir-tmp
 
 # Jump to the root directory of the current Git repository
 def --env __git_root [] {

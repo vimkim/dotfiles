@@ -1,124 +1,26 @@
-###############################################################################
-# Directory Bookmarks (fzf TUI)
-###############################################################################
-
-const bookmark_file = ($nu.home-dir | path join ".bookmarks.nuon")
-
-def _bm_load [] {
-  if ($bookmark_file | path exists) {
-    open $bookmark_file
-  } else {
-    []
+# Shell adapter for the shared Python dir-bookmark command.
+def _dir_bookmark_output [args: list<string>] {
+  let result = (^dir-bookmark ...$args | complete)
+  if $result.exit_code == 130 and $args.0 == "pick" { return "null" }
+  if $result.exit_code != 0 {
+    error make {msg: ($result.stderr | str trim)}
   }
+  if ($result.stderr | is-not-empty) { print -e ($result.stderr | str trim) }
+  $result.stdout
 }
 
-def _bm_save [] {
-  $in | save --force $bookmark_file
-}
-
-def _bm_fmt [bookmarks: list] {
-  let max_len = ($bookmarks | each { $in.name | str length } | math max)
-  $bookmarks
-  | each {|b| $"($b.name | fill -a l -w $max_len)  ($b.path)" }
-  | str join (char nl)
-}
-
-def _bm_parse [line: string] {
-  $line | str trim | split row -r '\s{2,}' | get 1
-}
-
-# Add current directory as a bookmark
-def "bm add" [
-  name?: string  # Optional display name (defaults to directory basename)
-] {
-  let dir = $env.PWD
-  let label = if $name != null { $name } else { $dir | path basename }
-  let bookmarks = (_bm_load)
-
-  if ($bookmarks | where path == $dir | is-not-empty) {
-    print $"Already bookmarked: ($dir)"
-    return
-  }
-
-  $bookmarks | append {name: $label, path: $dir} | _bm_save
-  print $"Bookmarked: ($label) -> ($dir)"
-}
-
-# Remove bookmark(s) via fzf picker
-def "bm del" [] {
-  let bookmarks = (_bm_load)
-  if ($bookmarks | is-empty) {
-    print "No bookmarks."
-    return
-  }
-
-  let selected = (
-    _bm_fmt $bookmarks
-    | fzf --height 60% --reverse --multi --header "Select bookmark(s) to delete (TAB to multi-select)"
-    | str trim
-  )
-
-  if $selected == "" { return }
-
-  let paths_to_del = (
-    $selected | lines | each {|line| _bm_parse $line }
-  )
-
-  let remaining = ($bookmarks | where { $in.path not-in $paths_to_del })
-  $remaining | _bm_save
-  print $"Deleted ($paths_to_del | length) bookmark\(s\)."
-}
-
-# List all bookmarks
-def "bm list" [] {
-  let bookmarks = (_bm_load)
-  if ($bookmarks | is-empty) {
-    print "No bookmarks."
-    return
-  }
-  $bookmarks | table
-}
-
-def "bm a" [name?: string] { bm add $name }
-def "bm d" [] { bm del }
-def "bm l" [] { bm list }
-
-# Pick a bookmark via fzf and cd to it
-def --env bm [
-  --add (-a)  # Add current directory as bookmark
-  --del (-d)  # Delete bookmark(s) via fzf
-] {
-  if $add {
-    bm add
-    return
-  }
-  if $del {
-    bm del
-    return
-  }
-
-  let bookmarks = (_bm_load)
-  if ($bookmarks | is-empty) {
-    print "No bookmarks. Use 'bm add [name]' or 'bm -a' to add one."
-    return
-  }
-
-  let selected = (
-    _bm_fmt $bookmarks
-    | fzf --height 60% --reverse --header "Bookmarks (Enter=cd, Ctrl-C=cancel)"
-    | str trim
-  )
-
-  if $selected == "" { return }
-
-  let dir = (_bm_parse $selected)
-
-  if ($dir | path exists) {
-    cl $dir
-  } else {
-    print $"Path no longer exists: ($dir)"
-    print "Removing stale bookmark..."
-    let remaining = ($bookmarks | where { $in.path != $dir })
-    $remaining | _bm_save
+def --env --wrapped bm [...args: string] {
+  let operation = if ($args | is-empty) { "" } else { $args.0 }
+  let rest = ($args | skip 1)
+  match $operation {
+    "add" | "a" | "-a" => { ^dir-bookmark add ...$rest }
+    "del" | "delete" | "d" | "-d" => { ^dir-bookmark delete ...$rest }
+    "list" | "l" => { _dir_bookmark_output (["list" "--json"] ++ $rest) | from json }
+    "-h" | "--help" => { ^dir-bookmark --help }
+    _ => {
+      let selection_args = if $operation == "pick" { $rest } else { $args }
+      let selected = (_dir_bookmark_output (["pick" "--json"] ++ $selection_args) | from json)
+      if $selected != null { cl $selected }
+    }
   }
 }
