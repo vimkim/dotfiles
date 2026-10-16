@@ -5,6 +5,7 @@ alias fzfm = fzf --height 60% --reverse
 ###############################################################################
 
 alias l = ezam
+alias tmpd = cd $env.TMPDIR
 def --env cl [
   dir?: string # Optional argument
   --query: string # Open the picker with an initial name query
