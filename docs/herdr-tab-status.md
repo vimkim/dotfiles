@@ -45,7 +45,7 @@ colors does not color the decorations themselves.
 Every tab label starts with its current position in the workspace, followed by
 its name and status suffix. Bare numeric names display only the current position.
 For example, moving `1 [▶ Codex 12m]` after `2 review [! Claude 3m]` produces
-`1 review [! Claude 3m]` and `2 [▶ Codex 12m]` on the next poll.
+`1 review [! Claude 3m]` and `2 [▶ Codex 12m]` after the move event.
 The sidebar uses the same positions. With the managed bindings, `Alt+Shift+1…9`
 focuses tabs by these numbers. `Alt+1…9` focuses workspaces.
 
@@ -81,11 +81,11 @@ and start timing on the first update. A deliberate `stop` clears the journal, so
 the next `start` begins fresh timers. `preview` calculates ages without saving
 observations or changing runtime state.
 
-These are observation times, not the agent's actual start times. Changes between
-polls or while the worker is unavailable cannot be reconstructed. Durations use
+These are observation times, not the agent's actual start times. Changes missed
+while the worker is unavailable cannot be reconstructed. Durations use
 the machine's clock; a backwards clock adjustment restarts affected timers to
 avoid negative ages. Labels update when the displayed duration or agent details
-change, rather than on every poll.
+change.
 
 ## Managed files
 
@@ -119,9 +119,26 @@ Replacing the script does not reload an already running Python worker.
 New panes launched by `herdr-shell` start it automatically before Nushell, zsh,
 or bash. Startup returns immediately; a socket-specific file lock ensures one
 worker per session. It uses the caller's `HERDR_SOCKET_PATH`, never the focused
-workspace or another saved machine. It polls every two seconds and sends tab
-renames only when labels change. Sidebar metadata refreshes on change and every
-20 seconds, with a 60-second expiration.
+workspace or another saved machine.
+
+## Event-driven updates
+
+The worker subscribes to Herdr's `events.subscribe` stream before reading the
+initial state. Tab creation, movement, closure, focus, and manual renames trigger
+fresh snapshots. Pane lifecycle and agent-state events also trigger updates.
+The worker refreshes its state subscriptions when the set of panes changes.
+It ignores its own tab renames and pane updates that change only presentation.
+
+An idle session has no periodic `session.snapshot` requests. Local timers update
+elapsed-time labels and renew sidebar metadata from the cached snapshot.
+Sidebar metadata refreshes on change and every 20 seconds, with a 60-second
+expiration. The worker sends tab renames only when labels change.
+
+On a disconnection or `events_lost`, the worker subscribes again and reads fresh
+state. Events received during a read trigger another read. Event payloads never
+replace authoritative snapshots. Connection failures retry after two seconds.
+`--retry-delay` changes that delay. The older `--interval` flag remains an alias
+for connection retries and does not enable periodic snapshots.
 
 ## Stop and recovery
 
@@ -129,7 +146,7 @@ renames only when labels change. Sidebar metadata refreshes on change and every
 herdr-tab-status stop
 ```
 
-For a running worker, this requests a graceful stop on its next loop. Stopping
+For a running worker, this requests a graceful stop. Stopping
 restores names it still owns and clears only its own `user:tab-status` metadata.
 Other reporters, including Git dirty status, keep their values. It also works
 after a worker exits: the journal supplies the original names.
@@ -146,6 +163,7 @@ retain their last status until `start` or `stop` succeeds.
 
 ```sh
 python3 -m unittest tests.test_herdr_tab_status tests.test_herdr_shell tests.test_herdr_move_workspace -v
+HERDR_NATIVE_TESTS=1 python3 -B -m unittest tests.test_herdr_tab_status_native -v
 HERDR_CONFIG_PATH="$PWD/private_dot_config/herdr/config.toml" herdr config check
 sh -n private_dot_local/bin/executable_herdr-shell
 ```
@@ -154,5 +172,9 @@ The socket tests cover state transitions and elapsed time, recovery and legacy
 journals, clock changes, agent exits, multiple agents, manual renames, lost replies,
 restoration, current position labels after reordering, edited names with retained
 decorations, compact summaries, singleton startup, and metadata ownership.
+They also verify idle sessions without polling, self-rename suppression, cached
+timer updates, events received during snapshots, and subscription recovery.
+The optional native tests use isolated Herdr servers. They verify creation,
+reordering, closure, agent-state events, and the absence of repeated idle reads.
 The live `preview` command reads runtime state without changing tab labels,
 focus, or metadata.

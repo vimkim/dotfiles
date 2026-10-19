@@ -12,7 +12,10 @@ import tempfile
 import time
 import unittest
 import uuid
+import threading
+from collections import Counter
 from pathlib import Path
+from unittest import mock
 
 
 HELPER = (
@@ -138,6 +141,77 @@ class HerdrTabStatusNativeTest(unittest.TestCase):
         self.assertEqual(
             [tab["label"] for tab in self.tabs(workspace_id)], ["3", "review"]
         )
+
+    def test_native_events_refresh_added_moved_closed_tabs_and_agent_states(self):
+        created = self.request("workspace.create", {"label": "events", "focus": False})
+        workspace_id = created["workspace"]["workspace_id"]
+        first = created["tab"]["tab_id"]
+        counts = Counter()
+        original_request = self.module["request"]
+
+        def counted_request(socket_path, method, params):
+            counts[method] += 1
+            return original_request(socket_path, method, params)
+
+        def wait_labels(expected):
+            deadline = time.monotonic() + 4
+            while time.monotonic() < deadline:
+                actual = [tab["label"] for tab in self.tabs(workspace_id)]
+                if actual == expected:
+                    return
+                time.sleep(0.02)
+            self.fail(f"Event labels did not converge: {actual!r} != {expected!r}")
+
+        def assert_idle():
+            time.sleep(0.15)  # Allow already queued lifecycle events to drain.
+            before = counts["session.snapshot"]
+            time.sleep(2.2)  # Longer than the former two-second polling period.
+            self.assertEqual(counts["session.snapshot"], before)
+
+        stopped = threading.Event()
+        updater = self.module["Updater"](self.socket_path, self.directory)
+        run = self.module["run_events"]
+        with mock.patch.dict(run.__globals__, {"request": counted_request}):
+            worker = threading.Thread(
+                target=run,
+                args=(updater, stopped, self.root / "stop", 0.05),
+                daemon=True,
+            )
+            worker.start()
+            try:
+                wait_labels(["1 [— shell]"])
+                assert_idle()
+                second = self.request("tab.create", {
+                    "workspace_id": workspace_id, "label": "review", "focus": False
+                })
+                second_pane = second["root_pane"]["pane_id"]
+                wait_labels(["1 [— shell]", "2 review [— shell]"])
+                third = self.request("tab.create", {
+                    "workspace_id": workspace_id, "focus": False
+                })["tab"]["tab_id"]
+                wait_labels(["1 [— shell]", "2 review [— shell]", "3 [— shell]"])
+                self.request("tab.move", {"tab_id": third, "insert_index": 0})
+                wait_labels(["1 [— shell]", "2 [— shell]", "3 review [— shell]"])
+                self.request("tab.close", {"tab_id": first})
+                wait_labels(["1 [— shell]", "2 review [— shell]"])
+                self.request("tab.rename", {
+                    "tab_id": second["tab"]["tab_id"], "label": "security review"
+                })
+                wait_labels(["1 [— shell]", "2 security review [— shell]"])
+                for state, marker in (("working", "▶"), ("blocked", "!")):
+                    self.request("pane.report_agent", {
+                        "pane_id": second_pane, "source": "user:test",
+                        "agent": "codex", "state": state,
+                    })
+                    wait_labels([
+                        "1 [— shell]", f"2 security review [{marker} Codex <1m]"
+                    ])
+                assert_idle()
+            finally:
+                stopped.set()
+                worker.join(timeout=5)
+                self.assertFalse(worker.is_alive(), "Event worker did not stop")
+                updater.restore()
 
 
 if __name__ == "__main__":

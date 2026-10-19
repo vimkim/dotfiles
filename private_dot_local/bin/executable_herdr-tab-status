@@ -26,10 +26,133 @@ ROW_WIDTH = 44
 TOKEN_NAMES = ["tab_inventory", *[f"tab_states_{i}" for i in range(1, STATUS_ROWS + 1)]]
 TTL_MS = 60_000
 HEARTBEAT_SECONDS = 20
+SUBSCRIPTIONS = (
+    "workspace.created",
+    "workspace.closed",
+    "tab.created",
+    "tab.closed",
+    "tab.moved",
+    "tab.renamed",
+    "tab.focused",
+    "pane.created",
+    "pane.closed",
+    "pane.moved",
+    "pane.exited",
+    "pane.focused",
+    "pane.agent_detected",
+    "pane.updated",
+)
+PANE_STATE_FIELDS = ("workspace_id", "tab_id", "agent", "agent_status")
 
 
 class HerdrError(RuntimeError):
     pass
+
+
+class EventFeed:
+    """Drain notifications during API calls; events only invalidate snapshots."""
+
+    def __init__(self, updater, wake, pane_ids=()):
+        self.updater = updater
+        self.wake = wake
+        self.revision = 0
+        self.error = None
+        self.panes = {}
+        self.pane_ids = frozenset(pane_ids)
+        self.lock = threading.Lock()
+        self.client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.stream = None
+        self.thread = None
+
+    def __enter__(self):
+        try:
+            self.client.settimeout(3)
+            self.client.connect(self.updater.socket_path)
+            self.stream = self.client.makefile("rb")
+            subscriptions = [{"type": kind} for kind in SUBSCRIPTIONS]
+            subscriptions.extend(
+                {"type": "pane.agent_status_changed", "pane_id": pane_id}
+                for pane_id in sorted(self.pane_ids)
+            )
+            payload = {
+                "id": "tab-status-events",
+                "method": "events.subscribe",
+                "params": {"subscriptions": subscriptions},
+            }
+            self.client.sendall(
+                (json.dumps(payload, separators=(",", ":")) + "\n").encode()
+            )
+            response = self.read()
+            if (
+                response.get("id") != "tab-status-events"
+                or response.get("result", {}).get("type") != "subscription_started"
+            ):
+                raise HerdrError("event subscription was not acknowledged")
+            self.client.settimeout(None)
+            self.thread = threading.Thread(target=self.receive, daemon=True)
+            self.thread.start()
+            return self
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
+
+    def __exit__(self, _exc_type, _exc_value, _traceback):
+        try:
+            self.client.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        if self.thread:
+            self.thread.join(timeout=4)
+        if self.stream:
+            self.stream.close()
+        self.client.close()
+
+    def read(self):
+        line = self.stream.readline(16 * 1024 * 1024 + 1)
+        if not line or not line.endswith(b"\n"):
+            raise HerdrError("event subscription disconnected")
+        message = json.loads(line)
+        if not isinstance(message, dict):
+            raise HerdrError("invalid event subscription response")
+        if "error" in message:
+            error = message["error"]
+            raise HerdrError(
+                f"event subscription: {error.get('code', 'error')}: "
+                f"{error.get('message', 'Herdr API error')}"
+            )
+        return message
+
+    def observe(self, snapshot):
+        with self.lock:
+            self.panes = {
+                pane["pane_id"]: tuple(pane.get(key) for key in PANE_STATE_FIELDS)
+                for pane in snapshot.get("panes", [])
+            }
+
+    def receive(self):
+        try:
+            while True:
+                message = self.read()
+                kind, data = message.get("event"), message.get("data", {})
+                if not isinstance(kind, str) or not isinstance(data, dict):
+                    raise HerdrError("invalid event envelope")
+                if kind == "tab_renamed":
+                    record = self.updater.tabs.get(data.get("tab_id"))
+                    if record and data.get("label") in record["labels"]:
+                        continue
+                with self.lock:
+                    if kind == "pane_updated":
+                        pane = data["pane"]
+                        if not isinstance(pane, dict):
+                            raise HerdrError("invalid pane update event")
+                        state = tuple(pane.get(key) for key in PANE_STATE_FIELDS)
+                        if self.panes.get(pane["pane_id"]) == state:
+                            continue
+                    self.revision += 1
+                self.wake.set()
+        except (OSError, ValueError, KeyError, HerdrError) as error:
+            self.error = error
+            self.wake.set()
 
 
 def request(socket_path, method, params):
@@ -257,8 +380,12 @@ class Updater:
     def preview(self):
         return build_plan(self.snapshot(), self.tabs)
 
-    def update(self):
-        plan = self.preview()
+    def update(self, snapshot=None):
+        # Timer updates reuse the last authoritative snapshot. Reflect successful
+        # writes in that cache so timers never re-adopt our own decorations.
+        snapshot = self.snapshot() if snapshot is None else snapshot
+        plan = build_plan(snapshot, self.tabs)
+        current_tabs = {tab["tab_id"]: tab for tab in snapshot["tabs"]}
         journal = {}
         for tab in plan["tabs"]:
             labels = [tab["label"]]
@@ -297,6 +424,7 @@ class Updater:
                     "tab.rename",
                     {"tab_id": tab["tab_id"], "label": tab["label"]},
                 )
+                current_tabs[tab["tab_id"]]["label"] = tab["label"]
         now = time.monotonic()
         for workspace_id, tokens in plan["workspaces"].items():
             previous, published_at = self.published.get(workspace_id, (None, 0))
@@ -353,19 +481,93 @@ def open_lock(directory):
     return descriptor
 
 
+def timer_delay(updater, plan):
+    """Schedule displayed ages and metadata leases without reading Herdr."""
+    monotonic_now, wall_now = time.monotonic(), time.time()
+    delays = [
+        published_at + HEARTBEAT_SECONDS - monotonic_now
+        for _tokens, published_at in updater.published.values()
+    ]
+    delays.extend(
+        60 - max(0, wall_now - tab["state_since"]) % 60
+        for tab in plan["tabs"]
+        if tab["agent_count"]
+    )
+    return max(0.05, min(delays)) if delays else None
+
+
+def run_events(updater, stopped, stop_path, retry_delay):
+    wake = threading.Event()
+    last_error = None
+    pane_ids = frozenset()
+    while not stopped.is_set() and not stop_path.exists():
+        try:
+            # Subscribe before the first read. The reader keeps draining while
+            # snapshots and writes run; a changed revision triggers another read.
+            with EventFeed(updater, wake, pane_ids) as feed:
+                snapshot, revision, deadline = None, -1, 0
+                while not stopped.is_set() and not stop_path.exists():
+                    if feed.error:
+                        raise feed.error
+                    refresh = feed.revision != revision
+                    if refresh:
+                        revision = feed.revision
+                        snapshot = updater.snapshot()
+                        feed.observe(snapshot)
+                        pane_ids = frozenset(
+                            pane["pane_id"] for pane in snapshot.get("panes", [])
+                        )
+                        if pane_ids != feed.pane_ids:
+                            # State subscriptions require explicit pane IDs.
+                            # Resubscribe, then read again to cover the gap.
+                            break
+                        if feed.revision != revision:
+                            continue
+                    if refresh or time.monotonic() >= deadline:
+                        plan = updater.update(snapshot)
+                        delay = timer_delay(updater, plan)
+                        deadline = (
+                            time.monotonic() + delay if delay is not None else math.inf
+                        )
+                        last_error = None
+                    wake.clear()
+                    if feed.error or feed.revision != revision:
+                        continue
+                    # This bounds local stop-file latency. It does not read the
+                    # API or render cached state unless an event/timer is due.
+                    wake.wait(min(0.5, max(0, deadline - time.monotonic())))
+        except (OSError, ValueError, KeyError, HerdrError) as error:
+            # A pane may close between discovery and subscription acceptance.
+            # Rediscover IDs under lifecycle subscriptions on the next attempt.
+            pane_ids = frozenset()
+            message = str(error)
+            if message != last_error:
+                print(f"herdr-tab-status: {message}", file=sys.stderr, flush=True)
+                last_error = message
+            retry_at = time.monotonic() + retry_delay
+            while (
+                not stopped.is_set()
+                and not stop_path.exists()
+                and time.monotonic() < retry_at
+            ):
+                stopped.wait(min(0.5, max(0, retry_at - time.monotonic())))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("start", "run", "once", "preview", "stop"))
     parser.add_argument(
+        "--retry-delay",
         "--interval",
+        dest="retry_delay",
         type=float,
         default=2,
-        help="refresh interval in seconds (default: 2)",
+        help="event connection retry delay in seconds (default: 2)",
     )
     parser.add_argument("--lock-fd", type=int, help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if not math.isfinite(args.interval) or args.interval < 0.05:
-        parser.error("interval must be a finite number of at least 0.05 seconds")
+    if not math.isfinite(args.retry_delay) or args.retry_delay < 0.05:
+        parser.error("retry delay must be a finite number of at least 0.05 seconds")
     if os.environ.get("HERDR_ENV") != "1" or not os.environ.get("HERDR_SOCKET_PATH"):
         parser.error("run inside a Herdr pane with HERDR_SOCKET_PATH set")
     socket_path = str(Path(os.environ["HERDR_SOCKET_PATH"]).resolve())
@@ -402,8 +604,8 @@ def main():
                         sys.executable,
                         str(Path(__file__).resolve()),
                         "run",
-                        "--interval",
-                        str(args.interval),
+                        "--retry-delay",
+                        str(args.retry_delay),
                         "--lock-fd",
                         str(descriptor),
                     ],
@@ -429,22 +631,8 @@ def main():
         stopped = threading.Event()
         for signum in (signal.SIGTERM, signal.SIGINT):
             signal.signal(signum, lambda _signum, _frame: stopped.set())
-        last_error = None
         try:
-            while not stopped.is_set() and not stop_path.exists():
-                try:
-                    updater.update()
-                    last_error = None
-                except (OSError, ValueError, KeyError, HerdrError) as error:
-                    message = str(error)
-                    if message != last_error:
-                        print(
-                            f"herdr-tab-status: {message}", file=sys.stderr, flush=True
-                        )
-                    last_error = message
-                    if not Path(socket_path).exists():
-                        break
-                stopped.wait(args.interval)
+            run_events(updater, stopped, stop_path, args.retry_delay)
         finally:
             try:
                 updater.restore()

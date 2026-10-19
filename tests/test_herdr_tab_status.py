@@ -5,6 +5,7 @@ import fcntl
 import hashlib
 import json
 import os
+import queue
 import runpy
 import socket
 import subprocess
@@ -76,6 +77,9 @@ class HerdrServer:
         self.reject_next_rename = False
         self.stop = threading.Event()
         self.lock = threading.RLock()
+        self.subscribers = {}
+        self.handlers = []
+        self.before_snapshot_reply = None
         self.listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.listener.bind(str(path))
         self.listener.settimeout(0.05)
@@ -90,6 +94,8 @@ class HerdrServer:
         self.stop.set()
         self.thread.join(timeout=2)
         self.listener.close()
+        for handler in self.handlers:
+            handler.join(timeout=2)
         if self.errors:
             raise self.errors[0]
 
@@ -99,38 +105,92 @@ class HerdrServer:
                 connection, _ = self.listener.accept()
             except TimeoutError:
                 continue
-            try:
-                with connection, connection.makefile("rwb") as stream:
-                    payload = json.loads(stream.readline())
-                    with self.lock:
-                        self.requests.append(payload)
+            handler = threading.Thread(
+                target=self.serve_request, args=(connection,), daemon=True
+            )
+            self.handlers.append(handler)
+            handler.start()
+
+    def serve_request(self, connection):
+        try:
+            with connection, connection.makefile("rwb") as stream:
+                payload = json.loads(stream.readline())
+                if payload["method"] == "events.subscribe":
+                    self.serve_subscription(connection, stream, payload)
+                    return
+                with self.lock:
+                    self.requests.append(payload)
+                    if payload["method"] == "tab.rename" and self.reject_next_rename:
+                        self.reject_next_rename = False
+                        response = {
+                            "id": payload["id"],
+                            "error": {"message": "rename rejected"},
+                        }
+                    else:
+                        response = {
+                            "id": payload["id"],
+                            "result": self.handle(payload["method"], payload["params"]),
+                        }
                         if (
                             payload["method"] == "tab.rename"
-                            and self.reject_next_rename
+                            and self.drop_next_rename_reply
                         ):
-                            self.reject_next_rename = False
-                            response = {
-                                "id": payload["id"],
-                                "error": {"message": "rename rejected"},
-                            }
-                        else:
-                            response = {
-                                "id": payload["id"],
-                                "result": self.handle(
-                                    payload["method"], payload["params"]
-                                ),
-                            }
-                            if (
-                                payload["method"] == "tab.rename"
-                                and self.drop_next_rename_reply
-                            ):
-                                self.drop_next_rename_reply = False
-                                continue
-                        stream.write(json.dumps(response).encode() + b"\n")
-                        stream.flush()
-            except Exception as error:  # noqa: BLE001 - propagate fixture failures to the test thread
-                self.errors.append(error)
-                return
+                            self.drop_next_rename_reply = False
+                            return
+                    callback = self.before_snapshot_reply
+                    if payload["method"] == "session.snapshot":
+                        self.before_snapshot_reply = None
+                    else:
+                        callback = None
+                if callback:
+                    callback()
+                stream.write(json.dumps(response).encode() + b"\n")
+                stream.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as error:
+            self.errors.append(error)
+
+    def serve_subscription(self, connection, stream, payload):
+        events = queue.Queue()
+        with self.lock:
+            self.requests.append(payload)
+            self.subscribers[connection] = (
+                {entry["type"] for entry in payload["params"]["subscriptions"]},
+                events,
+            )
+        try:
+            stream.write(json.dumps({
+                "id": payload["id"], "result": {"type": "subscription_started"}
+            }).encode() + b"\n")
+            stream.flush()
+            while not self.stop.is_set():
+                try:
+                    event = events.get(timeout=0.05)
+                except queue.Empty:
+                    continue
+                if event is None:
+                    return
+                stream.write(json.dumps(event).encode() + b"\n")
+                stream.flush()
+                if "error" in event:
+                    return
+        finally:
+            with self.lock:
+                self.subscribers.pop(connection, None)
+
+    def emit(self, kind, data):
+        with self.lock:
+            for subscriptions, events in self.subscribers.values():
+                if kind.replace("_", ".", 1) in subscriptions:
+                    events.put({"event": kind, "data": {"type": kind, **data}})
+
+    def disconnect_subscribers(self, error=None):
+        with self.lock:
+            for _subscriptions, events in self.subscribers.values():
+                events.put(
+                    {"id": "tab-status-events", "error": error} if error else None
+                )
 
     def handle(self, method, params):
         if method == "session.snapshot":
@@ -140,6 +200,11 @@ class HerdrServer:
             }
         if method == "tab.rename":
             self.tab(params["tab_id"])["label"] = params["label"]
+            self.emit("tab_renamed", {
+                "tab_id": params["tab_id"],
+                "workspace_id": "w1",
+                "label": params["label"],
+            })
             return {
                 "type": "tab_info",
                 "tab": copy.deepcopy(self.tab(params["tab_id"])),
@@ -700,6 +765,109 @@ class HerdrTabStatusTest(unittest.TestCase):
         result = self.command("once", environment=environment)
         self.assertEqual(result.returncode, 2)
         self.assertEqual(self.server.requests, [])
+
+    def request_count(self, method):
+        with self.server.lock:
+            return sum(request["method"] == method for request in self.server.requests)
+
+    def start_worker(self):
+        self.success("start", "--retry-delay", "0.05")
+        self.wait_for(lambda: self.server.labels()[3] == "4 logs [— shell]")
+
+    def test_idle_worker_and_own_renames_do_not_poll_snapshots(self):
+        self.start_worker()
+        time.sleep(0.3)
+        self.assertEqual(self.request_count("session.snapshot"), 1)
+        self.assertEqual(self.request_count("events.subscribe"), 1)
+        with self.server.lock:
+            self.server.snapshot["tabs"][:2] = self.server.snapshot["tabs"][:2][::-1]
+            self.server.emit("tab_moved", {"tab_id": "w1:t2", "workspace_id": "w1"})
+        self.wait_for(lambda: self.server.tab("w1:t2")["label"].startswith("1 review "))
+        time.sleep(0.3)
+        self.assertEqual(self.request_count("session.snapshot"), 2)
+
+    def test_tab_add_and_close_events_renumber_and_refresh_inventory(self):
+        self.start_worker()
+        added = {
+            "tab_id": "w1:t12", "workspace_id": "w1", "number": 12,
+            "label": "12", "agent_status": "unknown",
+        }
+        with self.server.lock:
+            self.server.snapshot["tabs"].insert(0, added)
+            self.server.emit("tab_created", {"tab": copy.deepcopy(added)})
+        self.wait_for(lambda: self.server.tab("w1:t1")["label"].startswith("2 "))
+        self.wait_for(lambda: self.tokens()["tab_inventory"].startswith("5 tabs"))
+        with self.server.lock:
+            self.server.snapshot["tabs"].remove(added)
+            self.server.emit("tab_closed", {"tab_id": "w1:t12", "workspace_id": "w1"})
+        self.wait_for(lambda: self.server.tab("w1:t1")["label"].startswith("1 "))
+        self.wait_for(lambda: self.tokens()["tab_inventory"].startswith("4 tabs"))
+
+    def test_pane_events_ignore_title_only_changes_and_refresh_agent_state(self):
+        pane = {
+            "pane_id": "w1:p1", "workspace_id": "w1", "tab_id": "w1:t1",
+            "agent": "codex", "agent_status": "working",
+        }
+        self.server.snapshot["panes"] = [pane]
+        self.start_worker()
+        baseline = self.request_count("session.snapshot")
+        self.server.emit("pane_updated", {"pane": {**pane, "terminal_title": "updated"}})
+        time.sleep(0.3)
+        self.assertEqual(self.request_count("session.snapshot"), baseline)
+        with self.server.lock:
+            pane["agent_status"] = "blocked"
+            self.server.tab("w1:t1")["agent_status"] = "blocked"
+            self.server.emit("pane_updated", {"pane": copy.deepcopy(pane)})
+        self.wait_for(lambda: self.server.labels()[0] == "1 [! Codex <1m]")
+        self.assertGreater(self.request_count("events.subscribe"), 1)
+
+    def test_events_arriving_during_snapshot_cause_a_followup_read(self):
+        def reorder_during_read():
+            with self.server.lock:
+                self.server.snapshot["tabs"][:2] = self.server.snapshot["tabs"][:2][::-1]
+                self.server.emit("tab_moved", {"tab_id": "w1:t2", "workspace_id": "w1"})
+
+        self.server.before_snapshot_reply = reorder_during_read
+        self.start_worker()
+        self.wait_for(lambda: self.request_count("session.snapshot") >= 2)
+        self.wait_for(lambda: self.server.labels()[:2] == [
+            "1 review [! Claude <1m]", "2 [▶ Codex <1m]"
+        ])
+
+    def test_lost_event_history_and_disconnect_resubscribe_and_reconcile(self):
+        self.start_worker()
+        for error in ({"code": "events_lost", "message": "history overrun"}, None):
+            with self.subTest(error=error):
+                subscriptions = self.request_count("events.subscribe")
+                with self.server.lock:
+                    self.server.snapshot["tabs"][:2] = (
+                        self.server.snapshot["tabs"][:2][::-1]
+                    )
+                    self.server.disconnect_subscribers(error)
+                self.wait_for(
+                    lambda: self.request_count("events.subscribe") > subscriptions
+                )
+                self.wait_for(lambda: self.server.labels()[0].startswith("1 "))
+
+    def test_cached_timer_updates_renew_metadata_without_snapshot_reads(self):
+        self.directory.mkdir(parents=True)
+        module = runpy.run_path(str(HELPER))
+        updater = module["Updater"](str(self.server.path), self.directory)
+        snapshot = updater.snapshot()
+        with (
+            mock.patch("time.time", return_value=1000),
+            mock.patch("time.monotonic", return_value=100),
+        ):
+            plan = updater.update(snapshot)
+            self.assertEqual(module["timer_delay"](updater, plan), 20)
+        with (
+            mock.patch("time.time", return_value=1060),
+            mock.patch("time.monotonic", return_value=160),
+        ):
+            updater.update(snapshot)
+        self.assertEqual(self.server.labels()[0], "1 [▶ Codex 1m]")
+        self.assertEqual(self.request_count("session.snapshot"), 1)
+        self.assertEqual(self.request_count("workspace.report_metadata"), 2)
 
     def test_start_is_singleton_and_stop_restores_names_without_blocking_shell(self):
         started = time.monotonic()
