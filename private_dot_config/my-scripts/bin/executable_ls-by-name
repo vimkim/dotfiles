@@ -24,11 +24,12 @@ PRESETS = {
     "ls-one-page": (["--sort=modified"], True, "70% of the screen, most recently modified first"),
     "ls-full": (["--sort=modified"], True, "all entries, most recently modified first"),
 }
+PRESETS["lsf"] = PRESETS["ls-full"]
 
-PREVIEW_COMMANDS = {"ls-one-page", "ls-full"}
-SKIPPED_NOTICE = "... skipped. Type ls-full to view the whole content."
+PREVIEW_COMMANDS = {"ls-one-page", "ls-full", "lsf"}
 # Ignore ANSI colors and OSC hyperlinks when measuring terminal cells.
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+FILE_MODE = re.compile(r"^[?bcdlpsw-][rwxStTs?-]{9}")
 
 
 def screen_rows(line, columns):
@@ -45,32 +46,76 @@ def screen_rows(line, columns):
     return max(1, (cells + columns - 1) // columns)
 
 
-def print_one_page(command, size):
+def entry_rows(arguments):
+    """Only call output rows entries for the ordinary single-path detailed view."""
+    paths = 0
+    skip_value = None
+    other_layouts = {
+        "-G", "--grid", "-x", "--across", "-1", "--oneline", "-C", "-m", "--format",
+        "-T", "--tree", "-R", "--recurse", "--recursive", "-h", "--header",
+        "-@", "--extended", "--stdin", "--code", "--loc", "--dired", "-i", "--inode",
+    }
+    for index, argument in enumerate(arguments):
+        if "\n" in argument:
+            return False
+        if skip_value and not argument.startswith("-"):
+            if skip_value != "--color-scale":
+                skip_value = None
+            continue
+        skip_value = None
+        option = argument.split("=", 1)[0]
+        if option in other_layouts:
+            return False
+        if argument == "--":
+            return paths + len(arguments[index + 1:]) <= 1
+        if argument in VALUE_OPTIONS or argument in OPTIONAL_VALUE_OPTIONS:
+            skip_value = argument
+        elif not argument.startswith("-") or argument == "-":
+            paths += 1
+    return paths <= 1
+
+
+def skipped_notice(count, entries):
+    unit = ("entry" if count == 1 else "entries") if entries else ("line" if count == 1 else "lines")
+    return f"... {count} {unit} skipped. Run ls-full or lsf to view all."
+
+
+def print_one_page(command, size, count_entries, ls_header=False):
     # Keep the listing and any overflow notice within 70% of the terminal height.
     available = size.lines * 7 // 10
     rows = 0
     lines = []
     skipped = False
+    skipped_count = 0
     with subprocess.Popen(command, stdout=subprocess.PIPE, text=True, errors="replace") as listing:
-        for line in listing.stdout:
+        for index, line in enumerate(listing.stdout):
+            # System ls starts directory listings with a localized 'total' row.
+            count = int(not (count_entries and ls_header and index == 0
+                             and not FILE_MODE.match(ANSI_ESCAPE.sub("", line))))
+            if skipped:
+                skipped_count += count
+                continue
             height = screen_rows(line, size.columns)
-            if not skipped and rows + height <= available:
-                lines.append((line, height))
+            if rows + height <= available:
+                lines.append((line, height, count))
                 rows += height
             else:
                 skipped = True
+                skipped_count += count
             # Drain the rest without buffering, preserving real listing errors.
         listing.stdout.close()
         status = listing.wait()
     if skipped:
-        available -= screen_rows(SKIPPED_NOTICE, size.columns)
-        while lines and rows > available:
-            _, height = lines.pop()
+        notice = skipped_notice(skipped_count, count_entries)
+        while lines and rows + screen_rows(notice, size.columns) > available:
+            _, height, count = lines.pop()
             rows -= height
-    for line, _ in lines:
+            skipped_count += count
+            notice = skipped_notice(skipped_count, count_entries)
+    for line, _, _ in lines:
         sys.stdout.write(line)
-    if skipped:
-        print(SKIPPED_NOTICE)
+    if skipped and skipped_count:
+        print(notice)
     return exit_status(status)
 
 
@@ -195,7 +240,7 @@ def main():
         if not ls:
             print(f"{name}: eza or ls is required.", file=sys.stderr)
             return 127
-        command = [ls, "-AlFt"]
+        command = [ls, "-AlFqt"]
         if args.reverse:
             command.append("-r")
     if page:
@@ -207,7 +252,7 @@ def main():
         command.extend([f"--color={color}", "--icons=always", f"--width={size.columns}"])
     command.extend(default_directory(forwarded))
     if name == "ls-one-page" and not args.no_pager and sys.stdout.isatty():
-        return print_one_page(command, size)
+        return print_one_page(command, size, entry_rows(forwarded), ls_header=not eza)
     if not page:
         # Preserve the real stdout descriptor, including pipes from any shell.
         os.execv(command[0], command)

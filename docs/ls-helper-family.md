@@ -1,9 +1,9 @@
 # Listing helper family
 
-Nine standalone command names share a Python 3 script backed by eza.
+Ten standalone command names share a Python 3 script backed by eza.
 They work from Nushell, Bash, and Zsh. Python 3 is required.
 The seven sorted commands require eza, and less enables their automatic paging.
-`ls-one-page` and `ls-full` use system `ls` when eza is unavailable.
+`ls-one-page`, `ls-full`, and `lsf` use system `ls` when eza is unavailable.
 
 ## Commands
 
@@ -17,7 +17,7 @@ The seven sorted commands require eza, and less enables their automatic paging.
 | `ls-dirs` | Directories only, alphabetical |
 | `ls-files` | Files only, alphabetical |
 | `ls-one-page` | Up to 70% of the terminal height, most recently modified first |
-| `ls-full` | Complete listing, most recently modified first, without a pager |
+| `ls-full`, `lsf` | Complete listing, most recently modified first, without a pager |
 
 Every command shows details and hidden entries, without grouping directories
 before or after files. `c`, `l`, and `sl` use `ls-one-page` in all three shells.
@@ -35,6 +35,7 @@ ls-by-name -- ./-unusual-name
 ls-by-name --help
 ls-one-page ~/Downloads      # also available as l ~/Downloads
 ls-full ~/Downloads          # show every entry without a pager
+lsf ~/Downloads              # short standalone name for ls-full
 ```
 
 Paths and eza options are accepted. `-r` / `--reverse` reverses the helper’s
@@ -58,10 +59,15 @@ The listing uses at most 70% of the terminal height, rounded down to whole rows.
 If entries do not fit, the helper includes this notice within that limit:
 
 ```text
-... skipped. Type ls-full to view the whole content.
+... 700 entries skipped. Run ls-full or lsf to view all.
 ```
 
-Short listings have no notice. `ls-full` shows every entry in the same order.
+The count includes omitted files, directories, and symlinks, including entries
+removed from the preview to make room for the notice. The helper counts output
+it already reads, without another directory scan or buffering the full listing.
+Custom layouts and multiple paths report omitted output lines instead of entries.
+
+Short listings have no notice. `ls-full` and `lsf` show every entry in the same order.
 Use the same paths and filters with `ls-full` to expand a specific listing.
 Pipes, redirection, and `--no-pager` also receive complete output.
 Neither command starts less. System `ls` provides a simpler detailed view
@@ -98,10 +104,12 @@ length cap and no manual newline-based screen estimate.
 | `private_dot_config/my-scripts/bin/symlink_ls-files` | `~/.config/my-scripts/bin/ls-files` |
 | `private_dot_config/my-scripts/bin/symlink_ls-one-page` | `~/.config/my-scripts/bin/ls-one-page` |
 | `private_dot_config/my-scripts/bin/symlink_ls-full` | `~/.config/my-scripts/bin/ls-full` |
+| `private_dot_config/my-scripts/bin/symlink_lsf` | `~/.config/my-scripts/bin/lsf` |
 | `private_dot_config/my-scripts/shell/productivity.sh` | `~/.config/my-scripts/shell/productivity.sh` |
 | `private_dot_config/nushell/eza.nu` | `~/.config/nushell/eza.nu` |
 
-The eight symlinks point to `ls-by-name` in the same directory.
+The nine symlinks resolve to `ls-by-name` in the same directory.
+`lsf` points to `ls-full`, which points to `ls-by-name`.
 The script selects the preset by its invoked name.
 All three shells include the scripts directory on PATH.
 Repository documentation and tests are excluded from chezmoi deployment.
@@ -131,3 +139,5 @@ Preview checks cover globally sorted files and directories, a 450-entry
 directory, exact screen fits, wrapped Unicode names, ANSI colors and hyperlinks,
 system `ls` fallback, complete output, errors, and actual `c` and `l` calls
 in all three shells. Height checks use 12-row, 20-row, and 40-row terminals.
+Count checks cover singular wording, symlinks, wrapped names, fallback totals,
+and custom layouts. `ls-full` and `lsf` work through shell pipelines and in terminals.

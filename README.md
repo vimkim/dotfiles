@@ -162,7 +162,7 @@ These everyday shortcuts also exist in Nushell:
 | `c DIR` | Change directly to DIR, then list its contents. |
 | `c [DIR] --query TEXT` | Browse DIR (current directory by default) with an initial name query. |
 | `l`, `sl`, `ls-one-page` | Detailed entries within 70% of the terminal height, most recently modified first, including hidden files. |
-| `ls-full` | Complete listing in the same order, without a page limit. |
+| `ls-full`, `lsf` | Complete listing in the same order, without a page limit. |
 | `ll` | Detailed eza rows with owners and permissions. |
 | `h`, `up`, `back` | Go to the parent or previous directory and list it. |
 | `mc DIR` | Create a directory, including parents, and enter it. |
@@ -191,9 +191,11 @@ It uses eza when available and sorts files and directories together before
 limiting output. It accounts for wrapped names and limits the listing and any
 overflow notice to 70% of the terminal height, rounded down to whole rows.
 Omitted entries produce this notice:
-`... skipped. Type ls-full to view the whole content.`
-Use `ls-full [PATH ...]` for the complete listing. Pipes and redirection also
-receive all entries. See [listing helper details](docs/ls-helper-family.md).
+`... 700 entries skipped. Run ls-full or lsf to view all.`
+The count includes omitted files, directories, and symlinks.
+Use `ls-full [PATH ...]` or `lsf [PATH ...]` for the complete listing.
+Pipes and redirection also receive all entries.
+See [listing helper details](docs/ls-helper-family.md).
 
 `l` and `ll` fall back to system `ls` when eza is unavailable. Pickers require
 the existing managed `dir-picker` / `file-picker.sh` commands and their

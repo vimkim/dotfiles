@@ -5,6 +5,7 @@ import fcntl
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import shutil
 import signal
@@ -18,7 +19,7 @@ import unittest
 
 SOURCE = Path(__file__).resolve().parents[1] / "private_dot_config/my-scripts/bin"
 NAMES = ["ls-by-name", "ls-by-size", "ls-by-time", "ls-by-extension", "ls-tree", "ls-dirs", "ls-files",
-         "ls-one-page", "ls-full"]
+         "ls-one-page", "ls-full", "lsf"]
 PLAIN = ["--no-user", "--no-permissions", "--no-filesize", "--no-time", "--color=never", "--icons=never"]
 
 
@@ -135,17 +136,18 @@ class ListingTests(unittest.TestCase):
         for shell in ("bash", "zsh", "nu"):
             if not shutil.which(shell):
                 continue
-            with self.subTest(shell=shell):
-                expression = "ls-by-name | cat" if shell != "nu" else "ls-by-name | lines | length"
-                prefix = {"bash": ["--noprofile", "--norc"], "zsh": ["-f"], "nu": ["--no-config-file"]}[shell]
-                result = subprocess.run([shell, *prefix, "-c", expression], cwd=self.data,
-                                        env=self.env, capture_output=True, text=True, timeout=5)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertNotIn("\x1b", result.stdout)
-                if shell == "nu":
-                    self.assertEqual(result.stdout.strip(), "3")
-                else:
-                    self.assertIn("a.txt", result.stdout)
+            for command in ("ls-by-name", "ls-full", "lsf"):
+                with self.subTest(shell=shell, command=command):
+                    expression = command + (" | cat" if shell != "nu" else " | lines | length")
+                    prefix = {"bash": ["--noprofile", "--norc"], "zsh": ["-f"], "nu": ["--no-config-file"]}[shell]
+                    result = subprocess.run([shell, *prefix, "-c", expression], cwd=self.data,
+                                            env=self.env, capture_output=True, text=True, timeout=5)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertNotIn("\x1b", result.stdout)
+                    if shell == "nu":
+                        self.assertEqual(result.stdout.strip(), "3")
+                    else:
+                        self.assertIn("a.txt", result.stdout)
 
     def terminal_listing(self, args, expect_pager, env=None, stdin_pipe=False, stdout_pipe=False,
                          expected_status=0, terminal_rows=12):
@@ -247,15 +249,17 @@ class ListingTests(unittest.TestCase):
                 self.assertEqual(len(lines), expected_rows)
                 self.assertEqual(lines[:-1], [f"entry-{number:03}" + ("/" if number % 2 else "")
                                              for number in range(449, 450 - expected_rows, -1)])
-                self.assertEqual(lines[-1], "... skipped. Type ls-full to view the whole content.")
-        for name in ("ls-one-page", "ls-full"):
+                self.assertEqual(lines[-1],
+                                 f"... {451 - expected_rows} entries skipped. Run ls-full or lsf to view all.")
+        for name in ("ls-one-page", "ls-full", "lsf"):
             result = self.run_listing(name, path=directory)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(len(result.stdout.splitlines()), 450)
             self.assertNotIn("skipped", result.stdout)
             self.assertNotIn("\x1b", result.stdout)
-        full = self.terminal_listing([str(self.bin / "ls-full"), *PLAIN, str(directory)], False)
-        self.assertEqual(len(full.splitlines()), 450)
+        for command_name in ("ls-full", "lsf"):
+            full = self.terminal_listing([str(self.bin / command_name), *PLAIN, str(directory)], False)
+            self.assertEqual(len(full.splitlines()), 450)
         bypass = self.terminal_listing([command, *PLAIN, "--no-pager", str(directory)], False)
         self.assertEqual(len(bypass.splitlines()), 450)
 
@@ -271,6 +275,7 @@ class ListingTests(unittest.TestCase):
         self.assertEqual(len(output.splitlines()), 4)  # three two-row entries plus the notice
         self.assertIn("entry-007", output)
         self.assertNotIn("entry-004", output)
+        self.assertIn("... 5 entries skipped.", output)
 
         colored = self.terminal_listing([command, *PLAIN, "--color=always", "--hyperlink=always",
                                         str(directory)], False).decode()
@@ -288,11 +293,37 @@ class ListingTests(unittest.TestCase):
         output = self.terminal_listing([str(self.bin / "ls-one-page"), str(directory)], False, env=env)
         self.assertIn(b"entry-019", output)
         self.assertNotIn(b"entry-000", output)
-        self.assertIn(b"Type ls-full", output)
+        self.assertIn(b"Run ls-full or lsf", output)
+        names = set(re.findall(rb"entry-\d{3}", output))
+        self.assertIn(f"... {20 - len(names)} entries skipped.".encode(), output)
+        (directory / "entry-000").rename(directory / "entry-000\nnewline")
+        full = subprocess.run([str(self.bin / "lsf"), str(directory)], env=env,
+                              capture_output=True, text=True, check=True)
+        self.assertEqual(len(full.stdout.splitlines()), 21)  # 20 entries plus the total row
         missing = self.run_listing("ls-one-page", path=self.root / "absent")
         self.assertNotEqual(missing.returncode, 0)
         self.terminal_listing([str(self.bin / "ls-one-page"), str(self.root / "absent")],
                               False, expected_status=missing.returncode)
+
+    def test_one_page_singular_count_symlinks_and_custom_layouts(self):
+        directory = self.many_recent_entries(8)
+        link = directory / "entry-001"
+        link.rmdir()
+        link.symlink_to("entry-003")
+        os.utime(link, (101, 101), follow_symlinks=False)
+        oldest = directory / "entry-000"
+        oldest.rename(directory / (oldest.name + "x" * 80))
+        command = str(self.bin / "ls-one-page")
+        output = self.terminal_listing([command, *PLAIN, str(directory)], False).decode()
+        self.assertIn("entry-001", output)
+        self.assertIn("... 1 entry skipped. Run ls-full or lsf to view all.", output)
+        for arguments in (["--header", str(directory)], [str(directory), str(self.data)]):
+            with self.subTest(arguments=arguments):
+                full = subprocess.run([str(self.bin / "ls-full"), *PLAIN, *arguments],
+                                      env=self.env, capture_output=True, text=True, check=True)
+                output = self.terminal_listing([command, *PLAIN, *arguments], False).decode()
+                omitted = len(full.stdout.splitlines()) - len(output.splitlines()) + 1
+                self.assertIn(f"... {omitted} lines skipped.", output)
 
     def test_one_page_in_real_shell_navigation_and_listing(self):
         directory = self.many_recent_entries()
@@ -316,7 +347,7 @@ class ListingTests(unittest.TestCase):
                     output = self.terminal_listing(args, False)
                     self.assertIn(b"entry-449", output)
                     self.assertNotIn(b"entry-000", output)
-                    self.assertIn(b"Type ls-full", output)
+                    self.assertIn(b"Run ls-full or lsf", output)
 
 
 if __name__ == "__main__":
