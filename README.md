@@ -373,6 +373,22 @@ produces a warning without blocking the other dotfiles. The helper also checks
 the actual server version and protocol when a shortcut runs. The installer runs
 once per script revision; it does not check dependencies at every shell startup.
 
+WezTerm opens visible absolute paths such as `/home/vimkim/arst.txt` at
+`https://dev2.baboon-rudd.ts.net:8443/home/vimkim/arst.txt`. Use Ctrl-click in a
+normal shell, or Ctrl+Shift-click inside Codex and Herdr. The rule belongs on
+the machine running the WezTerm window, so the browser opens there. Ordinary
+web links retain their normal destinations. Source line suffixes are removed;
+spaces and Unicode in explicit file links are URL-encoded.
+
+Herdr's default mouse capture hides explicit hyperlink destinations from the
+outer terminal. Inside Herdr, use a visible absolute path; filename-only labels
+and relative paths cannot be resolved by this rule. Bare paths with spaces need
+an explicit file link outside Herdr. The HTTPS server must serve the resulting
+absolute-path URL. No file server or network configuration is changed here.
+
+Verify without opening a browser:
+`python3 -B -m unittest tests.test_remote_file_links -v` (requires Lua or LuaJIT).
+
 ### Optional: Install the Colemak programmer layout
 
 The KDE Wayland configuration includes a standalone Colemak layout with
