@@ -150,10 +150,11 @@ class ListingTests(unittest.TestCase):
                         self.assertIn("a.txt", result.stdout)
 
     def terminal_listing(self, args, expect_pager, env=None, stdin_pipe=False, stdout_pipe=False,
-                         expected_status=0, terminal_rows=12):
+                         expected_status=0, terminal_rows=12, terminal_columns=60):
         pid, master = pty.fork()
         if pid == 0:
-            fcntl.ioctl(1, termios.TIOCSWINSZ, struct.pack("HHHH", terminal_rows, 60, 0, 0))
+            fcntl.ioctl(1, termios.TIOCSWINSZ,
+                        struct.pack("HHHH", terminal_rows, terminal_columns, 0, 0))
             if stdin_pipe:
                 read, write = os.pipe()
                 os.close(write)
@@ -247,10 +248,13 @@ class ListingTests(unittest.TestCase):
                     env={**self.env, "LINES": "999", "COLUMNS": "999"}).decode()
                 lines = output.splitlines()
                 self.assertEqual(len(lines), expected_rows)
-                self.assertEqual(lines[:-1], [f"entry-{number:03}" + ("/" if number % 2 else "")
-                                             for number in range(449, 450 - expected_rows, -1)])
+                names = re.findall(r"entry-\d{3}", "\n".join(lines[:-1]))
+                self.assertEqual(len(names), 4 * (expected_rows - 1))
+                self.assertEqual(sorted(names, reverse=True),
+                                 [f"entry-{number:03}" for number in range(449, 449 - len(names), -1)])
+                self.assertTrue(all(len(line) <= 60 for line in lines[:-1]))
                 self.assertEqual(lines[-1],
-                                 f"... {451 - expected_rows} entries skipped. Run ls-full or lsf to view all.")
+                                 f"... {450 - len(names)} entries skipped. Run ls-full or lsf to view all.")
         for name in ("ls-one-page", "ls-full", "lsf"):
             result = self.run_listing(name, path=directory)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -259,14 +263,21 @@ class ListingTests(unittest.TestCase):
             self.assertNotIn("\x1b", result.stdout)
         for command_name in ("ls-full", "lsf"):
             full = self.terminal_listing([str(self.bin / command_name), *PLAIN, str(directory)], False)
-            self.assertEqual(len(full.splitlines()), 450)
+            self.assertEqual(len(re.findall(rb"entry-\d{3}", full)), 450)
+            self.assertLess(len(full.splitlines()), 450)
         bypass = self.terminal_listing([command, *PLAIN, "--no-pager", str(directory)], False)
-        self.assertEqual(len(bypass.splitlines()), 450)
+        self.assertEqual(len(re.findall(rb"entry-\d{3}", bypass)), 450)
+
+        narrow = self.terminal_listing([command, *PLAIN, str(directory)], False,
+                                       terminal_columns=20).decode()
+        self.assertLessEqual(len(narrow.splitlines()) - 1 + 3, 8)  # notice wraps to three rows
+        self.assertTrue(all(len(re.findall(r"entry-\d{3}", line)) == 1
+                            for line in narrow.splitlines()[:-1]))
 
     def test_one_page_exact_fit_and_wrapped_unicode_rows(self):
         directory = self.many_recent_entries(8)
         command = str(self.bin / "ls-one-page")
-        output = self.terminal_listing([command, *PLAIN, str(directory)], False)
+        output = self.terminal_listing([command, *PLAIN, "-1", str(directory)], False)
         self.assertEqual(len(output.splitlines()), 8)
         self.assertNotIn(b"skipped", output)
         for entry in directory.iterdir():
@@ -282,6 +293,26 @@ class ListingTests(unittest.TestCase):
         self.assertIn("\x1b[", colored)
         self.assertIn("\x1b]8;", colored)
         self.assertEqual(len(colored.splitlines()), 4)
+
+    def test_grid_preserves_quoted_unicode_names_and_colored_hyperlinks(self):
+        directory = self.many_recent_entries(100)
+        for entry in directory.iterdir():
+            entry.rename(directory / (entry.name + " two  spaces 界"))
+        output = self.terminal_listing(
+            [str(self.bin / "ls-one-page"), *PLAIN, "--color=always", "--hyperlink=always", str(directory)],
+            False, terminal_columns=160).decode()
+        self.assertIn("\x1b[", output)
+        self.assertIn("\x1b]8;", output)
+        plain = re.sub(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+        lines = plain.splitlines()
+        names = re.findall(r"entry-\d{3}", "\n".join(lines[:-1]))
+        self.assertLessEqual(len(lines), 8)
+        self.assertGreater(len(names), 7)
+        self.assertEqual(len(names), len(set(names)))
+        self.assertEqual(sorted(names, reverse=True),
+                         [f"entry-{number:03}" for number in range(99, 99 - len(names), -1)])
+        self.assertEqual(plain.count("two  spaces 界"), len(names))
+        self.assertIn(f"... {100 - len(names)} entries skipped.", lines[-1])
 
     def test_one_page_fallback_and_errors(self):
         isolated = self.root / "fallback-bin"
@@ -344,10 +375,12 @@ class ListingTests(unittest.TestCase):
                                 + (expression if expression.startswith("c ") else 'l "$TARGET"'))
                         args = [shell, *(["--noprofile", "--norc"] if shell == "bash" else ["-f"]),
                                 "-c", code]
-                    output = self.terminal_listing(args, False)
+                    output = self.terminal_listing(args, False, terminal_columns=160)
                     self.assertIn(b"entry-449", output)
                     self.assertNotIn(b"entry-000", output)
                     self.assertIn(b"Run ls-full or lsf", output)
+                    self.assertTrue(any(len(re.findall(rb"entry-\d{3}", line)) > 1
+                                        for line in output.splitlines()[:-1]), output)
 
 
 if __name__ == "__main__":

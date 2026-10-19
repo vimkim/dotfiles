@@ -16,8 +16,8 @@ The seven sorted commands require eza, and less enables their automatic paging.
 | `ls-tree` | Alphabetical tree, two levels deep |
 | `ls-dirs` | Directories only, alphabetical |
 | `ls-files` | Files only, alphabetical |
-| `ls-one-page` | Up to 70% of the terminal height, most recently modified first |
-| `ls-full`, `lsf` | Complete listing, most recently modified first, without a pager |
+| `ls-one-page` | Detailed grid within 70% of the terminal height, most recently modified first |
+| `ls-full`, `lsf` | Complete listing, most recently modified first, grid in terminals, without a pager |
 
 Every command shows details and hidden entries, without grouping directories
 before or after files. `c`, `l`, and `sl` use `ls-one-page` in all three shells.
@@ -53,6 +53,14 @@ The eza view shows size, relative modification time, icons, and Git state.
 Hidden entries are included. Nushell's `ezam` delegates to this helper.
 Bash and Zsh call it from their shared `l` function.
 
+The default terminal view arranges eza's detailed entries in multiple columns
+when they fit. Read entries down each column before the next column.
+The helper chooses the largest prefix of the newest entries that fits,
+including space for the notice. Narrow terminals and wide names use a single
+column with wrapping. Eza supplies each entry's details, colors, and icons.
+The helper arranges those entries to preserve the height limit and exact count.
+Use `-1` for an explicit single-column view.
+
 When stdout is a terminal, the helper measures that terminal's height and width.
 It accounts for wrapped rows, wide Unicode characters, colors, and hyperlinks.
 The listing uses at most 70% of the terminal height, rounded down to whole rows.
@@ -64,10 +72,12 @@ If entries do not fit, the helper includes this notice within that limit:
 
 The count includes omitted files, directories, and symlinks, including entries
 removed from the preview to make room for the notice. The helper counts output
-it already reads, without another directory scan or buffering the full listing.
+it already reads, without another directory scan. It buffers only enough
+candidate entries to fill the terminal's available area.
 Custom layouts and multiple paths report omitted output lines instead of entries.
 
 Short listings have no notice. `ls-full` and `lsf` show every entry in the same order.
+Their default terminal view uses eza's full grid without a height limit.
 Use the same paths and filters with `ls-full` to expand a specific listing.
 Pipes, redirection, and `--no-pager` also receive complete output.
 Neither command starts less. System `ls` provides a simpler detailed view
@@ -141,3 +151,5 @@ system `ls` fallback, complete output, errors, and actual `c` and `l` calls
 in all three shells. Height checks use 12-row, 20-row, and 40-row terminals.
 Count checks cover singular wording, symlinks, wrapped names, fallback totals,
 and custom layouts. `ls-full` and `lsf` work through shell pipelines and in terminals.
+Grid checks verify multiple columns, the newest-entry prefix, quoted Unicode
+names, colors, hyperlinks, narrow terminals, and all three shell shortcuts.

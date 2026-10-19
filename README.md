@@ -161,8 +161,8 @@ These everyday shortcuts also exist in Nushell:
 | `c`, `i` | Pick a directory with `dir-picker`, then list its contents. |
 | `c DIR` | Change directly to DIR, then list its contents. |
 | `c [DIR] --query TEXT` | Browse DIR (current directory by default) with an initial name query. |
-| `l`, `sl`, `ls-one-page` | Detailed entries within 70% of the terminal height, most recently modified first, including hidden files. |
-| `ls-full`, `lsf` | Complete listing in the same order, without a page limit. |
+| `l`, `sl`, `ls-one-page` | Detailed eza grid within 70% of the terminal height, most recently modified first, including hidden files. |
+| `ls-full`, `lsf` | Complete listing in the same order, using an eza grid in terminals, without a page limit. |
 | `ll` | Detailed eza rows with owners and permissions. |
 | `h`, `up`, `back` | Go to the parent or previous directory and list it. |
 | `mc DIR` | Create a directory, including parents, and enter it. |
@@ -188,7 +188,9 @@ These everyday shortcuts also exist in Nushell:
 `cd` retains its existing change-and-list behavior; bare `cd` goes home.
 In Nushell, Bash, and Zsh, `c` and `l` share the `ls-one-page` helper.
 It uses eza when available and sorts files and directories together before
-limiting output. It accounts for wrapped names and limits the listing and any
+limiting output. The newest entries fill multiple columns when they fit,
+reading down each column before the next. Narrow terminals use a single column.
+It accounts for wrapped names and limits the listing and any
 overflow notice to 70% of the terminal height, rounded down to whole rows.
 Omitted entries produce this notice:
 `... 700 entries skipped. Run ls-full or lsf to view all.`

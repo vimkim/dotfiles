@@ -32,7 +32,7 @@ ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1
 FILE_MODE = re.compile(r"^[?bcdlpsw-][rwxStTs?-]{9}")
 
 
-def screen_rows(line, columns):
+def display_width(line, columns=None):
     cells = 0
     for character in ANSI_ESCAPE.sub("", line.rstrip("\r\n")):
         if character == "\t":
@@ -40,10 +40,14 @@ def screen_rows(line, columns):
         elif not unicodedata.combining(character) and unicodedata.category(character) != "Cf":
             width = 2 if unicodedata.east_asian_width(character) in ("W", "F") else 1
             # A wide character wraps before the last column when only one cell remains.
-            if width == 2 and cells % columns == columns - 1:
+            if columns and width == 2 and cells % columns == columns - 1:
                 cells += 1
             cells += width
-    return max(1, (cells + columns - 1) // columns)
+    return cells
+
+
+def screen_rows(line, columns):
+    return max(1, (display_width(line, columns) + columns - 1) // columns)
 
 
 def entry_rows(arguments):
@@ -78,6 +82,89 @@ def entry_rows(arguments):
 def skipped_notice(count, entries):
     unit = ("entry" if count == 1 else "entries") if entries else ("line" if count == 1 else "lines")
     return f"... {count} {unit} skipped. Run ls-full or lsf to view all."
+
+
+GRID_GAP = 4
+
+
+def fit_grid(cells, columns, available):
+    """Fit the largest newest-first prefix, reading down columns like eza."""
+    count = 0
+    height = 0
+    for text, _ in cells:
+        rows = screen_rows(text, columns)
+        if height + rows > available:
+            break
+        height += rows
+        count += 1
+    best = (count, height, None)
+    # At a fixed height, each column's width only grows as entries are added.
+    for rows in range(1, available + 1):
+        widths = []
+        width = 0
+        selected = 0
+        for index, (_, cell_width) in enumerate(cells):
+            column = index // rows
+            old_width = widths[column] if column < len(widths) else 0
+            extra = max(0, cell_width - old_width)
+            if column == len(widths) and column:
+                extra += GRID_GAP
+            if width + extra > columns:
+                break
+            if column == len(widths):
+                widths.append(cell_width)
+            else:
+                widths[column] = max(old_width, cell_width)
+            width += extra
+            selected += 1
+        if selected > best[0] or (selected == best[0] and rows < best[1]):
+            best = (selected, rows, widths)
+    count, rows, widths = best
+    if widths is None:
+        return count, [text for text, _ in cells[:count]]
+    lines = []
+    for row in range(min(rows, count)):
+        parts = []
+        for column, width in enumerate(widths):
+            index = column * rows + row
+            if index >= count:
+                break
+            text, cell_width = cells[index]
+            parts.append(text)
+            if index + rows < count:
+                parts.append(" " * (width - cell_width + GRID_GAP))
+        lines.append("".join(parts))
+    return count, lines
+
+
+def print_grid_page(command, size):
+    available = size.lines * 7 // 10
+    # Even one-character names cannot fit more than this many cells on screen.
+    limit = available * max(1, (size.columns + GRID_GAP) // (GRID_GAP + 1))
+    cells = []
+    total = 0
+    with subprocess.Popen(command, stdout=subprocess.PIPE, text=True, errors="replace") as listing:
+        for line in listing.stdout:
+            total += 1
+            if len(cells) < limit:
+                text = line.rstrip("\r\n")
+                cells.append((text, display_width(text)))
+        listing.stdout.close()
+        status = listing.wait()
+    budget = available
+    while True:
+        shown, lines = fit_grid(cells, size.columns, budget)
+        skipped = total - shown
+        notice = skipped_notice(skipped, True) if skipped else None
+        remaining = max(0, available - screen_rows(notice, size.columns)) if notice else available
+        if remaining >= budget:
+            break
+        budget = remaining
+    for line in lines:
+        print(line)
+    if notice:
+        print(notice)
+    return exit_status(status)
 
 
 def print_one_page(command, size, count_entries, ls_header=False):
@@ -250,9 +337,15 @@ def main():
     elif preview and eza and sys.stdout.isatty():
         color = "never" if "NO_COLOR" in os.environ else "always"
         command.extend([f"--color={color}", "--icons=always", f"--width={size.columns}"])
+    ordinary_view = entry_rows(forwarded)
+    terminal_grid = preview and eza and sys.stdout.isatty() and ordinary_view
+    if terminal_grid and (name != "ls-one-page" or args.no_pager):
+        command.append("--grid")
     command.extend(default_directory(forwarded))
     if name == "ls-one-page" and not args.no_pager and sys.stdout.isatty():
-        return print_one_page(command, size, entry_rows(forwarded), ls_header=not eza)
+        if terminal_grid:
+            return print_grid_page(command, size)
+        return print_one_page(command, size, ordinary_view, ls_header=not eza)
     if not page:
         # Preserve the real stdout descriptor, including pipes from any shell.
         os.execv(command[0], command)
