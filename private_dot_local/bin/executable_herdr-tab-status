@@ -116,6 +116,9 @@ def build_plan(snapshot, saved_tabs, now=None):
     tabs_by_workspace = defaultdict(list)
     tabs = []
     for tab in snapshot["tabs"]:
+        # Snapshot array order follows the native tab bar. API `number` is the
+        # stable creation number and can have gaps or change order after moves.
+        position = len(tabs_by_workspace[tab["workspace_id"]]) + 1
         agents = agents_by_tab[tab["tab_id"]]
         state = (
             (tab["agent_status"] if tab["agent_status"] in MARKERS else "unknown")
@@ -138,11 +141,11 @@ def build_plan(snapshot, saved_tabs, now=None):
         duration = format_duration(now - state_since) if agents else ""
         age = f" {duration}" if duration else ""
         base, owned = original_label(tab["label"], record)
-        prefix = f"{tab['number']} "
+        prefix = f"{position} "
         # Bare numeric names are Herdr's generated defaults. Keep the original
         # for restoration, but display only the current shortcut position.
         title = (
-            str(tab["number"])
+            str(position)
             if base.isascii() and base.isdecimal()
             else prefix + base
         )
@@ -156,21 +159,20 @@ def build_plan(snapshot, saved_tabs, now=None):
             "current": tab["label"],
             "owned": owned,
             "number": tab["number"],
+            "position": position,
             "marker": marker,
             "state": state,
             "state_since": state_since,
             "duration": duration,
             "agent_count": len(agents),
-            "summary": f"{tab['number']} {marker} {short_name}{age}",
-            "compact_summary": f"{tab['number']}{marker}{duration}",
+            "summary": f"{position} {marker} {short_name}{age}",
+            "compact_summary": f"{position}{marker}{duration}",
         }
         tabs.append(item)
         tabs_by_workspace[tab["workspace_id"]].append(item)
     workspaces = {}
     for workspace in snapshot["workspaces"]:
-        ordered = sorted(
-            tabs_by_workspace[workspace["workspace_id"]], key=lambda tab: tab["number"]
-        )
+        ordered = tabs_by_workspace[workspace["workspace_id"]]
         rows = pack_rows([tab["summary"] for tab in ordered], " · ")
         if len(rows) > STATUS_ROWS:
             rows = pack_rows([tab["compact_summary"] for tab in ordered], " ")

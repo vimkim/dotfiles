@@ -317,13 +317,12 @@ class HerdrTabStatusTest(unittest.TestCase):
         self.update_at(1480)
         with self.server.lock:
             self.server.tab("w1:t1")["label"] = "renamed [▶ Codex 8m]"
-            self.server.tab("w1:t1")["number"] = 2
-            self.server.tab("w1:t2")["number"] = 1
+            self.server.snapshot["tabs"][:2] = self.server.snapshot["tabs"][:2][::-1]
         self.update_at(1540)
-        self.assertEqual(self.server.labels()[0], "2 renamed [▶ Codex 9m]")
+        self.assertEqual(self.server.tab("w1:t1")["label"], "2 renamed [▶ Codex 9m]")
         self.assertTrue(self.tokens()["tab_states_1"].startswith("1 ! Claude 9m"))
         self.success("stop")
-        self.assertEqual(self.server.labels()[0], "renamed")
+        self.assertEqual(self.server.tab("w1:t1")["label"], "renamed")
 
     def test_lost_age_rename_reply_preserves_original_name_and_timer(self):
         self.update_at(1000)
@@ -505,30 +504,28 @@ class HerdrTabStatusTest(unittest.TestCase):
     def test_stop_recognizes_manual_edit_with_old_prefix_after_rejected_reorder(self):
         self.update_at(1000)
         with self.server.lock:
-            self.server.tab("w1:t2")["number"] = 1
-            self.server.tab("w1:t1")["number"] = 2
+            self.server.snapshot["tabs"][:2] = self.server.snapshot["tabs"][:2][::-1]
             self.server.reject_next_rename = True
         with self.assertRaisesRegex(RuntimeError, "rename rejected"):
             self.update_at(1480)
         with self.server.lock:
             self.server.tab("w1:t2")["label"] = "2 renamed [! Claude <1m]"
         self.success("stop")
-        self.assertEqual(self.server.labels(), ["1", "renamed", "3", "logs"])
+        self.assertEqual(self.server.labels(), ["renamed", "1", "3", "logs"])
 
     def test_lost_reorder_reply_recovers_without_duplicating_numbers(self):
         self.update_at(1000)
         with self.server.lock:
-            self.server.tab("w1:t1")["number"] = 2
-            self.server.tab("w1:t2")["number"] = 1
+            self.server.snapshot["tabs"][:2] = self.server.snapshot["tabs"][:2][::-1]
             self.server.drop_next_rename_reply = True
         with self.assertRaisesRegex(RuntimeError, "incomplete response"):
             self.update_at(1480)
         self.update_at(1540)
         self.assertEqual(
-            self.server.labels()[:2], ["2 [▶ Codex 9m]", "1 review [! Claude 9m]"]
+            self.server.labels()[:2], ["1 review [! Claude 9m]", "2 [▶ Codex 9m]"]
         )
         self.success("stop")
-        self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
+        self.assertEqual(self.server.labels(), ["review", "1", "3", "logs"])
 
     def test_lost_rename_reply_can_recover_original_name(self):
         self.server.drop_next_rename_reply = True
@@ -576,21 +573,49 @@ class HerdrTabStatusTest(unittest.TestCase):
     def test_labels_and_sidebar_follow_positions_after_tab_reordering(self):
         self.update_at(1000)
         with self.server.lock:
-            self.server.tab("w1:t1")["number"] = 2
-            self.server.tab("w1:t2")["number"] = 1
+            # Native tab.move changes array order, never a tab's creation number.
+            self.server.snapshot["tabs"][:2] = self.server.snapshot["tabs"][:2][::-1]
         self.update_at(1480)
         self.assertTrue(
             self.tokens()["tab_states_1"].startswith("1 ! Claude 8m · 2 ▶ Codex 8m")
         )
         self.assertEqual(
-            self.server.labels()[:2], ["2 [▶ Codex 8m]", "1 review [! Claude 8m]"]
+            self.server.labels()[:2], ["1 review [! Claude 8m]", "2 [▶ Codex 8m]"]
         )
         self.update_at(1540)
         self.assertEqual(
-            self.server.labels()[:2], ["2 [▶ Codex 9m]", "1 review [! Claude 9m]"]
+            self.server.labels()[:2], ["1 review [! Claude 9m]", "2 [▶ Codex 9m]"]
+        )
+        self.assertEqual(
+            [tab["number"] for tab in self.server.snapshot["tabs"]], [2, 1, 3, 4]
         )
         self.success("stop")
-        self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
+        self.assertEqual(self.server.labels(), ["review", "1", "3", "logs"])
+
+    def test_positions_reset_per_workspace_despite_gaps_in_creation_numbers(self):
+        with self.server.lock:
+            self.server.snapshot["workspaces"].append(
+                {"workspace_id": "w2", "pane_count": 1}
+            )
+            self.server.snapshot["tabs"] = [
+                {**self.server.tab("w1:t1"), "number": 12, "label": "12"},
+                {
+                    "tab_id": "w2:t9",
+                    "workspace_id": "w2",
+                    "number": 9,
+                    "label": "9",
+                    "agent_status": "unknown",
+                },
+            ]
+            self.server.snapshot["agents"] = self.server.snapshot["agents"][:1]
+        self.update_at(1000)
+        self.assertEqual(self.server.labels(), ["1 [▶ Codex <1m]", "1 [— shell]"])
+        self.assertEqual(self.tokens()["tab_states_1"], "1 ▶ Codex <1m")
+        self.assertEqual(
+            self.server.metadata[("w2", "user:tab-status")]["tab_states_1"], "1 — shell"
+        )
+        self.success("stop")
+        self.assertEqual(self.server.labels(), ["12", "9"])
 
     def test_many_tabs_use_compact_summary_and_keep_each_tab_status(self):
         with self.server.lock:
