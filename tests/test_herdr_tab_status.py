@@ -265,10 +265,10 @@ class HerdrTabStatusTest(unittest.TestCase):
                 self.update_at(1000 + elapsed)
                 self.assertEqual(self.server.labels()[0], f"1 [▶ Codex {duration}]")
                 self.assertEqual(
-                    self.server.labels()[1], f"review [! Claude {duration}]"
+                    self.server.labels()[1], f"2 review [! Claude {duration}]"
                 )
                 self.assertIn(f"1 ▶ Codex {duration}", self.tokens()["tab_states_1"])
-                self.assertEqual(self.server.labels()[3], "logs [— shell]")
+                self.assertEqual(self.server.labels()[3], "4 logs [— shell]")
         self.success("stop")
         self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
 
@@ -278,7 +278,7 @@ class HerdrTabStatusTest(unittest.TestCase):
             self.server.tab("w1:t1")["agent_status"] = "blocked"
         self.update_at(1480)
         self.assertEqual(self.server.labels()[0], "1 [! Codex <1m]")
-        self.assertEqual(self.server.labels()[1], "review [! Claude 8m]")
+        self.assertEqual(self.server.labels()[1], "2 review [! Claude 8m]")
         for index, state in enumerate(("done", "idle", "unknown", "working"), 1):
             with self.subTest(state=state):
                 with self.server.lock:
@@ -320,7 +320,7 @@ class HerdrTabStatusTest(unittest.TestCase):
             self.server.tab("w1:t1")["number"] = 2
             self.server.tab("w1:t2")["number"] = 1
         self.update_at(1540)
-        self.assertEqual(self.server.labels()[0], "renamed [▶ Codex 9m]")
+        self.assertEqual(self.server.labels()[0], "2 renamed [▶ Codex 9m]")
         self.assertTrue(self.tokens()["tab_states_1"].startswith("1 ! Claude 9m"))
         self.success("stop")
         self.assertEqual(self.server.labels()[0], "renamed")
@@ -414,9 +414,9 @@ class HerdrTabStatusTest(unittest.TestCase):
             self.server.labels(),
             [
                 "1 [▶ Codex <1m]",
-                "review [! Claude <1m]",
+                "2 review [! Claude <1m]",
                 "3 [? Codex <1m]",
-                "logs [— shell]",
+                "4 logs [— shell]",
             ],
         )
         self.assertEqual(self.tokens()["tab_inventory"], "4 tabs · 5 panes · 3 agents")
@@ -461,7 +461,7 @@ class HerdrTabStatusTest(unittest.TestCase):
             )
         self.success("once")
         self.assertEqual(self.server.labels()[0], "1 [✓ Claude+Codex ×2 <1m]")
-        self.assertEqual(self.server.labels()[1], "review [○ Claude <1m]")
+        self.assertEqual(self.server.labels()[1], "2 review [○ Claude <1m]")
         self.assertEqual(self.tokens()["tab_inventory"], "4 tabs · 5 panes · 4 agents")
 
     def test_agent_exit_replaces_previous_state_with_shell(self):
@@ -469,7 +469,7 @@ class HerdrTabStatusTest(unittest.TestCase):
         with self.server.lock:
             self.server.snapshot["agents"] = []
         self.success("once")
-        self.assertEqual(self.server.labels()[1], "review [— shell]")
+        self.assertEqual(self.server.labels()[1], "2 review [— shell]")
         self.assertEqual(self.tokens()["tab_inventory"], "4 tabs · 5 panes · 0 agents")
 
     def test_manual_rename_is_preserved_when_refreshing_and_restoring(self):
@@ -478,8 +478,8 @@ class HerdrTabStatusTest(unittest.TestCase):
             self.server.tab("w1:t2")["label"] = "security review"
             self.server.tab("w1:t1")["label"] = "edited [▶ Codex <1m]"
         self.success("once")
-        self.assertEqual(self.server.labels()[0], "edited [▶ Codex <1m]")
-        self.assertEqual(self.server.labels()[1], "security review [! Claude <1m]")
+        self.assertEqual(self.server.labels()[0], "1 edited [▶ Codex <1m]")
+        self.assertEqual(self.server.labels()[1], "2 security review [! Claude <1m]")
         self.success("stop")
         self.assertEqual(
             self.server.labels(), ["edited", "security review", "3", "logs"]
@@ -492,6 +492,43 @@ class HerdrTabStatusTest(unittest.TestCase):
             self.server.tab("w1:t2")["label"] = "new manual name"
         self.success("stop")
         self.assertEqual(self.server.labels(), ["1", "new manual name", "3", "logs"])
+
+    def test_manual_rename_with_managed_number_and_suffix_restores_only_the_name(self):
+        self.update_at(1000)
+        with self.server.lock:
+            self.server.tab("w1:t2")["label"] = "2 security review [! Claude <1m]"
+        self.update_at(1480)
+        self.assertEqual(self.server.labels()[1], "2 security review [! Claude 8m]")
+        self.success("stop")
+        self.assertEqual(self.server.labels()[1], "security review")
+
+    def test_stop_recognizes_manual_edit_with_old_prefix_after_rejected_reorder(self):
+        self.update_at(1000)
+        with self.server.lock:
+            self.server.tab("w1:t2")["number"] = 1
+            self.server.tab("w1:t1")["number"] = 2
+            self.server.reject_next_rename = True
+        with self.assertRaisesRegex(RuntimeError, "rename rejected"):
+            self.update_at(1480)
+        with self.server.lock:
+            self.server.tab("w1:t2")["label"] = "2 renamed [! Claude <1m]"
+        self.success("stop")
+        self.assertEqual(self.server.labels(), ["1", "renamed", "3", "logs"])
+
+    def test_lost_reorder_reply_recovers_without_duplicating_numbers(self):
+        self.update_at(1000)
+        with self.server.lock:
+            self.server.tab("w1:t1")["number"] = 2
+            self.server.tab("w1:t2")["number"] = 1
+            self.server.drop_next_rename_reply = True
+        with self.assertRaisesRegex(RuntimeError, "incomplete response"):
+            self.update_at(1480)
+        self.update_at(1540)
+        self.assertEqual(
+            self.server.labels()[:2], ["2 [▶ Codex 9m]", "1 review [! Claude 9m]"]
+        )
+        self.success("stop")
+        self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
 
     def test_lost_rename_reply_can_recover_original_name(self):
         self.server.drop_next_rename_reply = True
@@ -536,17 +573,24 @@ class HerdrTabStatusTest(unittest.TestCase):
             ["w1:t1"],
         )
 
-    def test_sidebar_follows_positions_after_tab_reordering(self):
+    def test_labels_and_sidebar_follow_positions_after_tab_reordering(self):
+        self.update_at(1000)
         with self.server.lock:
             self.server.tab("w1:t1")["number"] = 2
             self.server.tab("w1:t2")["number"] = 1
-        self.success("once")
+        self.update_at(1480)
         self.assertTrue(
-            self.tokens()["tab_states_1"].startswith("1 ! Claude <1m · 2 ▶ Codex <1m")
+            self.tokens()["tab_states_1"].startswith("1 ! Claude 8m · 2 ▶ Codex 8m")
         )
         self.assertEqual(
-            self.server.labels()[:2], ["1 [▶ Codex <1m]", "review [! Claude <1m]"]
+            self.server.labels()[:2], ["2 [▶ Codex 8m]", "1 review [! Claude 8m]"]
         )
+        self.update_at(1540)
+        self.assertEqual(
+            self.server.labels()[:2], ["2 [▶ Codex 9m]", "1 review [! Claude 9m]"]
+        )
+        self.success("stop")
+        self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
 
     def test_many_tabs_use_compact_summary_and_keep_each_tab_status(self):
         with self.server.lock:
@@ -589,9 +633,9 @@ class HerdrTabStatusTest(unittest.TestCase):
             environment = {**self.environment, "HERDR_SOCKET_PATH": str(other.path)}
             result = self.command("once", environment=environment)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(other.labels()[0], "another session [▶ Codex <1m]")
+            self.assertEqual(other.labels()[0], "1 another session [▶ Codex <1m]")
             self.success("stop")
-            self.assertEqual(other.labels()[0], "another session [▶ Codex <1m]")
+            self.assertEqual(other.labels()[0], "1 another session [▶ Codex <1m]")
             result = self.command("stop", environment=environment)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(other.labels()[0], "another session")
@@ -599,7 +643,7 @@ class HerdrTabStatusTest(unittest.TestCase):
     def test_preview_is_read_only_and_creates_no_journal(self):
         result = self.success("preview")
         plan = json.loads(result.stdout)
-        self.assertEqual(plan["tabs"][1]["label"], "review [! Claude <1m]")
+        self.assertEqual(plan["tabs"][1]["label"], "2 review [! Claude <1m]")
         self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
         self.assertEqual(
             [request["method"] for request in self.server.requests],
@@ -636,7 +680,7 @@ class HerdrTabStatusTest(unittest.TestCase):
         started = time.monotonic()
         self.success("start", "--interval", "0.05")
         self.assertLess(time.monotonic() - started, 2)
-        self.wait_for(lambda: self.server.labels()[3] == "logs [— shell]")
+        self.wait_for(lambda: self.server.labels()[3] == "4 logs [— shell]")
         self.success("start", "--interval", "0.05")
         result = self.command("once")
         self.assertNotEqual(result.returncode, 0)

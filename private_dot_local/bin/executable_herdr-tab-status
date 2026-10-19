@@ -80,7 +80,12 @@ def original_label(label, record):
             return record["base"], True
         for suffix in record["suffixes"]:
             if label.endswith(suffix):
-                return label[: -len(suffix)], True
+                base = label[: -len(suffix)]
+                for prefix in record.get("prefixes", []):
+                    if base.startswith(prefix):
+                        base = base[len(prefix) :]
+                        break
+                return base, True
     return label, False
 
 
@@ -133,11 +138,20 @@ def build_plan(snapshot, saved_tabs, now=None):
         duration = format_duration(now - state_since) if agents else ""
         age = f" {duration}" if duration else ""
         base, owned = original_label(tab["label"], record)
+        prefix = f"{tab['number']} "
+        # Bare numeric names are Herdr's generated defaults. Keep the original
+        # for restoration, but display only the current shortcut position.
+        title = (
+            str(tab["number"])
+            if base.isascii() and base.isdecimal()
+            else prefix + base
+        )
         suffix = f" [{marker} {name}{age}]"
         item = {
             "tab_id": tab["tab_id"],
             "base": base,
-            "label": base + suffix,
+            "label": title + suffix,
+            "prefix": prefix,
             "suffix": suffix,
             "current": tab["label"],
             "owned": owned,
@@ -200,6 +214,11 @@ class Updater:
                     or not all(
                         isinstance(value, str) and value for value in record["suffixes"]
                     )
+                    or not isinstance(record.get("prefixes", []), list)
+                    or not all(
+                        isinstance(value, str) and value
+                        for value in record.get("prefixes", [])
+                    )
                 ):
                     raise HerdrError(f"invalid label journal: {self.state_path}")
                 # Older journals contain only label ownership. Timing starts on
@@ -242,6 +261,7 @@ class Updater:
         for tab in plan["tabs"]:
             labels = [tab["label"]]
             suffixes = [tab["suffix"]]
+            prefixes = [tab["prefix"]]
             if tab["owned"]:
                 labels.append(tab["current"])
                 previous = self.tabs[tab["tab_id"]]
@@ -250,10 +270,16 @@ class Updater:
                     for suffix in previous["suffixes"]
                     if tab["current"].endswith(suffix)
                 )
+                prefixes.extend(
+                    prefix
+                    for prefix in previous.get("prefixes", [])
+                    if tab["current"].startswith(prefix)
+                )
             journal[tab["tab_id"]] = {
                 "base": tab["base"],
                 "labels": list(dict.fromkeys(labels)),
                 "suffixes": list(dict.fromkeys(suffixes)),
+                "prefixes": list(dict.fromkeys(prefixes)),
                 "state": tab["state"],
                 "state_since": tab["state_since"],
             }

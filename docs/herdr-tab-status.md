@@ -7,7 +7,7 @@ existing socket API and runs with Python's standard library on Linux.
 Example tab labels:
 
 ```text
-1 [▶ Codex 12m]     review [! Claude 3m]     logs [— shell]
+1 [▶ Codex 12m]     2 review [! Claude 3m]     3 logs [— shell]
 ```
 
 Example workspace entry:
@@ -42,12 +42,20 @@ can track viewed responses independently, so its native Done badge can differ
 from the updater. These markers are text decorations; setting sidebar symbol
 colors does not color the decorations themselves.
 
-Original tab names remain before the status suffix. Tab order and shortcut
-bindings are unchanged. Sidebar numbers follow the current shortcut positions;
-a numeric tab *name* remains its original name after reordering. User renames
-observed during updates become the new original name, including edits that keep
-the current managed suffix. The API does not offer conditional renames, so a
-manual rename made between a snapshot and its rename request can race the updater.
+Every tab label starts with its current position in the workspace, followed by
+its name and status suffix. Bare numeric names display only the current position.
+For example, moving `1 [▶ Codex 12m]` after `2 review [! Claude 3m]` produces
+`1 review [! Claude 3m]` and `2 [▶ Codex 12m]` on the next poll.
+The sidebar uses the same positions. With the managed bindings, `Alt+Shift+1…9`
+focuses tabs by these numbers. `Alt+1…9` focuses workspaces.
+
+The updater preserves original names in its journal and restores them on `stop`.
+User renames observed during updates become the new original name.
+Edits can retain the managed number and status suffix. The updater removes these
+decorations before saving the edited name. Names that contain only ASCII digits
+are treated as generated numeric names for display, including manual numeric names.
+The API does not offer conditional renames. A manual rename between a snapshot
+and its rename request can race the updater.
 
 Sidebar summaries normally include agent types. If there are too many for the
 13 available summary rows, they switch to compact markers such as `1▶12m 2!3m 3—`.
@@ -88,13 +96,10 @@ change, rather than on every poll.
 | `private_dot_config/herdr/config.toml` | `~/.config/herdr/config.toml` |
 
 Verify each target with `chezmoi --source <absolute-task-worktree> diff -- <target>`.
-After the reviewed sources are merged, deploy the three verified targets
-separately:
+After an approved merge, deploy all managed files with the preservation helper:
 
 ```sh
-chezmoi apply -- "$HOME/.local/bin/herdr-tab-status"
-chezmoi apply -- "$HOME/.local/bin/herdr-shell"
-chezmoi apply -- "$HOME/.config/herdr/config.toml"
+chezmoi-apply-unmodified
 ```
 
 Use Herdr's reload-config action (`Ctrl+a`, then `Shift+r` with these bindings)
@@ -106,8 +111,9 @@ herdr-tab-status preview  # read-only planned labels and sidebar metadata
 herdr-tab-status start
 ```
 
-When updating an existing helper, run `herdr-tab-status stop` and wait for the
-original tab names to return before applying the helper and running `start`.
+When updating an existing helper, run `herdr-tab-status stop` after the approved
+merge. Wait for the original tab names to return before deployment. Run `start`
+after deployment.
 Replacing the script does not reload an already running Python worker.
 
 New panes launched by `herdr-shell` start it automatically before Nushell, zsh,
@@ -146,6 +152,7 @@ sh -n private_dot_local/bin/executable_herdr-shell
 
 The socket tests cover state transitions and elapsed time, recovery and legacy
 journals, clock changes, agent exits, multiple agents, manual renames, lost replies,
-restoration, reordered tabs, compact summaries, singleton startup, and metadata
-ownership. The live `preview` command reads runtime state without changing tab
-labels, focus, or metadata.
+restoration, current position labels after reordering, edited names with retained
+decorations, compact summaries, singleton startup, and metadata ownership.
+The live `preview` command reads runtime state without changing tab labels,
+focus, or metadata.
