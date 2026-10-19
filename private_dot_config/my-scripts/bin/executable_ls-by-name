@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sorted eza presets with terminal-aware paging or a one-screen preview."""
+"""Sorted eza presets with terminal-aware paging or a 70%-screen preview."""
 
 import argparse
 import os
@@ -21,7 +21,7 @@ PRESETS = {
     "ls-tree": (["--sort=name", "--tree", "--level=2"], False, "tree, two levels deep"),
     "ls-dirs": (["--sort=name", "--only-dirs"], False, "directories only, names A–Z"),
     "ls-files": (["--sort=name", "--only-files"], False, "files only, names A–Z"),
-    "ls-one-page": (["--sort=modified"], True, "one screen, most recently modified first"),
+    "ls-one-page": (["--sort=modified"], True, "70% of the screen, most recently modified first"),
     "ls-full": (["--sort=modified"], True, "all entries, most recently modified first"),
 }
 
@@ -46,8 +46,8 @@ def screen_rows(line, columns):
 
 
 def print_one_page(command, size):
-    # Leave space for the shell's prompt. Only reserve the notice if needed.
-    available = max(0, size.lines - 3)
+    # Keep the listing and any overflow notice within 70% of the terminal height.
+    available = size.lines * 7 // 10
     rows = 0
     lines = []
     skipped = False

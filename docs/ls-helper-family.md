@@ -16,7 +16,7 @@ The seven sorted commands require eza, and less enables their automatic paging.
 | `ls-tree` | Alphabetical tree, two levels deep |
 | `ls-dirs` | Directories only, alphabetical |
 | `ls-files` | Files only, alphabetical |
-| `ls-one-page` | One terminal screen, most recently modified first |
+| `ls-one-page` | Up to 70% of the terminal height, most recently modified first |
 | `ls-full` | Complete listing, most recently modified first, without a pager |
 
 Every command shows details and hidden entries, without grouping directories
@@ -54,8 +54,8 @@ Bash and Zsh call it from their shared `l` function.
 
 When stdout is a terminal, the helper measures that terminal's height and width.
 It accounts for wrapped rows, wide Unicode characters, colors, and hyperlinks.
-It reserves three rows for the shell prompt. If entries do not fit, it also
-reserves space for this notice:
+The listing uses at most 70% of the terminal height, rounded down to whole rows.
+If entries do not fit, the helper includes this notice within that limit:
 
 ```text
 ... skipped. Type ls-full to view the whole content.
@@ -130,4 +130,4 @@ Shell-specific checks run for installed Bash, Zsh, and Nushell.
 Preview checks cover globally sorted files and directories, a 450-entry
 directory, exact screen fits, wrapped Unicode names, ANSI colors and hyperlinks,
 system `ls` fallback, complete output, errors, and actual `c` and `l` calls
-in all three shells. These checks use a 12-row terminal.
+in all three shells. Height checks use 12-row, 20-row, and 40-row terminals.
