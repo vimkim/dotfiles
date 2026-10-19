@@ -161,7 +161,8 @@ These everyday shortcuts also exist in Nushell:
 | `c`, `i` | Pick a directory with `dir-picker`, then list its contents. |
 | `c DIR` | Change directly to DIR, then list its contents. |
 | `c [DIR] --query TEXT` | Browse DIR (current directory by default) with an initial name query. |
-| `l`, `sl` | Detailed eza grid with hidden entries, icons, Git state, and modification-time sorting. |
+| `l`, `sl`, `ls-one-page` | One terminal screen of detailed entries, most recently modified first, including hidden files. |
+| `ls-full` | Complete listing in the same order, without a page limit. |
 | `ll` | Detailed eza rows with owners and permissions. |
 | `h`, `up`, `back` | Go to the parent or previous directory and list it. |
 | `mc DIR` | Create a directory, including parents, and enter it. |
@@ -185,6 +186,14 @@ These everyday shortcuts also exist in Nushell:
 | `ports`, `ports-tcp`, `ports-all` | Existing port listing helper, its TCP view, or somo. |
 
 `cd` retains its existing change-and-list behavior; bare `cd` goes home.
+In Nushell, Bash, and Zsh, `c` and `l` share the `ls-one-page` helper.
+It uses eza when available and sorts files and directories together before
+limiting output. It accounts for wrapped names and reserves three rows for
+the shell prompt. Omitted entries produce this notice:
+`... skipped. Type ls-full to view the whole content.`
+Use `ls-full [PATH ...]` for the complete listing. Pipes and redirection also
+receive all entries. See [listing helper details](docs/ls-helper-family.md).
+
 `l` and `ll` fall back to system `ls` when eza is unavailable. Pickers require
 the existing managed `dir-picker` / `file-picker.sh` commands and their
 dependencies (Python 3, fzf, and, for files, fd/eza). Cancelling a picker leaves

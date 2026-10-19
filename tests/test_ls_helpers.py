@@ -17,7 +17,8 @@ import unittest
 
 
 SOURCE = Path(__file__).resolve().parents[1] / "private_dot_config/my-scripts/bin"
-NAMES = ["ls-by-name", "ls-by-size", "ls-by-time", "ls-by-extension", "ls-tree", "ls-dirs", "ls-files"]
+NAMES = ["ls-by-name", "ls-by-size", "ls-by-time", "ls-by-extension", "ls-tree", "ls-dirs", "ls-files",
+         "ls-one-page", "ls-full"]
 PLAIN = ["--no-user", "--no-permissions", "--no-filesize", "--no-time", "--color=never", "--icons=never"]
 
 
@@ -220,6 +221,97 @@ class ListingTests(unittest.TestCase):
         path = str(self.root / "absent")
         expected = subprocess.run(["eza", path], capture_output=True).returncode
         self.terminal_listing([str(self.bin / "ls-by-name"), path], False, expected_status=expected)
+
+    def many_recent_entries(self, count=450):
+        directory = self.root / "many recent entries"
+        directory.mkdir()
+        for number in range(count):
+            path = directory / f"entry-{number:03}"
+            if number % 2:
+                path.mkdir()
+            else:
+                path.touch()
+            os.utime(path, (100 + number, 100 + number))
+        return directory
+
+    def test_one_page_and_full_sort_all_entries_before_limiting(self):
+        directory = self.many_recent_entries()
+        command = str(self.bin / "ls-one-page")
+        output = self.terminal_listing([command, *PLAIN, str(directory)], False,
+                                      env={**self.env, "LINES": "999", "COLUMNS": "999"}).decode()
+        lines = output.splitlines()
+        self.assertEqual(lines[:-1], [f"entry-{number:03}" + ("/" if number % 2 else "")
+                                     for number in range(449, 441, -1)])
+        self.assertEqual(lines[-1], "... skipped. Type ls-full to view the whole content.")
+        for name in ("ls-one-page", "ls-full"):
+            result = self.run_listing(name, path=directory)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(len(result.stdout.splitlines()), 450)
+            self.assertNotIn("skipped", result.stdout)
+            self.assertNotIn("\x1b", result.stdout)
+        full = self.terminal_listing([str(self.bin / "ls-full"), *PLAIN, str(directory)], False)
+        self.assertEqual(len(full.splitlines()), 450)
+        bypass = self.terminal_listing([command, *PLAIN, "--no-pager", str(directory)], False)
+        self.assertEqual(len(bypass.splitlines()), 450)
+
+    def test_one_page_exact_fit_and_wrapped_unicode_rows(self):
+        directory = self.many_recent_entries(9)
+        command = str(self.bin / "ls-one-page")
+        output = self.terminal_listing([command, *PLAIN, str(directory)], False)
+        self.assertEqual(len(output.splitlines()), 9)
+        self.assertNotIn(b"skipped", output)
+        for entry in directory.iterdir():
+            entry.rename(directory / (entry.name + "界" * 40))
+        output = self.terminal_listing([command, *PLAIN, str(directory)], False).decode()
+        self.assertEqual(len(output.splitlines()), 5)  # four two-row entries plus the notice
+        self.assertIn("entry-008", output)
+        self.assertNotIn("entry-004", output)
+
+        colored = self.terminal_listing([command, *PLAIN, "--color=always", "--hyperlink=always",
+                                        str(directory)], False).decode()
+        self.assertIn("\x1b[", colored)
+        self.assertIn("\x1b]8;", colored)
+        self.assertEqual(len(colored.splitlines()), 5)
+
+    def test_one_page_fallback_and_errors(self):
+        isolated = self.root / "fallback-bin"
+        isolated.mkdir()
+        for program in ("python3", "ls"):
+            (isolated / program).symlink_to(shutil.which(program))
+        env = {**self.env, "PATH": str(isolated)}
+        directory = self.many_recent_entries(20)
+        output = self.terminal_listing([str(self.bin / "ls-one-page"), str(directory)], False, env=env)
+        self.assertIn(b"entry-019", output)
+        self.assertNotIn(b"entry-000", output)
+        self.assertIn(b"Type ls-full", output)
+        missing = self.run_listing("ls-one-page", path=self.root / "absent")
+        self.assertNotEqual(missing.returncode, 0)
+        self.terminal_listing([str(self.bin / "ls-one-page"), str(self.root / "absent")],
+                              False, expected_status=missing.returncode)
+
+    def test_one_page_in_real_shell_navigation_and_listing(self):
+        directory = self.many_recent_entries()
+        repo = SOURCE.parents[2]
+        self.env["TARGET"] = str(directory)
+        for shell in ("bash", "zsh", "nu"):
+            if not shutil.which(shell):
+                continue
+            for expression in ("l", 'c "$TARGET"'):
+                with self.subTest(shell=shell, expression=expression):
+                    if shell == "nu":
+                        code = (f'source {repo / "private_dot_config/nushell/eza.nu"}; '
+                                f'source {repo / "private_dot_config/nushell/alias.nu"}; '
+                                + ("c $env.TARGET" if expression.startswith("c ") else "l $env.TARGET"))
+                        args = [shell, "--no-config-file", "-c", code]
+                    else:
+                        code = (f'source "{repo / "private_dot_config/my-scripts/shell/productivity.sh"}"; '
+                                + (expression if expression.startswith("c ") else 'l "$TARGET"'))
+                        args = [shell, *(["--noprofile", "--norc"] if shell == "bash" else ["-f"]),
+                                "-c", code]
+                    output = self.terminal_listing(args, False)
+                    self.assertIn(b"entry-449", output)
+                    self.assertNotIn(b"entry-000", output)
+                    self.assertIn(b"Type ls-full", output)
 
 
 if __name__ == "__main__":

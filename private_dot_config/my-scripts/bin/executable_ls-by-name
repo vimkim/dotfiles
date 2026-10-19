@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Sorted eza presets with terminal-aware paging; also invoked through symlinks."""
+"""Sorted eza presets with terminal-aware paging or a one-screen preview."""
 
 import argparse
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import subprocess
 import sys
+import unicodedata
 
 
 # Options, descending by default, description.
@@ -19,7 +21,58 @@ PRESETS = {
     "ls-tree": (["--sort=name", "--tree", "--level=2"], False, "tree, two levels deep"),
     "ls-dirs": (["--sort=name", "--only-dirs"], False, "directories only, names A–Z"),
     "ls-files": (["--sort=name", "--only-files"], False, "files only, names A–Z"),
+    "ls-one-page": (["--sort=modified"], True, "one screen, most recently modified first"),
+    "ls-full": (["--sort=modified"], True, "all entries, most recently modified first"),
 }
+
+PREVIEW_COMMANDS = {"ls-one-page", "ls-full"}
+SKIPPED_NOTICE = "... skipped. Type ls-full to view the whole content."
+# Ignore ANSI colors and OSC hyperlinks when measuring terminal cells.
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+
+
+def screen_rows(line, columns):
+    cells = 0
+    for character in ANSI_ESCAPE.sub("", line.rstrip("\r\n")):
+        if character == "\t":
+            cells += 8 - cells % 8
+        elif not unicodedata.combining(character) and unicodedata.category(character) != "Cf":
+            width = 2 if unicodedata.east_asian_width(character) in ("W", "F") else 1
+            # A wide character wraps before the last column when only one cell remains.
+            if width == 2 and cells % columns == columns - 1:
+                cells += 1
+            cells += width
+    return max(1, (cells + columns - 1) // columns)
+
+
+def print_one_page(command, size):
+    # Leave space for the shell's prompt. Only reserve the notice if needed.
+    available = max(0, size.lines - 3)
+    rows = 0
+    lines = []
+    skipped = False
+    with subprocess.Popen(command, stdout=subprocess.PIPE, text=True, errors="replace") as listing:
+        for line in listing.stdout:
+            height = screen_rows(line, size.columns)
+            if not skipped and rows + height <= available:
+                lines.append((line, height))
+                rows += height
+            else:
+                skipped = True
+            # Drain the rest without buffering, preserving real listing errors.
+        listing.stdout.close()
+        status = listing.wait()
+    if skipped:
+        available -= screen_rows(SKIPPED_NOTICE, size.columns)
+        while lines and rows > available:
+            _, height = lines.pop()
+            rows -= height
+    for line, _ in lines:
+        sys.stdout.write(line)
+    if skipped:
+        print(SKIPPED_NOTICE)
+    return exit_status(status)
+
 
 VALUE_OPTIONS = {
     "-s", "--sort", "-L", "--level", "-I", "--ignore-glob", "-w", "--width",
@@ -89,6 +142,7 @@ def exit_status(code):
 
 def main():
     name = Path(sys.argv[0]).name
+    preview = name in PREVIEW_COMMANDS
     options, descending, description = PRESETS[name]
     parser = argparse.ArgumentParser(
         prog=name,
@@ -98,7 +152,8 @@ def main():
         description=f"{description}; detailed listing including hidden entries.",
         epilog="Other arguments go to eza. Use -- before paths beginning with '-'.",
     )
-    parser.add_argument("--no-pager", action="store_true", help="print directly, even in a terminal")
+    parser.add_argument("--no-pager", action="store_true",
+                        help="print all entries directly, even in a terminal")
     parser.add_argument("-r", "--reverse", action="store_true", help="reverse this helper's default order")
     parser.add_argument("--help", "-?", action="store_true", help="show helper and eza help")
     args, forwarded = parser.parse_known_args(expand_short_options(sys.argv[1:]))
@@ -109,29 +164,53 @@ def main():
             print("\neza options:", flush=True)
             return exit_status(subprocess.call([eza, "--help"]))
         return 0
-    if not eza:
+    if not eza and not preview:
         print(f"{name}: eza is required; install eza and retry.", file=sys.stderr)
         return 127
 
     less = shutil.which("less")
     page = (
-        not args.no_pager
+        not preview
+        and not args.no_pager
         and sys.stdin.isatty()
         and sys.stdout.isatty()
         and os.environ.get("TERM") not in (None, "", "dumb")
         and less is not None
     )
-    command = [eza, "--long", "--all", *options]
-    if descending != args.reverse:
-        command.append("--reverse")
+    try:
+        size = os.get_terminal_size(sys.stdout.fileno())
+    except OSError:
+        size = shutil.get_terminal_size()
+    # Zero dimensions occur in newly created PTYs.
+    size = os.terminal_size((size.columns or 80, size.lines or 24))
+    if eza:
+        command = [eza, "--long", "--all", *options]
+        if descending != args.reverse:
+            command.append("--reverse")
+        if preview:
+            command.extend(["--no-user", "--no-permissions", "--git", "--classify=always",
+                            "--time-style=relative", "--icons=auto"])
+    else:
+        ls = shutil.which("ls")
+        if not ls:
+            print(f"{name}: eza or ls is required.", file=sys.stderr)
+            return 127
+        command = [ls, "-AlFt"]
+        if args.reverse:
+            command.append("-r")
     if page:
         # eza's output is a pipe here, but the listing is still for a terminal.
         color = "never" if "NO_COLOR" in os.environ else "always"
-        command.extend([f"--color={color}", f"--width={shutil.get_terminal_size().columns}"])
+        command.extend([f"--color={color}", f"--width={size.columns}"])
+    elif preview and eza and sys.stdout.isatty():
+        color = "never" if "NO_COLOR" in os.environ else "always"
+        command.extend([f"--color={color}", "--icons=always", f"--width={size.columns}"])
     command.extend(default_directory(forwarded))
+    if name == "ls-one-page" and not args.no_pager and sys.stdout.isatty():
+        return print_one_page(command, size)
     if not page:
         # Preserve the real stdout descriptor, including pipes from any shell.
-        os.execv(eza, command)
+        os.execv(command[0], command)
 
     # User LESS settings must not disable wrapping or short-output auto-exit.
     pager_env = os.environ.copy()

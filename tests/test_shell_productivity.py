@@ -27,10 +27,12 @@ class ShellProductivityTests(unittest.TestCase):
         self.data.mkdir()
         self.bin = self.root / "bin"
         self.bin.mkdir()
-        for name in ("dir-picker", "file-picker.sh", "dir-history", "directory-history.nu"):
+        for name in ("dir-picker", "file-picker.sh", "dir-history", "directory-history.nu", "ls-by-name"):
             target = self.bin / name
             shutil.copyfile(SCRIPTS / "bin" / ("executable_" + name), target)
             target.chmod(0o755)
+        (self.bin / "ls-one-page").symlink_to("ls-by-name")
+        (self.bin / "python3").symlink_to(sys.executable)
         self.home = self.root / "home"
         nu_config = self.home / ".config/nushell"
         nu_config.mkdir(parents=True)

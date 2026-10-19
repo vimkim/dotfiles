@@ -22,29 +22,9 @@ $env.EZA_SORT_MODIFIED = [
   --sort=modified
 ]
 
-# Define the 'l' alias/function
-def ezam [...args] {
-
-  let big_threshold = 400
-  let entry_count   = (fd -d1 --hidden --no-ignore | wc -l | into int)
-  let rows          = (term size | get rows)
-  let max_lines     = ($rows * 0.8 | math floor)
-
-  if $entry_count > $big_threshold {
-    # Fast path: structured Nu ls sorted by modified, then page
-    ls -a --threads
-    | first ($max_lines * 2)
-    | sort-by modified -r
-    | table
-    | head -n $max_lines
-
-    echo "...skipped & approx sorted"
-  } else {
-    # Small dir: your richer, slower listing
-    # NOTE: eza needs --width=(tput cols) when being piped to less
-    eza --no-user --no-permissions ...$env.EZA_LONG_OPTIONS --icons ...$env.EZA_SORT_MODIFIED --grid ...$args
-  }
-
+# Shared with Bash and Zsh: newest entries first, capped to one terminal screen.
+def --wrapped ezam [...args: string] {
+  ^ls-one-page ...$args
 }
 
 # Define the 'l' alias/function

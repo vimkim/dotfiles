@@ -3,14 +3,7 @@
 unalias c l ll cl cv mc gr fp cf vc y ch chf chd chp vh bm n nr na nc 2>/dev/null || :
 
 l() {
-    [ "$#" -gt 0 ] || set -- .
-    if command -v eza >/dev/null 2>&1; then
-        command eza --group-directories-first -aF --time-style=relative \
-            --long --git --no-user --no-permissions --icons=auto \
-            --sort=modified --grid "$@"
-    else
-        command ls -AlFt "$@"
-    fi
+    command ls-one-page "$@"
 }
 
 ll() {
