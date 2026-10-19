@@ -97,6 +97,15 @@ while independent steps continue. `install-dirpick` is only used for bootstrap.
 See [Dirpick setup](dirpick.md) for bootstrap and
 Nushell integration.
 
+`~/gh/cubrid-tc-chronicle` (`vimkim/cubrid-tc-chronicle`) follows as
+`tool:cubrid-tc-chronicle`. It requires a clean primary `main` tracking
+`origin/main`, with the expected origin. Symlinks and linked worktrees are skipped.
+Its fetch requests remote `main` explicitly. After the ancestor check and fast-forward,
+`just sync` reinstalls the `tcc` command through `uv tool install --editable . --reinstall`.
+Chronicle needs uv and Just. Missing checkouts are skipped. Installation failures remain visible.
+This step refreshes the utility only. Collect CI evidence explicitly with `tcc sync-data`.
+Status queries such as `tcc status NAME --json` read the retained index without network access.
+
 `just sync` alone reconciles the current source contents with installed skills;
 it does not refresh Git. The sync engine remains responsible for ownership,
 conflicts, verification, migration, pruning and recovery. Missing peer evidence

@@ -37,7 +37,7 @@ fi
 # Personal tool checkouts refresh the same way after the collections; their
 # `just sync` reinstalls each tool's commands.
 # These checkouts hold no skills.
-PERSONAL_TOOLS=(my-git-utils herdr-next-to-current html-serve dirpick)
+PERSONAL_TOOLS=(my-git-utils herdr-next-to-current html-serve dirpick cubrid-tc-chronicle)
 
 if [ -t 1 ]; then
     BOLD=$'\033[1m'
@@ -495,7 +495,7 @@ run_collection() {
         SKIPPED+=("$label")
         return
     fi
-    if [ "$1" = herdr-next-to-current ] || [ "$1" = html-serve ] || [ "$1" = dirpick ]; then
+    if [ "$1" = herdr-next-to-current ] || [ "$1" = html-serve ] || [ "$1" = dirpick ] || [ "$1" = cubrid-tc-chronicle ]; then
         local origin
         origin="$(git -C "$repo" config --get remote.origin.url)" || origin=""
         if [ ! -d "$repo/.git" ] || [ -L "$repo" ] || [ "$branch" != main ] || [ "$upstream" != origin/main ]; then
@@ -519,8 +519,8 @@ run_collection() {
         return
     fi
     local fetch_args=("$remote")
-    # A deleted remote main must not authorize a Dirpick install from stale refs.
-    if [ "$1" = dirpick ]; then
+    # A deleted remote main must not authorize an install from stale refs.
+    if [ "$1" = dirpick ] || [ "$1" = cubrid-tc-chronicle ]; then
         fetch_args+=(refs/heads/main:refs/remotes/origin/main)
     fi
     if ! git -C "$repo" fetch -- "${fetch_args[@]}"; then
@@ -702,8 +702,9 @@ or partial work, and 1 means a failure. Runs still stamp the day in all cases.
 just sync alone reconciles local contents without fetching source changes.
 DAILY_UPDATE_COLLECTION_ORDER=cubrid-first reverses the default collection order.
 The personal tools ~/gh/my-git-utils, ~/gh/herdr-next-to-current, ~/gh/html-serve,
-and ~/gh/dirpick refresh afterwards and run their own just sync recipes.
-Herdr, HTML Serve, and Dirpick require a clean primary main checkout tracking origin/main.
+~/gh/dirpick, and ~/gh/cubrid-tc-chronicle refresh afterwards and run just sync.
+Herdr, HTML Serve, Dirpick, and Chronicle require a clean primary main checkout
+tracking origin/main. Chronicle reinstalls tcc; it does not collect CI data.
 Third-party updates use the pinned CLI with an explicit eligible-name filter.
 --prune moves what it removes into a dated trash directory rather than deleting it.
 EOF

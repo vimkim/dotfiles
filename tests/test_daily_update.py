@@ -57,7 +57,7 @@ exec "$REAL_GIT" "$@"
         self.repos = {}
         self.tools = {}
         self.seeds = {}
-        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'herdr-next-to-current', 'html-serve', 'dirpick'):
+        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'herdr-next-to-current', 'html-serve', 'dirpick', 'cubrid-tc-chronicle'):
             remote = self.root / f'{name}.git'
             seed = self.root / f'{name}-seed'
             self.git(self.root, 'init', '--bare', '--initial-branch=main', str(remote))
@@ -66,17 +66,19 @@ exec "$REAL_GIT" "$@"
             recipe = 'sync:\n    @printf "%s:%s\\n" "{{justfile_directory()}}" "$(cat revision)" >> "$TEST_LOG"\n    @exit "${SYNC_RESULT:-0}"\n'
             if name == 'dirpick':
                 recipe = recipe.replace('SYNC_RESULT', 'DIRPICK_SYNC_RESULT')
+            if name == 'cubrid-tc-chronicle':
+                recipe = recipe.replace('SYNC_RESULT', 'CHRONICLE_SYNC_RESULT')
             (seed / 'justfile').write_text(recipe)
             self.git(seed, 'add', '.')
             self.git(seed, 'commit', '-m', 'initial')
             self.git(seed, 'push', '-u', 'origin', 'HEAD')
             repo = self.home / 'gh' / name
             self.git(self.root, 'clone', str(remote), str(repo))
-            if name in ('herdr-next-to-current', 'html-serve', 'dirpick'):
+            if name in ('herdr-next-to-current', 'html-serve', 'dirpick', 'cubrid-tc-chronicle'):
                 official = f'https://github.com/vimkim/{name}.git'
                 self.git(repo, 'config', f'url.{remote}.insteadOf', official)
                 self.git(repo, 'config', 'remote.origin.url', official)
-            (self.tools if name in ('my-git-utils', 'herdr-next-to-current', 'html-serve', 'dirpick') else self.repos)[name] = repo
+            (self.tools if name in ('my-git-utils', 'herdr-next-to-current', 'html-serve', 'dirpick', 'cubrid-tc-chronicle') else self.repos)[name] = repo
             self.seeds[name] = seed
 
         remote = self.root / 'dotfiles.git'
@@ -352,6 +354,61 @@ exit "${FAIL_APPLY:-0}"
         tool = rows.index(f"{self.tools['my-git-utils']}:after")
         self.assertGreater(tool, max(rows.index(f'{repo}:before') for repo in self.repos.values()))
         self.assertIn('tool:my-git-utils: completed', result.stdout)
+
+    def test_chronicle_refreshes_and_syncs_cli_after_other_tools(self):
+        self.advance('cubrid-tc-chronicle')
+        repo = self.tools['cubrid-tc-chronicle']
+        # Data collection is deliberately absent from daily upkeep.
+        seed = self.seeds['cubrid-tc-chronicle']
+        with (seed / 'justfile').open('a') as stream:
+            stream.write('sync-data:\n    @exit 97\n')
+        self.git(seed, 'add', 'justfile')
+        self.git(seed, 'commit', '-m', 'separate data collection')
+        self.git(seed, 'push')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('tool:cubrid-tc-chronicle: completed', result.stdout)
+        rows = self.logged().splitlines()
+        self.assertGreater(rows.index(f'{repo}:after'),
+                           rows.index(f"{self.tools['dirpick']}:before"))
+
+    def test_chronicle_preserves_topic_wrong_origin_and_dirty_checkouts(self):
+        repo = self.tools['cubrid-tc-chronicle']
+        for scenario in ('topic', 'wrong-origin', 'dirty'):
+            with self.subTest(scenario=scenario):
+                if scenario == 'topic':
+                    self.git(repo, 'switch', '-c', 'topic')
+                    self.git(repo, 'branch', '--set-upstream-to=origin/main')
+                elif scenario == 'wrong-origin':
+                    self.git(repo, 'config', 'remote.origin.url', 'https://example.invalid/other.git')
+                else:
+                    (repo / 'scratch').write_text('valuable')
+                before = self.git(repo, 'rev-parse', 'HEAD')
+                result = self.run_daily()
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn('tool:cubrid-tc-chronicle: skipped', result.stdout)
+                self.assertEqual(before, self.git(repo, 'rev-parse', 'HEAD'))
+                self.assertNotIn(f'{repo}:', self.logged())
+                if scenario == 'topic':
+                    self.git(repo, 'switch', 'main')
+                if scenario == 'wrong-origin':
+                    self.git(repo, 'config', 'remote.origin.url',
+                             'https://github.com/vimkim/cubrid-tc-chronicle.git')
+        self.assertEqual((repo / 'scratch').read_text(), 'valuable')
+
+    def test_chronicle_failure_is_reported_and_does_not_collect_data(self):
+        result = self.run_daily(CHRONICLE_SYNC_RESULT='9')
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('tool:cubrid-tc-chronicle: FAILED (sync exit 9)', result.stdout)
+        self.assertIn('tool:dirpick: completed', result.stdout)
+
+    def test_chronicle_deleted_remote_main_does_not_install_stale_code(self):
+        remote = self.root / 'cubrid-tc-chronicle.git'
+        self.git(remote, 'update-ref', '-d', 'refs/heads/main')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('tool:cubrid-tc-chronicle: FAILED (fetch)', result.stdout)
+        self.assertNotIn(f"{self.tools['cubrid-tc-chronicle']}:", self.logged())
 
     def test_herdr_clean_main_refreshes_and_installs(self):
         self.advance('herdr-next-to-current')
