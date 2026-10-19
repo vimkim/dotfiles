@@ -168,13 +168,14 @@ class HerdrTabStatusNativeTest(unittest.TestCase):
             time.sleep(2.2)  # Longer than the former two-second polling period.
             self.assertEqual(counts["session.snapshot"], before)
 
-        stopped = threading.Event()
+        control = self.module["WorkerControl"](self.root / "control.sock")
+        self.addCleanup(control.__exit__, None, None, None)
         updater = self.module["Updater"](self.socket_path, self.directory)
         run = self.module["run_events"]
         with mock.patch.dict(run.__globals__, {"request": counted_request}):
             worker = threading.Thread(
                 target=run,
-                args=(updater, stopped, self.root / "stop", 0.05),
+                args=(updater, control, 0.05),
                 daemon=True,
             )
             worker.start()
@@ -208,7 +209,7 @@ class HerdrTabStatusNativeTest(unittest.TestCase):
                     ])
                 assert_idle()
             finally:
-                stopped.set()
+                control.stop()
                 worker.join(timeout=5)
                 self.assertFalse(worker.is_alive(), "Event worker did not stop")
                 updater.restore()

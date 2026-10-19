@@ -8,8 +8,10 @@ import hashlib
 import json
 import math
 import os
+import select
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -47,6 +49,88 @@ PANE_STATE_FIELDS = ("workspace_id", "tab_id", "agent", "agent_status")
 
 class HerdrError(RuntimeError):
     pass
+
+
+def open_control_socket(path):
+    # Call only while holding the worker lock, so an existing socket is stale.
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        pass
+    else:
+        if not stat.S_ISSOCK(mode):
+            raise HerdrError(f"control path is not a socket: {path}")
+        path.unlink()
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    try:
+        server.bind(str(path))
+        path.chmod(0o600)
+        return server
+    except BaseException:
+        server.close()
+        raise
+
+
+def request_stop(path):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as client:
+        client.settimeout(3)
+        client.sendto(b"stop", str(path))
+
+
+class WorkerControl:
+    """Wake the main thread for Herdr events, stop requests, or signals."""
+
+    def __init__(self, path, server=None):
+        self.path = path
+        self.server = server if server is not None else open_control_socket(path)
+        self.server.setblocking(False)
+        self.reader, self.writer = socket.socketpair()
+        self.reader.setblocking(False)
+        self.writer.setblocking(False)
+        self.stopped = threading.Event()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _exc_type, _exc_value, _traceback):
+        self.reader.close()
+        self.writer.close()
+        self.server.close()
+        self.path.unlink(missing_ok=True)
+
+    def set(self):
+        try:
+            self.writer.send(b"\0")
+        except BlockingIOError:
+            pass  # A queued notification already makes the reader ready.
+
+    def clear(self):
+        try:
+            while self.reader.recv(4096):
+                pass
+        except BlockingIOError:
+            pass
+
+    def stop(self):
+        self.stopped.set()
+        self.set()
+
+    def stopping(self):
+        # Drain commands when processing events too, so a busy stream cannot
+        # defer stopping until the next wait. This is not a timed file check.
+        try:
+            if self.server.recv(16) == b"stop":
+                self.stopped.set()
+        except BlockingIOError:
+            pass
+        return self.stopped.is_set()
+
+    def wait(self, timeout=None):
+        ready, _write, _error = select.select(
+            [self.reader, self.server], [], [], timeout
+        )
+        if self.server in ready:
+            self.stopping()
 
 
 class EventFeed:
@@ -496,17 +580,16 @@ def timer_delay(updater, plan):
     return max(0.05, min(delays)) if delays else None
 
 
-def run_events(updater, stopped, stop_path, retry_delay):
-    wake = threading.Event()
+def run_events(updater, control, retry_delay):
     last_error = None
     pane_ids = frozenset()
-    while not stopped.is_set() and not stop_path.exists():
+    while not control.stopping():
         try:
             # Subscribe before the first read. The reader keeps draining while
             # snapshots and writes run; a changed revision triggers another read.
-            with EventFeed(updater, wake, pane_ids) as feed:
+            with EventFeed(updater, control, pane_ids) as feed:
                 snapshot, revision, deadline = None, -1, 0
-                while not stopped.is_set() and not stop_path.exists():
+                while not control.stopping():
                     if feed.error:
                         raise feed.error
                     refresh = feed.revision != revision
@@ -530,12 +613,14 @@ def run_events(updater, stopped, stop_path, retry_delay):
                             time.monotonic() + delay if delay is not None else math.inf
                         )
                         last_error = None
-                    wake.clear()
-                    if feed.error or feed.revision != revision:
+                    control.clear()
+                    if control.stopping() or feed.error or feed.revision != revision:
                         continue
-                    # This bounds local stop-file latency. It does not read the
-                    # API or render cached state unless an event/timer is due.
-                    wake.wait(min(0.5, max(0, deadline - time.monotonic())))
+                    timeout = (
+                        None if math.isinf(deadline)
+                        else max(0, deadline - time.monotonic())
+                    )
+                    control.wait(timeout)
         except (OSError, ValueError, KeyError, HerdrError) as error:
             # A pane may close between discovery and subscription acceptance.
             # Rediscover IDs under lifecycle subscriptions on the next attempt.
@@ -544,13 +629,9 @@ def run_events(updater, stopped, stop_path, retry_delay):
             if message != last_error:
                 print(f"herdr-tab-status: {message}", file=sys.stderr, flush=True)
                 last_error = message
-            retry_at = time.monotonic() + retry_delay
-            while (
-                not stopped.is_set()
-                and not stop_path.exists()
-                and time.monotonic() < retry_at
-            ):
-                stopped.wait(min(0.5, max(0, retry_at - time.monotonic())))
+            control.clear()
+            if not control.stopping():
+                control.wait(retry_delay)
 
 
 def main():
@@ -565,6 +646,7 @@ def main():
         help="event connection retry delay in seconds (default: 2)",
     )
     parser.add_argument("--lock-fd", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--control-fd", type=int, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if not math.isfinite(args.retry_delay) or args.retry_delay < 0.05:
         parser.error("retry delay must be a finite number of at least 0.05 seconds")
@@ -582,11 +664,11 @@ def main():
         )
         return
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-    stop_path = directory / "stop"
+    control_path = directory / "control.sock"
     descriptor = args.lock_fd if args.lock_fd is not None else open_lock(directory)
     if descriptor is None:
         if args.command == "stop":
-            stop_path.touch(mode=0o600)
+            request_stop(control_path)
         elif args.command != "start":
             raise HerdrError("an updater is already running for this session")
         return
@@ -594,29 +676,40 @@ def main():
         if args.command == "start":
             if not Path(socket_path).is_socket():
                 raise HerdrError("Herdr session socket is unavailable")
-            stop_path.unlink(missing_ok=True)
-            log_fd = os.open(
-                directory / "updater.log", os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600
-            )
+            # Bind before spawning so an immediate stop request is queued even
+            # before the child starts. Only the child removes this endpoint.
+            control_server = open_control_socket(control_path)
             try:
-                subprocess.Popen(
-                    [
-                        sys.executable,
-                        str(Path(__file__).resolve()),
-                        "run",
-                        "--retry-delay",
-                        str(args.retry_delay),
-                        "--lock-fd",
-                        str(descriptor),
-                    ],
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=log_fd,
-                    pass_fds=(descriptor,),
-                    start_new_session=True,
+                log_fd = os.open(
+                    directory / "updater.log",
+                    os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600,
                 )
+                try:
+                    subprocess.Popen(
+                        [
+                            sys.executable,
+                            str(Path(__file__).resolve()),
+                            "run",
+                            "--retry-delay",
+                            str(args.retry_delay),
+                            "--lock-fd",
+                            str(descriptor),
+                            "--control-fd",
+                            str(control_server.fileno()),
+                        ],
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=log_fd,
+                        pass_fds=(descriptor, control_server.fileno()),
+                        start_new_session=True,
+                    )
+                finally:
+                    os.close(log_fd)
+            except BaseException:
+                control_path.unlink(missing_ok=True)
+                raise
             finally:
-                os.close(log_fd)
+                control_server.close()
             return
         updater = Updater(socket_path, directory)
         if args.command == "once":
@@ -624,25 +717,25 @@ def main():
             return
         if args.command == "stop":
             updater.restore()
-            stop_path.unlink(missing_ok=True)
             return
-        if args.lock_fd is None:
-            stop_path.unlink(missing_ok=True)
-        stopped = threading.Event()
-        for signum in (signal.SIGTERM, signal.SIGINT):
-            signal.signal(signum, lambda _signum, _frame: stopped.set())
-        try:
-            run_events(updater, stopped, stop_path, args.retry_delay)
-        finally:
+        control_server = (
+            socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM, fileno=args.control_fd)
+            if args.control_fd is not None else None
+        )
+        with WorkerControl(control_path, control_server) as control:
+            for signum in (signal.SIGTERM, signal.SIGINT):
+                signal.signal(signum, lambda _signum, _frame: control.stop())
             try:
-                updater.restore()
-            except (OSError, ValueError, KeyError, HerdrError) as error:
-                print(
-                    f"herdr-tab-status: restore pending: {error}",
-                    file=sys.stderr,
-                    flush=True,
-                )
-            stop_path.unlink(missing_ok=True)
+                run_events(updater, control, args.retry_delay)
+            finally:
+                try:
+                    updater.restore()
+                except (OSError, ValueError, KeyError, HerdrError) as error:
+                    print(
+                        f"herdr-tab-status: restore pending: {error}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
     finally:
         os.close(descriptor)
 

@@ -883,6 +883,119 @@ class HerdrTabStatusTest(unittest.TestCase):
         self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
         self.assertEqual(self.tokens(), {})
 
+    def exercise_control_wait(self, empty=False, disconnected=False):
+        if empty:
+            self.server.snapshot = {
+                "workspaces": [], "tabs": [], "agents": [], "panes": []
+            }
+        self.directory.mkdir(parents=True)
+        module = runpy.run_path(str(HELPER))
+        socket_path = self.root / "missing.sock" if disconnected else self.server.path
+        updater = module["Updater"](str(socket_path), self.directory)
+        entered = threading.Event()
+        waits = []
+        with module["WorkerControl"](self.directory / "control.sock") as control:
+            original_wait = control.wait
+
+            def record_wait(timeout=None):
+                waits.append(timeout)
+                entered.set()
+                return original_wait(timeout)
+
+            with mock.patch.object(control, "wait", side_effect=record_wait):
+                worker = threading.Thread(
+                    target=module["run_events"],
+                    args=(updater, control, 60), daemon=True,
+                )
+                worker.start()
+                try:
+                    self.assertTrue(entered.wait(3), "Worker did not enter its wait")
+                    if empty:
+                        self.assertEqual(waits, [None])
+                    else:
+                        self.assertGreater(waits[0], 10)
+                    time.sleep(0.6)  # Longer than the removed stop-check interval.
+                    self.assertEqual(
+                        len(waits), 1, "Worker woke without an event/deadline"
+                    )
+                    module["request_stop"](control.path)
+                    worker.join(timeout=1)
+                    self.assertFalse(worker.is_alive(), "Stop did not wake the worker")
+                    self.assertTrue(control.stopped.is_set())
+                finally:
+                    control.stop()
+                    worker.join(timeout=5)
+        self.assertFalse((self.directory / "control.sock").exists())
+
+    def test_empty_worker_waits_indefinitely_until_control_socket_stop(self):
+        self.exercise_control_wait(empty=True)
+
+    def test_control_socket_stop_interrupts_metadata_timer_wait(self):
+        self.exercise_control_wait()
+
+    def test_control_socket_stop_interrupts_connection_retry_wait(self):
+        self.exercise_control_wait(disconnected=True)
+
+    def test_stop_can_be_sent_immediately_after_start(self):
+        self.success("start")
+        self.success("stop")
+        self.wait_for(self.lock_available)
+        self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
+        self.assertFalse((self.directory / "control.sock").exists())
+
+    def test_failed_start_removes_its_control_socket(self):
+        self.directory.mkdir(parents=True)
+        (self.directory / "updater.log").mkdir()
+        result = self.command("start")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(self.lock_available())
+        self.assertFalse((self.directory / "control.sock").exists())
+
+    def test_sigterm_wakes_an_empty_worker_without_timer_deadlines(self):
+        self.server.snapshot = {
+            "workspaces": [], "tabs": [], "agents": [], "panes": []
+        }
+        process = subprocess.Popen(
+            [sys.executable, HELPER, "run"], env=self.environment,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        try:
+            self.wait_for(lambda: self.request_count("session.snapshot") == 1)
+            process.terminate()
+            _stdout, stderr = process.communicate(timeout=2)
+            self.assertEqual(process.returncode, 0, stderr)
+            self.assertFalse((self.directory / "control.sock").exists())
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.communicate(timeout=5)
+
+    def test_restart_replaces_a_stale_control_socket_and_restores_names(self):
+        process = subprocess.Popen(
+            [sys.executable, HELPER, "run"], env=self.environment,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        try:
+            self.wait_for(lambda: self.server.labels()[3] == "4 logs [— shell]")
+        finally:
+            process.kill()
+            process.communicate(timeout=5)
+        self.assertTrue((self.directory / "control.sock").is_socket())
+        self.success("start")
+        self.success("stop")
+        self.wait_for(self.lock_available)
+        self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
+        self.assertFalse((self.directory / "control.sock").exists())
+
+    def test_control_socket_does_not_replace_an_existing_regular_file(self):
+        self.directory.mkdir(parents=True)
+        path = self.directory / "control.sock"
+        path.write_text("preserve this file")
+        module = runpy.run_path(str(HELPER))
+        with self.assertRaisesRegex(RuntimeError, "control path is not a socket"):
+            module["open_control_socket"](path)
+        self.assertEqual(path.read_text(), "preserve this file")
+
 
 if __name__ == "__main__":
     unittest.main()

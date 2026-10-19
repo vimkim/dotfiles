@@ -134,6 +134,11 @@ elapsed-time labels and renew sidebar metadata from the cached snapshot.
 Sidebar metadata refreshes on change and every 20 seconds, with a 60-second
 expiration. The worker sends tab renames only when labels change.
 
+The main thread blocks until a Herdr notification, a stop request, or the next
+elapsed-time or metadata deadline. It does not check a stop file or wake at fixed
+intervals to check for work. With no timer deadlines, it waits without a timeout.
+The control socket uses the existing main thread and adds no listener thread.
+
 On a disconnection or `events_lost`, the worker subscribes again and reads fresh
 state. Events received during a read trigger another read. Event payloads never
 replace authoritative snapshots. Connection failures retry after two seconds.
@@ -146,12 +151,15 @@ for connection retries and does not enable periodic snapshots.
 herdr-tab-status stop
 ```
 
-For a running worker, this requests a graceful stop. Stopping
+For a running worker, this sends a stop request through its private Unix control
+socket and wakes it directly. The socket is ready before background startup
+returns, so an immediate stop request can wait in the socket queue.
+`SIGTERM` and `SIGINT` also wake the worker for graceful shutdown. Stopping
 restores names it still owns and clears only its own `user:tab-status` metadata.
 Other reporters, including Git dirty status, keep their values. It also works
 after a worker exits: the journal supplies the original names.
 
-Private journals, locks, and error logs live under
+Private journals, locks, the `control.sock` socket, and error logs live under
 `${XDG_CACHE_HOME:-$HOME/.cache}/herdr-tab-status/<socket-hash>/`. Write-ahead
 journaling retains original names when a rename succeeds but its API reply is
 lost. Keep the journal until decorated tabs have been restored. After a server
@@ -174,6 +182,8 @@ restoration, current position labels after reordering, edited names with retaine
 decorations, compact summaries, singleton startup, and metadata ownership.
 They also verify idle sessions without polling, self-rename suppression, cached
 timer updates, events received during snapshots, and subscription recovery.
+Control tests cover indefinite idle waits, stop requests during timer and retry
+waits, immediate stop after startup, signal wakeups, and stale socket recovery.
 The optional native tests use isolated Herdr servers. They verify creation,
 reordering, closure, agent-state events, and the absence of repeated idle reads.
 The live `preview` command reads runtime state without changing tab labels,
