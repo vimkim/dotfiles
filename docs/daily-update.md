@@ -68,6 +68,11 @@ and reconciliation. Skill ownership, pruning and recovery stay in the collection
 sync engines. Chronicle's recipe reinstalls the CLI; collecting CI evidence
 still requires an explicit `cubrid-tcc sync-data` invocation.
 
+Python CLI recipes use regular `uv tool install --reinstall .` installations.
+Source changes reach installed commands on the next sync, including changes without a version bump.
+Use each project's `uv run` workflow to run the current source during development.
+Primary-main checkout protections remain in force for the configured tools.
+
 ## Dotfiles, tools and third-party skills
 
 Normal runs first resolve the dotfiles source with `chezmoi source-path`. It must

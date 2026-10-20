@@ -17,7 +17,7 @@ name = "my-git-utils"
 path = "~/gh/my-git-utils"
 github = "vimkim/my-git-utils"
 
-# Editable tools use the canonical checkout and published origin/main only.
+# Protected tools use the canonical checkout and published origin/main only.
 [[projects]]
 name = "herdr-next-to-current"
 path = "~/gh/herdr-next-to-current"
