@@ -1,179 +1,137 @@
-# Daily update and collection sync
+# Daily update
 
-`private_dot_config/my-scripts/bin/executable_daily-update` is the version-controlled
-Bash source. Its managed target is `~/.config/my-scripts/bin/daily-update`.
-Edit the source in a topic worktree. Review its rendered diff with:
+`daily-update` is a Python 3.11+ command. Its source launcher is
+`private_dot_config/my-scripts/bin/executable_daily-update`, deployed to
+`~/.config/my-scripts/bin/daily-update`. It imports the adjacent
+`~/.config/my-scripts/daily_update/` package using its own location, so invocation
+works from any directory. There are no third-party Python dependencies.
 
-```sh
-chezmoi --source /absolute/path/to/task-worktree diff -- ~/.config/my-scripts/bin/daily-update
+## Feature modules
+
+The launcher delegates to `daily_update/cli.py`. The modules separate these jobs:
+
+- `dotfiles.py`: refresh the configured chezmoi source and deploy through the helper.
+- `tools.py`: resolve and upgrade Codex and Claude Code.
+- `projects.py`: validate the TOML inventory, refresh checkouts, and run `just sync`.
+- `skills.py`: update eligible third-party skills, scan stale skills, and prune recoverably.
+- `state.py`: maintain the daily stamp and produce offline reminder/status output.
+- `common.py`: execute commands and collect independent step outcomes.
+
+## Personal projects
+
+Edit the managed source `private_dot_config/my-scripts/daily-update.toml`. Its
+absolute deployed target is `~/.config/my-scripts/daily-update.toml`, or
+`$XDG_CONFIG_HOME/my-scripts/daily-update.toml` when that variable is set.
+`daily-update --config /path/to/projects.toml` selects another inventory.
+
+```toml
+[[projects]]
+name = "my-skills"
+path = "~/gh/my-skills"
+github = "vimkim/my-skills"
+kind = "collection"
+
+[[projects]]
+name = "dirpick"
+path = "~/gh/dirpick"
+github = "vimkim/dirpick"
+primary_main = true
 ```
 
-After review and an approved local merge, the repository workflow deploys with
-`chezmoi-apply-unmodified`. Publishing the dotfiles repository requires a separate
-request.
+Projects run in file order. Each entry requires a unique `name`, an absolute
+`path` (with `~` expansion), and a GitHub `owner/repository` identity. `kind`
+defaults to `tool`; `collection` also protects that project's GitHub identity,
+local path, and current skill names from third-party maintenance.
+`primary_main` defaults to `false`. When true, it requires a primary checkout
+on `main` tracking `origin/main` with the configured GitHub origin; linked
+worktrees and symlinks are skipped. Unknown fields, malformed entries, and
+duplicate names or paths reject the entire inventory before updates or pruning.
+An empty inventory uses `projects = []`.
 
-## Dotfiles refresh and deployment
+The supplied list preserves the two skill collections and five personal tools.
+Add a project by editing TOML; Python code needs no project-specific entry.
+The legacy `DAILY_UPDATE_COLLECTION_ORDER=cubrid-first` override reverses
+collection order while retaining their slots in the inventory.
 
-A normal `daily-update` starts with the configured dotfiles source checkout,
-resolved with `chezmoi source-path`, regardless of the calling directory. It
-requires an independent Git checkout with no tracked or untracked changes, on
-`main` tracking `origin/main`, with `origin` identifying `vimkim/dotfiles` through
-an HTTPS or GitHub SSH URL. Missing tools or source checkouts, other branches,
-detached HEAD, missing upstreams and unexpected origins are reported as skips.
+Each project must be an independent Git checkout with no tracked or untracked
+changes and a published upstream. Refresh fetches that upstream's remote,
+requires HEAD to be an ancestor of the newly fetched upstream, and fast-forwards
+with `git merge --ff-only`. Primary-main projects fetch `main` explicitly, so a
+deleted remote branch fails instead of authorizing stale installation.
+Dirty, ahead, diverged, detached, missing, nested non-checkout and untracked-branch
+checkouts are preserved and skipped. Inspection, fetch and merge failures stop
+that project's sync while independent work continues.
 
-After those checks, it runs:
+After refresh, the runner requires a local `justfile` and executes
+`just --justfile ./justfile sync` inside that project. The recipe owns installation
+and reconciliation. Skill ownership, pruning and recovery stay in the collection
+sync engines. Chronicle's recipe reinstalls the CLI; collecting CI evidence
+still requires an explicit `cubrid-tcc sync-data` invocation.
 
-```sh
-git -C "$source" fetch -- origin refs/heads/main:refs/remotes/origin/main
-git -C "$source" merge-base --is-ancestor HEAD origin/main
-git -C "$source" merge --ff-only -- origin/main
-chezmoi-apply-unmodified --source "$source"
-```
+## Dotfiles, tools and third-party skills
 
-Each command depends on the previous command succeeding. Fetch requests `main`
-explicitly so a deleted remote branch fails instead of leaving an old
-`origin/main` to authorize deployment. The ancestor check skips ahead or diverged
-checkouts; `--ff-only` alone can succeed when local commits are ahead. Local
-commits must be published before a subsequent daily run will deploy them.
+Normal runs first resolve the dotfiles source with `chezmoi source-path`. It must
+be a clean independent checkout on `main` tracking `origin/main` from
+`vimkim/dotfiles`. Fetch requests remote `main` explicitly, then an ancestor check
+and fast-forward precede `chezmoi-apply-unmodified --source SOURCE`. The helper
+runs even when Git is unchanged. Local target edits, deletions and existing files
+without last-write history remain preserved and count as partial work. See
+[helper behavior](chezmoi-apply-unmodified.md).
 
-The helper runs even when the source is already current, so a retry can finish
-an earlier deployment. It considers all managed files and symlinks, preserves
-locally edited/deleted targets and existing targets without last-write history,
-and excludes run scripts and directory removals. Its skip messages remain visible
-and make the daily run partial (exit 2), although the helper itself returns
-success for skips. A helper error, failed source lookup, failed Git inspection,
-fetch failure or fast-forward failure counts as failed work (exit 1). Independent
-tool and collection updates still proceed after any dotfiles result.
+Codex and Claude upgrades follow. Resolution prefers `~/.local/bin` across shells.
+A Codex executable inside Homebrew's prefix is upgraded with Homebrew only when
+its package database confirms the installed cask or formula. Personal projects
+then run, followed by third-party maintenance and a stale scan.
 
-This treats `origin/main` as a trusted deployment source. Applying a new version
-of `daily-update` updates its file; the current invocation continues with the
-functions it already loaded, and the next invocation uses the new version.
-`--remind`, `--status`, `--stale`, `--prune`, `--reset` and `--help` do not run the
-dotfiles step.
+Third-party updates use `skills@1.7.0 update NAME ... --global --yes` with an
+explicit eligible list. An empty list never becomes a bulk update. Personal
+collection identities and name collisions are excluded even when a checkout is
+dirty or missing. Invalid lock entries or unreadable source inventories block
+maintenance and pruning. Skills absent from the installer lock remain outside
+legacy pruning, including dangling unowned links.
 
-## Collection and tool refresh
+A lock-backed skill is stale when its installed directory is missing, its Claude
+symlink is broken, or a successful upstream tree query shows that its name was
+removed. Failed or unexpected API responses cannot authorize removal. `--prune`
+moves installed directories into a unique dated cache trash directory and saves
+the original lock file there before updating it. Collection sync remains
+responsible for personal installs.
 
-After dotfiles, `daily-update` preserves Codex/Claude upgrade behavior, then
-coordinates these explicit personal checkouts:
+## CLI and results
 
-1. `~/gh/my-skills` (`vimkim/my-skills`).
-2. `~/gh/my-cubrid-skills` (`vimkim/my-cubrid-skills`).
-
-For each independent Git checkout, inspect tracked and untracked work before
-fetching its branch's configured remote. Require a tracking upstream and require
-the current commit to be an ancestor of the freshly fetched upstream. Then
-fast-forward with `git merge --ff-only` and invoke `just --justfile ./justfile sync`
-inside that checkout. `git`, `just`, Bash, and each collection's documented sync
-prerequisites must be installed. `jq` is required for lock-backed third-party work.
-
-Dirty, ahead, diverged, detached, missing, nested non-checkout, and untracked-branch
-checkouts are reported and skipped. Fetch or fast-forward failures report failure
-and skip that collection's sync. Source files and commits are never discarded.
-
-After the collections, the personal tool checkout `~/gh/my-git-utils`
-(`vimkim/my-git-utils`) goes through the same checks, fast-forward, and
-`just sync`, which reinstalls its commands with `uv tool install --editable`.
-It is reported as `tool:my-git-utils` and holds no skills, so stale-skill
-detection ignores it. `~/gh/html-serve` (`vimkim/html-serve`) is refreshed as
-`tool:html-serve` using the same editable installation pattern. Like
-`herdr-next-to-current`, it requires a primary main checkout tracking origin/main
-and the expected origin; a task checkout is preserved and skipped. A locally
-created repository without a published upstream is skipped until publication.
-Fetch can update remote-tracking refs even when a diverged checkout is skipped.
-An unrelated collection still proceeds after a failure or partial result. Set
-`DAILY_UPDATE_COLLECTION_ORDER=cubrid-first` to process the same two collections in
-reverse order.
-
-`~/gh/dirpick` (`vimkim/dirpick`) runs after these tools as `tool:dirpick`.
-It requires a clean, independent primary checkout on `main` tracking
-`origin/main`, with the expected GitHub origin. Symlinks and linked worktrees
-are skipped. Its fetch requests remote `main` explicitly, so deletion cannot
-leave a stale reference eligible for installation. After the same ancestor
-check and fast-forward, the checkout's `just sync` recipe installs the locked
-Cargo package into `~/.local/bin`, through the same sync path as other tools.
-Dirpick needs Just and Rust/Cargo. An unchanged checkout still runs sync, allowing
-a failed build to be retried. Missing justfiles and failed builds report failure
-while independent steps continue. `install-dirpick` is only used for bootstrap.
-See [Dirpick setup](dirpick.md) for bootstrap and
-Nushell integration.
-
-`~/gh/cubrid-tc-chronicle` (`vimkim/cubrid-tc-chronicle`) follows as
-`tool:cubrid-tc-chronicle`. It requires a clean primary `main` tracking
-`origin/main`, with the expected origin. Symlinks and linked worktrees are skipped.
-Its fetch requests remote `main` explicitly. After the ancestor check and fast-forward,
-`just sync` reinstalls the `tcc` command through `uv tool install --editable . --reinstall`.
-Chronicle needs uv and Just. Missing checkouts are skipped. Installation failures remain visible.
-This step refreshes the utility only. Collect CI evidence explicitly with `tcc sync-data`.
-Status queries such as `tcc status NAME --json` read the retained index without network access.
-
-`just sync` alone reconciles the current source contents with installed skills;
-it does not refresh Git. The sync engine remains responsible for ownership,
-conflicts, verification, migration, pruning and recovery. Missing peer evidence
-prevents unsafe pruning there; daily-update does not infer ownership or duplicate
-that reconciliation logic.
-
-## Results and reminders
-
-Per-collection output distinguishes `completed`, `partial/skipped (sync exit 2)`,
-checkout skips, and `FAILED`. The normal run returns:
+`--remind`, `--status` and `--reset` use local state without reading project
+configuration or invoking update commands. Shell startup stays offline.
+`--stale` scans and caches stale skills; `--prune` performs recoverable removal.
+`--run` is the default, and `--help` lists the options.
 
 | Exit | Meaning |
 | --- | --- |
-| 0 | Every requested step completed; no skips or failures. |
-| 2 | Some work skipped or partial, with no failed step. |
-| 1 | At least one failed step; independent work was still attempted. |
+| 0 | All requested work completed. |
+| 2 | A step skipped or sync returned partial success, with no failures. |
+| 1 | At least one step failed; independent steps were still attempted. |
 
-As before, a run stamps the current day even when some steps fail. `--remind`
-stays silent afterward; `--status`, `--reset`, and the existing tool resolution
-and Homebrew handling retain their behavior. Re-run intentionally after fixing a
-failure; use `--reset` to restore the startup reminder.
+Normal runs stamp the day even when a step fails, so reminders stay silent until
+tomorrow. Configuration errors and interrupted runs do not stamp the day. Retry
+intentionally after fixing failures; `--reset` restores the startup reminder.
+The existing XDG cache stamp and stale cache locations remain compatible.
 
-## Third-party maintenance boundary
+## Review, deployment and verification
 
-The existing skill-update and stale-report/prune conveniences remain outside the
-collection justfiles. They exclude both personal GitHub source identities (also
-GitHub URL forms), the two configured local-source paths, and current personal
-skill names, including third-party name collisions. Identity exclusion still
-works when a personal checkout is missing or dirty. Skills absent from the
-installer lock are outside legacy pruning, including dangling unowned links.
-
-Third-party updates use `skills@1.7.0 update <eligible-name> ... --global --yes`.
-An empty eligible set never becomes an unfiltered update. Malformed lock entries
-or failed source inventory scans fail closed and report skipped maintenance.
-The pinned CLI's positional filter limits installations to selected names; its
-source-wide deletion prompt skips deletion with `--yes`. Existing third-party
-upstream checks and recoverable `--prune` handling remain. Personal installs are
-reconciled only by collection sync, so these legacy operations cannot override a
-personal collection skip.
-
-## Verification
+Use a topic worktree and review every affected deployed target, including the
+launcher, TOML file and each Python module:
 
 ```sh
-bash -n private_dot_config/my-scripts/bin/executable_daily-update
-shellcheck private_dot_config/my-scripts/bin/executable_daily-update
-python3 -B -m unittest discover -s tests -p test_daily_update.py -v
-python3 -B -m unittest discover -s tests -p test_install_dirpick.py -v
+chezmoi --source /absolute/task/worktree diff -- /absolute/deployed/target
+python3 -B -m unittest discover -s tests -p 'test_daily_update*.py' -v
 ```
 
-The public-entry-point tests invoke the Bash source using disposable homes,
-Git checkouts and bare remotes. They use real Git/just/jq plus controlled failures;
-Codex, Claude, npm, GitHub and Homebrew commands are contained substitutes, so
-verification does not upgrade tools or touch installed skills. A real chezmoi
-and helper integration test verifies deployment to a disposable destination;
-other tests substitute the helper to exercise orchestration failures.
-Configuration and caches are confined to the disposable home. Dotfiles coverage
-includes refresh/apply before upgrades, configured source paths containing spaces,
-unchanged-source retries, branch/origin/cleanliness guards, unpublished local
-commits, deleted remote `main`, failed Git steps, helper failures and partial
-deployment, and preserved local target edits/deletions. Coverage also includes both
-processing orders, refresh-before-sync, staged/untracked dirty work, ahead/diverged history,
-fetch/fast-forward/sync failures, partial sync, missing/detached/untracked branches,
-nested Git directories, failed first scans, protected personal GitHub/local
-entries and name collisions, malformed locks, and reminder/status/reset behavior.
+After an approved local merge, deploy through `chezmoi-apply-unmodified` and
+verify each target with `chezmoi diff -- /absolute/deployed/target`. Repository
+synchronization and pushes require a separate request.
 
-CLI contract inspected from the locally cached `skills@1.7.0` source:
-`parseUpdateOptions` collects positional filters; `updateGlobalSkills` filters
-before computing updates and invokes `add --skill <selected-name>` per update;
-`promptDeletions` returns without removal when `options.yes` is set. No live
-skills update was used as a test. Collection engine tests separately verify
-ownership, pruning and real installer compatibility.
+Tests use disposable homes, real Git/Just and local bare remotes, with contained
+Codex, Claude, npm, GitHub and Homebrew substitutes. A real helper/chezmoi test
+verifies deployment while preserving local edits and deletions. Configuration,
+checkout guards, failure isolation, personal-source protection, reminders,
+recoverable pruning and tool resolution are verified without live upgrades or
+changes to installed skills.

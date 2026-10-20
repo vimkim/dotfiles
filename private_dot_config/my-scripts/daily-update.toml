@@ -1,0 +1,43 @@
+# Projects run in this order. Paths expand ~; Git refresh precedes just sync.
+# Collections protect source identities and skill names from third-party pruning.
+[[projects]]
+name = "my-skills"
+path = "~/gh/my-skills"
+github = "vimkim/my-skills"
+kind = "collection"
+
+[[projects]]
+name = "my-cubrid-skills"
+path = "~/gh/my-cubrid-skills"
+github = "vimkim/my-cubrid-skills"
+kind = "collection"
+
+[[projects]]
+name = "my-git-utils"
+path = "~/gh/my-git-utils"
+github = "vimkim/my-git-utils"
+
+# Editable tools use the canonical checkout and published origin/main only.
+[[projects]]
+name = "herdr-next-to-current"
+path = "~/gh/herdr-next-to-current"
+github = "vimkim/herdr-next-to-current"
+primary_main = true
+
+[[projects]]
+name = "html-serve"
+path = "~/gh/html-serve"
+github = "vimkim/html-serve"
+primary_main = true
+
+[[projects]]
+name = "dirpick"
+path = "~/gh/dirpick"
+github = "vimkim/dirpick"
+primary_main = true
+
+[[projects]]
+name = "cubrid-tc-chronicle"
+path = "~/gh/cubrid-tc-chronicle"
+github = "vimkim/cubrid-tc-chronicle"
+primary_main = true

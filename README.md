@@ -288,12 +288,17 @@ between Project root and the launch CWD. See [installation and updates](docs/dir
 
 ### Daily AI-toolchain upkeep
 
-`daily-update` (in `~/.config/my-scripts/bin`) updates dotfiles, personal tools
-including Dirpick, Codex, Claude Code, and globally installed agent skills:
+`daily-update` (Python 3.11+, in `~/.config/my-scripts/bin`) updates dotfiles,
+personal tools including Dirpick, Codex, Claude Code, and globally installed agent
+skills. Feature modules live in `~/.config/my-scripts/daily_update/`. Personal
+GitHub checkouts are listed in `~/.config/my-scripts/daily-update.toml`; add or
+reorder projects there. Each checkout is refreshed before its `just sync` recipe
+runs. See [configuration and refresh policy](docs/daily-update.md).
 
 ```bash
 daily-update            # run everything, report stale skills, mark today done
-daily-update --status   # show current versions and whether today is done
+daily-update --config /path/to/projects.toml  # use another project inventory
+daily-update --status   # show cached versions and whether today is done
 daily-update --stale    # list stale skills, changing nothing
 daily-update --prune    # delete the stale skills that --stale listed
 daily-update --reset    # clear today's mark so the reminder comes back
@@ -312,7 +317,8 @@ network blip cannot trap the reminder in a loop.
 
 Skills come from the `skills` CLI and are tracked in `~/.agents/.skill-lock.json`.
 Because `~/.claude/skills/*` symlinks into `~/.agents/skills`, the single
-`skills update --global` covers both Claude Code and Codex.
+filtered third-party skill update covers both Claude Code and Codex; personal
+collections reconcile through their own `just sync` recipes.
 
 #### Pruning stale skills
 

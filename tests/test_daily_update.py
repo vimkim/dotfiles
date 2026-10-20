@@ -1,21 +1,21 @@
-"""Run the Bash entry point with disposable homes/remotes and contained tools."""
+"""Run the Python entry point with disposable homes/remotes and contained tools."""
 import json
 import os
 from pathlib import Path
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'private_dot_config/my-scripts/bin/executable_daily-update'
 GIT = shutil.which('git')
 JUST = shutil.which('just')
-JQ = shutil.which('jq')
 CHEZMOI = shutil.which('chezmoi')
 
 
-@unittest.skipUnless(GIT and JUST and JQ, 'git, just and jq required')
+@unittest.skipUnless(GIT and JUST, 'git and just required')
 class DailyUpdateTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -39,6 +39,9 @@ class DailyUpdateTest(unittest.TestCase):
             'GIT_COMMITTER_NAME': 'Test', 'GIT_COMMITTER_EMAIL': 'test@example.invalid',
             'TEST_LOG': str(self.log), 'REAL_GIT': GIT,
         }
+        self.config = self.home / '.config/my-scripts/daily-update.toml'
+        self.config.parent.mkdir(parents=True)
+        shutil.copyfile(SCRIPT.parents[1] / 'daily-update.toml', self.config)
         for name in ('codex', 'claude', 'npx'):
             self.executable(name, f'printf "%s\\n" "{name} $*" >>"$TEST_LOG"\nexit "${{FAIL_{name.upper()}:-0}}"\n')
         self.executable('brew', 'exit 1\n')
@@ -53,7 +56,6 @@ esac
 exec "$REAL_GIT" "$@"
 ''')
         self.executable('just', f'exec {JUST} "$@"\n')
-        self.executable('jq', f'exec {JQ} "$@"\n')
         self.repos = {}
         self.tools = {}
         self.seeds = {}
@@ -118,7 +120,7 @@ exit "${FAIL_APPLY:-0}"
                               capture_output=True, text=True, check=True).stdout.strip()
 
     def run_daily(self, *args, **env):
-        return subprocess.run(['bash', str(SCRIPT), *args], cwd=self.root,
+        return subprocess.run([sys.executable, '-B', str(SCRIPT), *args], cwd=self.root,
                               env=self.env | env, text=True, capture_output=True)
 
     def logged(self):
@@ -682,12 +684,25 @@ exec {JUST} "$@"
         self.lock({'other': {'source': 'someone/third-party', 'sourceType': 'github'}})
         for order, first in (('', 'my-skills'), ('cubrid-first', 'my-cubrid-skills')):
             with self.subTest(order=order):
-                self.executable('find', f'if [ "$1" = "{self.repos[first]}" ]; then exit 1; fi\nexec /usr/bin/find "$@"\n')
-                result = self.run_daily(DAILY_UPDATE_COLLECTION_ORDER=order)
-                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-                self.assertIn('invalid lock/source evidence', result.stdout)
-                self.assertNotIn('npx', self.logged())
-                self.assertEqual(self.run_daily('--prune', DAILY_UPDATE_COLLECTION_ORDER=order).returncode, 1)
+                program = f'''
+import os, sys
+sys.path.insert(0, {str(SCRIPT.parents[1])!r})
+from daily_update.cli import main
+scandir = os.scandir
+def denied(path):
+    if str(path) == {str(self.repos[first])!r}:
+        raise PermissionError('source scan denied')
+    return scandir(path)
+os.scandir = denied
+sys.exit(main(sys.argv[1:]))
+'''
+                for args in ([], ['--prune']):
+                    result = subprocess.run([sys.executable, '-B', '-c', program, *args],
+                                            cwd=self.root, env=self.env | {'DAILY_UPDATE_COLLECTION_ORDER': order},
+                                            text=True, capture_output=True)
+                    self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                    self.assertIn('invalid lock/source evidence', result.stdout + result.stderr)
+                    self.assertNotIn('npx', self.logged())
 
     def test_current_personal_name_collision_excluded(self):
         skill = self.repos['my-skills'] / 'skills/collision'
@@ -748,6 +763,72 @@ exec {JUST} "$@"
         self.assertEqual(self.run_daily('--prune').returncode, 1)
         self.assertEqual(lock.read_text(), '{broken')
         self.assertEqual(self.run_daily('--remind').stdout, '')
+
+    def test_custom_inventory_controls_paths_names_and_order(self):
+        original = self.tools['my-git-utils']
+        relocated = self.home / 'project with spaces'
+        original.rename(relocated)
+        text = self.config.read_text().replace('name = "my-git-utils"', 'name = "custom-tool"')
+        text = text.replace('~/gh/my-git-utils', str(relocated))
+        header, *entries = text.split('[[projects]]')
+        alternate = self.root / 'alternate inventory.toml'
+        alternate.write_text(header + ''.join('[[projects]]' + entry for entry in reversed(entries)))
+        result = self.run_daily('--config', str(alternate))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('tool:custom-tool: completed', result.stdout)
+        rows = [line for line in self.logged().splitlines()
+                if line.startswith('/') and line.endswith(':before')]
+        self.assertEqual(rows[0], f"{self.tools['cubrid-tc-chronicle']}:before")
+        self.assertIn(f'{relocated}:before', rows)
+        self.assertEqual(rows[-1], f"{self.repos['my-skills']}:before")
+
+    def test_invalid_config_fails_before_updates_and_preserves_stamp(self):
+        original = self.config.read_text()
+        cases = ['{broken', original + '\nprimay_main = true\n',
+                 original.replace('kind = "collection"', 'kind = "other"'),
+                 original.replace('primary_main = true', 'primary_main = "true"'),
+                 original.replace('~/gh/my-skills', 'relative/path'),
+                 original.replace('name = "my-skills"', 'name = "my-git-utils"'),
+                 original.replace('~/gh/my-skills', '~/gh/my-git-utils')]
+        for content in cases:
+            with self.subTest(content=content):
+                self.config.write_text(content)
+                for args in ([], ['--prune']):
+                    result = self.run_daily(*args)
+                    self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                    self.assertIn('invalid project config', result.stderr)
+                    self.assertEqual(self.logged(), '')
+                    self.assertFalse((self.home / '.cache/daily-update.stamp').exists())
+        self.config.unlink()
+        for args in (['--remind'], ['--status'], ['--reset'], ['--help']):
+            self.assertEqual(self.run_daily(*args).returncode, 0)
+        self.assertEqual(self.logged(), '')
+
+    @unittest.skipUnless(CHEZMOI, 'chezmoi required')
+    def test_deployed_launcher_imports_managed_modules_from_any_directory(self):
+        source = self.root / 'minimal source'
+        scripts = source / 'dot_config/my-scripts'
+        (scripts / 'bin').mkdir(parents=True)
+        shutil.copyfile(SCRIPT, scripts / 'bin/executable_daily-update')
+        shutil.copytree(SCRIPT.parents[1] / 'daily_update', scripts / 'daily_update')
+        shutil.copyfile(SCRIPT.parents[1] / 'daily-update.toml', scripts / 'daily-update.toml')
+        dest = self.root / 'deployed home'
+        dest.mkdir()
+        config = self.root / 'deployment.json'
+        config.write_text(json.dumps({'sourceDir': str(source), 'destDir': str(dest),
+                                     'persistentState': str(self.root / 'deploy-state.boltdb'),
+                                     'cacheDir': str(self.root / 'deploy-cache')}))
+        subprocess.run([CHEZMOI, '--config', str(config), 'apply'], env=self.env,
+                       check=True, capture_output=True, text=True)
+        launcher = dest / '.config/my-scripts/bin/daily-update'
+        (dest / '.config/my-scripts/daily-update.toml').write_text('projects = []\n')
+        result = subprocess.run([sys.executable, '-B', str(launcher), '--stale'], cwd=self.root,
+                                env=self.env | {'HOME': str(dest), 'XDG_CONFIG_HOME': str(dest / '.config')},
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('none', result.stdout)
+        self.assertTrue(os.access(launcher, os.X_OK))
+        self.assertEqual(self.logged(), '')
 
 
 if __name__ == '__main__':

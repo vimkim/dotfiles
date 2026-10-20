@@ -92,8 +92,7 @@ summary and exit status. See [daily-update policy](daily-update.md) for details.
 bash -n private_dot_config/my-scripts/bin/executable_install-dirpick
 bash -n .chezmoiscripts/run_once_after_install-dirpick.sh
 shellcheck private_dot_config/my-scripts/bin/executable_install-dirpick \
-  .chezmoiscripts/run_once_after_install-dirpick.sh \
-  private_dot_config/my-scripts/bin/executable_daily-update
+  .chezmoiscripts/run_once_after_install-dirpick.sh
 python3 -B -m unittest discover -s tests -p test_install_dirpick.py -v
 python3 -B -m unittest discover -s tests -p test_daily_update.py -v
 ```
