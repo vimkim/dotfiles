@@ -25,9 +25,9 @@ github = "vimkim/herdr-next-to-current"
 primary_main = true
 
 [[projects]]
-name = "html-serve"
-path = "~/gh/html-serve"
-github = "vimkim/html-serve"
+name = "docserve"
+path = "~/gh/docserve"
+github = "vimkim/docserve"
 primary_main = true
 
 [[projects]]

@@ -1,13 +1,13 @@
 # html-serve integration
 
-The standalone project is maintained in `~/gh/html-serve`. Its README.md covers
+The standalone project is maintained in `~/gh/docserve`. Its README.md covers
 usage, clickable listing columns, Markdown previews, bundled assets, development,
 and verification. Run `html-serve /absolute/path/to/document.md` to view a file.
 
 The dotfiles repository owns these integration points:
 
 - `.chezmoiscripts/run_once_before_install-html-serve.sh` clones a missing
-  vimkim/html-serve checkout, validates primary main and origin, and runs
+  vimkim/docserve checkout, validates primary main and origin, and runs
   `just sync`. It preserves dirty, unexpected, or linked checkouts.
 - `daily-update` refreshes the clean primary checkout and runs `just sync`.
 - `~/.config/my-scripts/bin/html-serve` and `serve-html.py` forward to
@@ -48,5 +48,5 @@ and the daily-update suite. The migration tests use disposable homes and
 stubbed tools; they do not install a global command.
 
 The local migration does not publish a GitHub repository. Fresh-machine cloning
-requires separately publishing vimkim/html-serve. Repository creation and push
+requires the published vimkim/docserve repository. Repository creation and push
 remain separate user actions.

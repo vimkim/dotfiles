@@ -59,7 +59,7 @@ exec "$REAL_GIT" "$@"
         self.repos = {}
         self.tools = {}
         self.seeds = {}
-        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'herdr-next-to-current', 'html-serve', 'dirpick', 'cubrid-tc-chronicle'):
+        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
             remote = self.root / f'{name}.git'
             seed = self.root / f'{name}-seed'
             self.git(self.root, 'init', '--bare', '--initial-branch=main', str(remote))
@@ -76,11 +76,11 @@ exec "$REAL_GIT" "$@"
             self.git(seed, 'push', '-u', 'origin', 'HEAD')
             repo = self.home / 'gh' / name
             self.git(self.root, 'clone', str(remote), str(repo))
-            if name in ('herdr-next-to-current', 'html-serve', 'dirpick', 'cubrid-tc-chronicle'):
+            if name in ('herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
                 official = f'https://github.com/vimkim/{name}.git'
                 self.git(repo, 'config', f'url.{remote}.insteadOf', official)
                 self.git(repo, 'config', 'remote.origin.url', official)
-            (self.tools if name in ('my-git-utils', 'herdr-next-to-current', 'html-serve', 'dirpick', 'cubrid-tc-chronicle') else self.repos)[name] = repo
+            (self.tools if name in ('my-git-utils', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle') else self.repos)[name] = repo
             self.seeds[name] = seed
 
         remote = self.root / 'dotfiles.git'
@@ -456,14 +456,14 @@ exit "${FAIL_APPLY:-0}"
         self.assertNotIn(f'{repo}:', self.logged())
         self.assertEqual((repo / 'scratch').read_text(), 'valuable')
 
-    def test_html_serve_clean_main_refreshes_and_installs(self):
-        self.advance('html-serve')
+    def test_docserve_clean_main_refreshes_and_installs(self):
+        self.advance('docserve')
         result = self.run_daily()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn(f"{self.tools['html-serve']}:after", self.logged())
+        self.assertIn(f"{self.tools['docserve']}:after", self.logged())
 
-    def test_html_serve_topic_and_unexpected_origin_are_preserved(self):
-        repo = self.tools['html-serve']
+    def test_docserve_topic_and_unexpected_origin_are_preserved(self):
+        repo = self.tools['docserve']
         self.git(repo, 'switch', '-c', 'topic')
         self.git(repo, 'branch', '--set-upstream-to=origin/main')
         before = self.git(repo, 'rev-parse', 'HEAD')
@@ -479,9 +479,9 @@ exit "${FAIL_APPLY:-0}"
         self.assertIn('unexpected origin', result.stdout)
         self.assertNotIn(f'{repo}:', self.logged())
 
-    def test_html_serve_linked_worktree_is_preserved(self):
-        repo = self.tools['html-serve']
-        primary = self.root / 'primary-html-serve'
+    def test_docserve_linked_worktree_is_preserved(self):
+        repo = self.tools['docserve']
+        primary = self.root / 'primary-docserve'
         repo.rename(primary)
         self.git(primary, 'switch', '--detach')
         self.git(primary, 'worktree', 'add', str(repo), 'main')
@@ -491,12 +491,12 @@ exit "${FAIL_APPLY:-0}"
         self.assertIn('requires primary main', result.stdout)
         self.assertNotIn(f'{repo}:', self.logged())
 
-    def test_html_serve_dirty_checkout_is_preserved(self):
-        repo = self.tools['html-serve']
+    def test_docserve_dirty_checkout_is_preserved(self):
+        repo = self.tools['docserve']
         (repo / 'scratch').write_text('valuable')
         result = self.run_daily()
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn('tool:html-serve: skipped (dirty checkout)', result.stdout)
+        self.assertIn('tool:docserve: skipped (dirty checkout)', result.stdout)
         self.assertNotIn(f'{repo}:', self.logged())
         self.assertEqual((repo / 'scratch').read_text(), 'valuable')
 

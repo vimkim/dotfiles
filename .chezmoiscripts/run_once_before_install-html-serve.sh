@@ -1,7 +1,7 @@
 #!/bin/bash
 # Install before applying the legacy asset directory's compatibility symlink.
 set -eu
-checkout="$HOME/gh/html-serve"
+checkout="$HOME/gh/docserve"
 retry() {
     printf 'html-serve: %s\n' "$1" >&2
     printf 'Retry: bash "%s/.chezmoiscripts/run_once_before_install-html-serve.sh"\n' "$(chezmoi source-path)" >&2
@@ -14,7 +14,7 @@ command -v python3 >/dev/null || retry 'install python3 first'
 command -v chezmoi >/dev/null || retry 'install chezmoi first'
 if [ ! -e "$checkout" ] && [ ! -L "$checkout" ]; then
     mkdir -p "$(dirname "$checkout")"
-    git clone --quiet --branch main https://github.com/vimkim/html-serve.git "$checkout" ||
+    git clone --quiet --branch main https://github.com/vimkim/docserve.git "$checkout" ||
         retry 'clone failed; inspect any partial checkout before retrying'
 fi
 [ -d "$checkout/.git" ] && [ ! -L "$checkout" ] || retry 'occupied path or linked worktree; preserved'
@@ -24,7 +24,7 @@ branch="$(git -C "$checkout" symbolic-ref --quiet --short HEAD)" || retry 'detac
 [ "$branch" = main ] || retry 'checkout is not on main; preserved'
 origin="$(git -C "$checkout" config --get remote.origin.url)" || retry 'missing origin; preserved'
 case "$origin" in
-https://github.com/vimkim/html-serve.git|git@github.com:vimkim/html-serve.git) ;;
+https://github.com/vimkim/docserve.git|git@github.com:vimkim/docserve.git) ;;
 *) retry 'unexpected origin; preserved' ;;
 esac
 status="$(git -C "$checkout" status --porcelain --untracked-files=all)" || retry 'cannot inspect status'

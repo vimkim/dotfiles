@@ -16,7 +16,7 @@ BOOTSTRAP = ROOT / '.chezmoiscripts/run_once_before_install-html-serve.sh'
 SCRIPTS = ROOT / 'private_dot_config/my-scripts/bin'
 GIT = shutil.which('git')
 CHEZMOI = shutil.which('chezmoi')
-ORIGIN = 'https://github.com/vimkim/html-serve.git'
+ORIGIN = 'https://github.com/vimkim/docserve.git'
 
 
 @unittest.skipUnless(GIT, 'git required')
@@ -38,7 +38,7 @@ class HtmlServeMigration(unittest.TestCase):
             'GIT_COMMITTER_NAME': 'Test', 'GIT_COMMITTER_EMAIL': 'test@example.invalid',
             'TEST_INSTALL_LOG': str(self.log),
         }
-        self.checkout = self.home / 'gh/html-serve'
+        self.checkout = self.home / 'gh/docserve'
         self.checkout.mkdir(parents=True)
         self.git(self.checkout, 'init', '--initial-branch=main')
         self.assets = self.checkout / 'src/html_serve/assets'
