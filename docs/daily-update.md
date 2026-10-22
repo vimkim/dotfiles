@@ -12,7 +12,7 @@ The launcher delegates to `daily_update/cli.py`. The modules separate these jobs
 
 - `dotfiles.py`: refresh the configured chezmoi source and deploy through the helper.
 - `tools.py`: resolve and upgrade Codex and Claude Code.
-- `projects.py`: validate the TOML inventory, refresh checkouts, and run `just sync`.
+- `projects.py`: validate the TOML inventory, refresh checkouts, and run installation recipes.
 - `skills.py`: update eligible third-party skills, scan stale skills, and prune recoverably.
 - `state.py`: maintain the daily stamp and produce offline reminder/status output.
 - `common.py`: execute commands and collect independent step outcomes.
@@ -42,13 +42,17 @@ Projects run in file order. Each entry requires a unique `name`, an absolute
 `path` (with `~` expansion), and a GitHub `owner/repository` identity. `kind`
 defaults to `tool`; `collection` also protects that project's GitHub identity,
 local path, and current skill names from third-party maintenance.
-`primary_main` defaults to `false`. When true, it requires a primary checkout
+`recipe` defaults to `sync`; `work-tracker` selects its existing `install` recipe.
+Recipe names must be single Just identifiers; they are passed as an argument,
+never evaluated as shell text. `primary_main` defaults to `false`. When true,
+it requires a primary checkout
 on `main` tracking `origin/main` with the configured GitHub origin; linked
 worktrees and symlinks are skipped. Unknown fields, malformed entries, and
 duplicate names or paths reject the entire inventory before updates or pruning.
 An empty inventory uses `projects = []`.
 
-The supplied list preserves the two skill collections and five personal tools.
+The supplied list contains the two skill collections and six personal tools,
+including `work-tracker`.
 Add a project by editing TOML; Python code needs no project-specific entry.
 The legacy `DAILY_UPDATE_COLLECTION_ORDER=cubrid-first` override reverses
 collection order while retaining their slots in the inventory.
@@ -63,7 +67,7 @@ checkouts are preserved and skipped. Inspection, fetch and merge failures stop
 that project's sync while independent work continues.
 
 After refresh, the runner requires a local `justfile` and executes
-`just --justfile ./justfile sync` inside that project. The recipe owns installation
+`just --justfile ./justfile RECIPE` inside that project. The recipe owns installation
 and reconciliation. Skill ownership, pruning and recovery stay in the collection
 sync engines. Chronicle's recipe reinstalls the CLI; collecting CI evidence
 still requires an explicit `cubrid-tcc sync-data` invocation.
@@ -72,6 +76,26 @@ Python CLI recipes use regular `uv tool install --reinstall .` installations.
 Source changes reach installed commands on the next sync, including changes without a version bump.
 Use each project's `uv run` workflow to run the current source during development.
 Primary-main checkout protections remain in force for the configured tools.
+
+### Personal workflow decisions
+
+On 2026-10-22, the owner explicitly chose to exclude `grill-tui`,
+`gh-pr-comments-fetch`, `cubrid-dev2-pr`, and `volmap` from both `daily-update`
+and `daily-update-cubrid`. These are personal workflow decisions, not findings
+about project quality, maturity, maintenance, or deprecation. Keep these
+repositories out of both default inventories unless the owner explicitly
+changes the decision. Their entries can remain in the public profile catalog.
+
+The accepted additions are `work-tracker` here and `cubrid-ci`, `cubrid-qahome`,
+and `cubrid-ini-fzf` in the companion `my-cubrid` updater. `my-skills` is already
+registered here as a collection. `cubrid-tc-chronicle` stays here to avoid
+updating the same installation twice.
+
+Both updaters fetch and fast-forward eligible source checkouts before running
+installation commands. The accepted tools use their existing Cargo/Just and uv
+installation interfaces; their source repositories need no changes.
+The companion updater's behavior and checkout
+paths are documented in `vimkim/my-cubrid`'s `CUBRID.md`.
 
 ## Dotfiles, tools and third-party skills
 

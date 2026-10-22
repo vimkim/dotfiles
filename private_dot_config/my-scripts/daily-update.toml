@@ -1,5 +1,9 @@
-# Projects run in this order. Paths expand ~; Git refresh precedes just sync.
+# Projects run in this order. Paths expand ~; Git refresh precedes installation.
 # Collections protect source identities and skill names from third-party pruning.
+# Personal workflow decision (2026-10-22): exclude grill-tui,
+# gh-pr-comments-fetch, cubrid-dev2-pr, and volmap from both daily updaters.
+# These exclusions reflect the owner's workflow, not project quality or status.
+# See docs/daily-update.md before reconsidering the inventory.
 [[projects]]
 name = "my-skills"
 path = "~/gh/my-skills"
@@ -18,6 +22,13 @@ path = "~/gh/my-git-utils"
 github = "vimkim/my-git-utils"
 
 # Protected tools use the canonical checkout and published origin/main only.
+[[projects]]
+name = "work-tracker"
+path = "~/gh/work-tracker"
+github = "vimkim/work-tracker"
+primary_main = true
+recipe = "install"
+
 [[projects]]
 name = "herdr-next-to-current"
 path = "~/gh/herdr-next-to-current"

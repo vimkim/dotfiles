@@ -1,4 +1,4 @@
-"""TOML inventory, checkout refresh and project-owned sync recipes."""
+"""TOML inventory, checkout refresh and project-owned installation recipes."""
 
 import os
 import re
@@ -16,6 +16,7 @@ class Project:
     github: str
     kind: str = "tool"
     primary_main: bool = False
+    recipe: str = "sync"
 
     @property
     def label(self):
@@ -43,6 +44,7 @@ def load_projects(path):
             "github",
             "kind",
             "primary_main",
+            "recipe",
         }:
             raise ValueError("invalid project fields")
         for key in ("name", "path", "github"):
@@ -61,11 +63,16 @@ def load_projects(path):
             raise ValueError(
                 "kind must be tool/collection and primary_main must be boolean"
             )
+        recipe = item.get("recipe", "sync")
+        if not isinstance(recipe, str) or not re.fullmatch(
+            r"[A-Za-z_][A-Za-z0-9_-]*", recipe
+        ):
+            raise ValueError("recipe must be a single just recipe name")
         if item["name"] in names or path.resolve() in paths:
             raise ValueError("duplicate project name or path")
         names.add(item["name"])
         paths.add(path.resolve())
-        projects.append(Project(item["name"], path, item["github"], kind, primary))
+        projects.append(Project(item["name"], path, item["github"], kind, primary, recipe))
     return projects
 
 
@@ -155,12 +162,12 @@ def sync(project):
     if not (project.path / "justfile").is_file():
         raise Failed("missing local justfile")
     result = command(
-        "just", "--justfile", "./justfile", "sync", cwd=project.path, capture=False
+        "just", "--justfile", "./justfile", project.recipe, cwd=project.path, capture=False
     )
-    if result.returncode == 2:
+    if result.returncode == 2 and project.recipe == "sync":
         raise Skipped("partial/skipped (sync exit 2)")
     if result.returncode:
-        raise Failed(f"sync exit {result.returncode}")
+        raise Failed(f"{project.recipe} exit {result.returncode}")
 
 
 def run_projects(projects, results):

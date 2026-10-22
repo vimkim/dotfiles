@@ -59,7 +59,7 @@ exec "$REAL_GIT" "$@"
         self.repos = {}
         self.tools = {}
         self.seeds = {}
-        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
+        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'work-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
             remote = self.root / f'{name}.git'
             seed = self.root / f'{name}-seed'
             self.git(self.root, 'init', '--bare', '--initial-branch=main', str(remote))
@@ -70,17 +70,19 @@ exec "$REAL_GIT" "$@"
                 recipe = recipe.replace('SYNC_RESULT', 'DIRPICK_SYNC_RESULT')
             if name == 'cubrid-tc-chronicle':
                 recipe = recipe.replace('SYNC_RESULT', 'CHRONICLE_SYNC_RESULT')
+            if name == 'work-tracker':
+                recipe += '\ninstall: sync\n'
             (seed / 'justfile').write_text(recipe)
             self.git(seed, 'add', '.')
             self.git(seed, 'commit', '-m', 'initial')
             self.git(seed, 'push', '-u', 'origin', 'HEAD')
             repo = self.home / 'gh' / name
             self.git(self.root, 'clone', str(remote), str(repo))
-            if name in ('herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
+            if name in ('work-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
                 official = f'https://github.com/vimkim/{name}.git'
                 self.git(repo, 'config', f'url.{remote}.insteadOf', official)
                 self.git(repo, 'config', 'remote.origin.url', official)
-            (self.tools if name in ('my-git-utils', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle') else self.repos)[name] = repo
+            (self.tools if name in ('my-git-utils', 'work-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle') else self.repos)[name] = repo
             self.seeds[name] = seed
 
         remote = self.root / 'dotfiles.git'
@@ -782,11 +784,27 @@ sys.exit(main(sys.argv[1:]))
         self.assertIn(f'{relocated}:before', rows)
         self.assertEqual(rows[-1], f"{self.repos['my-skills']}:before")
 
+    def test_work_tracker_refreshes_then_uses_its_existing_install_recipe(self):
+        seed = self.seeds['work-tracker']
+        (seed / 'revision').write_text('after')
+        (seed / 'justfile').write_text(
+            'install:\n    @printf "%s:%s\\n" "{{justfile_directory()}}" "$(cat revision)" >> "$TEST_LOG"\n'
+        )
+        self.git(seed, 'commit', '-am', 'update installation')
+        self.git(seed, 'push')
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"{self.tools['work-tracker']}:after", self.logged())
+        self.assertIn('tool:work-tracker: completed', result.stdout)
+
     def test_invalid_config_fails_before_updates_and_preserves_stamp(self):
         original = self.config.read_text()
         cases = ['{broken', original + '\nprimay_main = true\n',
                  original.replace('kind = "collection"', 'kind = "other"'),
                  original.replace('primary_main = true', 'primary_main = "true"'),
+                 original.replace('recipe = "install"', 'recipe = "--evaluate"'),
+                 original.replace('recipe = "install"', 'recipe = "install; touch forbidden"'),
+                 original.replace('recipe = "install"', 'recipe = []'),
                  original.replace('~/gh/my-skills', 'relative/path'),
                  original.replace('name = "my-skills"', 'name = "my-git-utils"'),
                  original.replace('~/gh/my-skills', '~/gh/my-git-utils')]
