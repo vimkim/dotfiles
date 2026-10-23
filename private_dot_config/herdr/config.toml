@@ -19,7 +19,7 @@ close_workspace = "alt+shift+x"
 switch_workspace = ["alt+1..9", "prefix+shift+1..9"]
 
 # Tabs follow horizontal tab-bar order.
-new_tab = "alt+t"
+new_tab = []
 rename_tab = "alt+shift+t"
 close_tab = "alt+x"
 previous_tab = ["alt+h", "alt+left"]
@@ -50,6 +50,12 @@ command = "$HOME/.local/bin/herdr-move-workspace down"
 description = "move workspace down"
 
 # Adjacent creation and the numbered source-to-anchor popup.
+[[keys.command]]
+key = "alt+t"
+type = "shell"
+command = '"$HOME/.local/bin/herdr-next-to-current" tab --quiet'
+description = "new tab after current"
+
 [[keys.command]]
 key = "alt+c"
 type = "shell"
