@@ -6,7 +6,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from .common import Failed, Skipped, checked, command
+from .common import Failed, Skipped, checked, command, print_command
 
 
 @dataclass(frozen=True)
@@ -138,23 +138,16 @@ def refresh(repo, *, github=None, primary_main=False, dotfiles=False):
     if primary_main:
         # An absent remote main must fail instead of authorizing stale code.
         fetch.append("refs/heads/main:refs/remotes/origin/main")
+    print_command("git", "-C", repo, "fetch", "--", *fetch)
     checked("git", "-C", repo, "fetch", "--", *fetch, reason="fetch", capture=False)
     ancestor = git(repo, "merge-base", "--is-ancestor", "HEAD", upstream)
     if ancestor.returncode == 1:
         raise Skipped("skipped (ahead or diverged checkout)")
     if ancestor.returncode:
         raise Failed("cannot compare checkout with upstream")
-    checked(
-        "git",
-        "-C",
-        repo,
-        "merge",
-        "--ff-only",
-        "--",
-        upstream,
-        reason="fast-forward",
-        capture=False,
-    )
+    merge = ("git", "-C", repo, "merge", "--ff-only", "--", upstream)
+    print_command(*merge)
+    checked(*merge, reason="fast-forward", capture=False)
 
 
 def sync(project):

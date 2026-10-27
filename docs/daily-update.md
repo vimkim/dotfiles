@@ -108,6 +108,17 @@ runs even when Git is unchanged. Local target edits, deletions and existing file
 without last-write history remain preserved and count as partial work. See
 [helper behavior](chezmoi-apply-unmodified.md).
 
+The runner prints each `git fetch`, `git merge --ff-only` and
+`chezmoi-apply-unmodified --source SOURCE` command to stdout before starting it.
+This also makes project fetches and fast-forwards visible when Git has no changes.
+`daily-update --dotfiles-only` runs just this guarded dotfiles refresh and apply,
+without loading the project inventory, upgrading other tools or stamping the day.
+It uses the same success, partial and failure exit codes as a normal run.
+`daily-update-cubrid` calls this mode before updating its CUBRID tools, including
+when positional directories replace its default tool inventory. A dotfiles skip
+or failure is reported while independent tool updates continue. Its `--list`
+and `--dry-run` modes never run the dotfiles updater.
+
 GitHub tools, Codex and Claude upgrades follow. Resolution prefers `~/.local/bin`
 across shells.
 Missing GitHub CLI is installed with `brew install gh`; an existing

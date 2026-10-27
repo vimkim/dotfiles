@@ -3,7 +3,7 @@
 import shutil
 from pathlib import Path
 
-from .common import Failed, Skipped, checked, command
+from .common import Failed, Skipped, checked, command, print_command
 from .projects import refresh
 
 
@@ -17,7 +17,9 @@ def update():
     if not repo.is_absolute():
         raise Skipped("skipped (missing independent source checkout)")
     refresh(repo, github="vimkim/dotfiles", primary_main=True, dotfiles=True)
-    result = command("chezmoi-apply-unmodified", "--source", repo)
+    apply = ("chezmoi-apply-unmodified", "--source", repo)
+    print_command(*apply)
+    result = command(*apply)
     output = result.stdout + result.stderr
     if output:
         print(output.rstrip(), flush=True)

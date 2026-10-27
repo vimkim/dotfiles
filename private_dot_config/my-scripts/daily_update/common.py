@@ -1,5 +1,6 @@
 """Subprocess execution and independent step results."""
 
+import shlex
 import subprocess
 from dataclasses import dataclass, field
 
@@ -10,6 +11,10 @@ class Skipped(Exception):
 
 class Failed(Exception):
     """An attempted operation failed."""
+
+
+def print_command(*args):
+    print(f"   $ {shlex.join(map(str, args))}", flush=True)
 
 
 def command(*args, cwd=None, capture=True):

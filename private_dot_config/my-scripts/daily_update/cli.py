@@ -22,6 +22,7 @@ def parser():
     mode = cli.add_mutually_exclusive_group()
     for flag, help_text in (
         ("run", "run all upkeep and stamp today (default)"),
+        ("dotfiles-only", "fetch, fast-forward and apply dotfiles without stamping today"),
         ("remind", "print pending upkeep, or stay silent if run today"),
         ("status", "show cached versions and today's run state"),
         ("stale", "list lock-backed stale third-party skills"),
@@ -52,6 +53,10 @@ def main(argv=None):
                 "daily-update: stamp cleared; the reminder returns on the next shell."
             )
             return 0
+        if args.dotfiles_only:
+            results = Results()
+            results.run("dotfiles", dotfiles.update)
+            return results.summary()
         # Validate the full inventory before any update or prune can mutate state.
         try:
             configured = projects.load_projects(args.config.expanduser())

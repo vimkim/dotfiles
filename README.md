@@ -306,6 +306,7 @@ runs. See [configuration and refresh policy](docs/daily-update.md).
 
 ```bash
 daily-update            # run everything, report stale skills, mark today done
+daily-update --dotfiles-only  # fetch + ff-only merge, then apply unchanged targets; no daily stamp
 daily-update --config /path/to/projects.toml  # use another project inventory
 daily-update --status   # show cached versions and whether today is done
 daily-update --stale    # list stale skills, changing nothing

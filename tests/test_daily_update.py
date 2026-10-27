@@ -181,8 +181,40 @@ exit "${FAIL_APPLY:-0}"
             rows = self.logged().splitlines()
             self.assertLess(rows.index('dotfiles:after'), rows.index('codex update'))
             self.assertIn('dotfiles: completed', result.stdout)
+            fetch = shlex.join(['git', '-C', str(self.dotfiles), 'fetch', '--', 'origin',
+                                'refs/heads/main:refs/remotes/origin/main'])
+            merge = shlex.join(['git', '-C', str(self.dotfiles), 'merge', '--ff-only', '--', 'origin/main'])
+            apply = shlex.join(['chezmoi-apply-unmodified', '--source', str(self.dotfiles)])
+            positions = [result.stdout.index('$ ' + cmd) for cmd in (fetch, merge, apply)]
+            self.assertEqual(positions, sorted(positions))
             self.assertEqual(self.git(self.dotfiles, 'rev-parse', 'HEAD'),
                              self.git(self.seeds['dotfiles'], 'rev-parse', 'HEAD'))
+
+    def test_dotfiles_only_needs_no_inventory_and_does_not_upgrade_or_stamp(self):
+        self.config.unlink()
+        self.advance('dotfiles')
+        for _ in range(2):
+            self.log.unlink(missing_ok=True)
+            result = self.run_daily('--dotfiles-only')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('dotfiles:after', self.logged())
+            self.assertIn('chezmoi-apply-unmodified --source', result.stdout)
+            rows = [row for row in self.logged().splitlines() if not row.startswith('git:')]
+            self.assertEqual(rows, ['dotfiles:after'])
+            self.assertFalse((self.home / '.cache/daily-update.stamp').exists())
+
+    def test_dotfiles_only_returns_partial_and_failure_without_stamping(self):
+        for options, code in (({'APPLY_OUTPUT': 'Skipped locally changed target: /local'}, 2),
+                              ({'FAIL_FETCH': str(self.dotfiles)}, 1)):
+            with self.subTest(options=options):
+                self.log.unlink(missing_ok=True)
+                result = self.run_daily('--dotfiles-only', **options)
+                self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+                self.assertNotIn('codex update', self.logged())
+                self.assertFalse((self.home / '.cache/daily-update.stamp').exists())
+                if code == 1:
+                    self.assertNotIn('chezmoi-apply-unmodified --source', result.stdout)
+                    self.assertNotIn('dotfiles:before', self.logged())
 
     def test_github_cli_extension_and_both_user_skills_update_in_order(self):
         result = self.run_daily()
