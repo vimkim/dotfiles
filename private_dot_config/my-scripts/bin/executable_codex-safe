@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""Protect interactive Codex from accidental cancellation and exit."""
+
+import errno
+import fcntl
+import os
+import pty
+import re
+import select
+import signal
+import sys
+import termios
+import time
+import tty
+
+
+class Shortcuts:
+    """Translate terminal input, including Kitty keys and bracketed paste."""
+
+    quit_window = 1.0
+    escape_wait = 0.05
+    paste_end = b"\x1b[201~"
+
+    def __init__(self):
+        self.buffer = bytearray()
+        self.paste = False
+        self.leader = False
+        self.interrupt_at = None
+        self.escape_at = None
+        self.bell = False
+        self.quitting = False
+
+    def key(self, code, output, now, event=1):
+        # Releases and repeats must not count as another deliberate key press.
+        if code in (3, 24) and event != 1:
+            return
+        if code == 3:
+            if self.leader:
+                # Codex reserves Ctrl+C, even in chords. Its native leader+c
+                # action provides cancellation without sending that key.
+                output.extend(b"c")
+                self.leader = False
+                self.interrupt_at = None
+            elif self.interrupt_at is not None and now - self.interrupt_at <= self.quit_window:
+                output.extend(b"\x03")
+                self.quitting = True
+                self.interrupt_at = None
+            else:
+                self.interrupt_at = now
+                self.bell = True
+            return
+        self.interrupt_at = None
+        if code == 24:
+            self.leader = not self.leader
+        else:
+            self.leader = False
+        output.append(code)
+
+    def feed(self, data, now):
+        self.buffer.extend(data)
+        output = bytearray()
+        while self.buffer:
+            if self.paste:
+                end = self.buffer.find(self.paste_end)
+                if end < 0:
+                    # Retain a possible partial closing delimiter.
+                    size = max(0, len(self.buffer) - len(self.paste_end) + 1)
+                    output.extend(self.buffer[:size])
+                    del self.buffer[:size]
+                    break
+                end += len(self.paste_end)
+                output.extend(self.buffer[:end])
+                del self.buffer[:end]
+                self.paste = False
+                continue
+            if self.buffer[0] != 27:
+                self.key(self.buffer.pop(0), output, now)
+                continue
+            if self.escape_at is None:
+                self.escape_at = now
+            if len(self.buffer) == 1:
+                break
+            if self.buffer[1] == ord("["):
+                end = next((i + 1 for i in range(2, len(self.buffer))
+                            if 0x40 <= self.buffer[i] <= 0x7e), None)
+                if end is None:
+                    break
+            else:
+                end = 2
+            sequence = bytes(self.buffer[:end])
+            del self.buffer[:end]
+            self.escape_at = None
+            # Kitty CSI-u and xterm modifyOtherKeys representations of Ctrl+C/X.
+            kitty = re.fullmatch(rb"\x1b\[(\d+)(?::\d*)?(?::(\d+))?;(\d+)(?::([123]))?(?:;[0-9:]*)?u", sequence)
+            xterm = re.fullmatch(rb"\x1b\[27;5;(99|120)~", sequence)
+            key = int(kitty[2] or kitty[1]) if kitty else None
+            event = int(kitty[4] or b"1") if kitty else 1
+            # Lock modifiers do not change the meaning of Ctrl+C or Ctrl+X.
+            control = kitty and ((int(kitty[3]) - 1) & ~(64 | 128)) == 4
+            if (control and key in (3, 24, 67, 88, 99, 120)) or xterm:
+                code = 3 if (key in (3, 67, 99) if kitty else xterm[1] == b"99") else 24
+                self.key(code, output, now, event)
+            elif kitty and (event == 3 or 57441 <= key <= 57454):
+                # Releasing a key or pressing a modifier does not cancel a chord.
+                output.extend(sequence)
+            else:
+                self.leader = False
+                self.interrupt_at = None
+                output.extend(sequence)
+                if sequence == b"\x1b[200~":
+                    self.paste = True
+        return bytes(output)
+
+    def flush(self, now):
+        if self.escape_at is None or now - self.escape_at < self.escape_wait:
+            return b""
+        output = bytes(self.buffer)
+        self.buffer.clear()
+        self.escape_at = None
+        self.leader = False
+        self.interrupt_at = None
+        return output
+
+
+def interactive(args):
+    """Keep commands, help, and piped automation on the original execution path."""
+    commands = {"agents", "exec", "e", "review", "login", "logout", "mcp", "plugin",
+                "app-server", "remote-control", "completion", "update", "doctor",
+                "sandbox", "debug", "apply", "a", "queue", "archive", "delete",
+                "migrate-rollouts", "migrate-nfs-db", "unarchive", "cloud",
+                "exec-server", "features", "help"}
+    values = {"-c", "--config", "--enable", "--disable", "--remote",
+              "--remote-auth-token-env", "-i", "--image", "-m", "--model",
+              "--local-provider", "-p", "--profile", "-s", "--sandbox", "-C",
+              "--cd", "--add-dir", "-a", "--ask-for-approval"}
+    skip = False
+    command = None
+    for arg in args:
+        if skip:
+            skip = False
+        elif arg in {"-h", "--help", "-V", "--version"}:
+            return False
+        elif arg == "--":
+            break
+        elif arg in values:
+            skip = True
+        elif not arg.startswith("-"):
+            if command is None:
+                command = arg
+                if command in commands:
+                    return False
+                if command not in {"resume", "fork"}:
+                    return True
+    return True
+
+
+def write_all(fd, data):
+    while data:
+        size = os.write(fd, data)
+        data = data[size:]
+
+
+def relay(args):
+    original = termios.tcgetattr(0)
+    handlers = {}
+    pid = None
+    master = None
+    status = None
+    try:
+        tty.setraw(0)
+        pid, master = pty.fork()
+        if pid == 0:
+            os.execvp("codex", ["codex", "-c", 'tui.keymap.global.leader="ctrl-x"',
+                               "-c", 'tui.keymap.chat.interrupt_turn="leader c"', *args])
+
+        def resize(*_):
+            size = fcntl.ioctl(0, termios.TIOCGWINSZ, b"\0" * 8)
+            fcntl.ioctl(master, termios.TIOCSWINSZ, size)
+
+        def forward(signum, _frame):
+            try:
+                os.killpg(pid, signum)
+            except ProcessLookupError:
+                pass
+
+        for signum in (signal.SIGWINCH, signal.SIGHUP, signal.SIGTERM, signal.SIGINT):
+            handlers[signum] = signal.signal(signum, resize if signum == signal.SIGWINCH else forward)
+        resize()
+        shortcuts = Shortcuts()
+        next_quit = None
+        while True:
+            if status is None:
+                waited, child_status = os.waitpid(pid, os.WNOHANG | os.WUNTRACED)
+                if waited and os.WIFSTOPPED(child_status):
+                    # Surface a suspended editor or TUI as a suspended shell job.
+                    termios.tcsetattr(0, termios.TCSADRAIN, original)
+                    os.kill(os.getpid(), signal.SIGSTOP)
+                    tty.setraw(0)
+                    resize()
+                    os.killpg(pid, signal.SIGCONT)
+                elif waited:
+                    status = child_status
+            ready, _, _ = select.select([0, master], [], [], shortcuts.escape_wait)
+            if status is not None and master not in ready:
+                break
+            if master in ready:
+                try:
+                    data = os.read(master, 65536)
+                except OSError as error:
+                    if error.errno != errno.EIO:
+                        raise
+                    break
+                if not data:
+                    break
+                write_all(1, data)
+            if 0 in ready:
+                data = os.read(0, 65536)
+                if not data:
+                    forward(signal.SIGHUP, None)
+                    break
+                translated = shortcuts.feed(data, time.monotonic())
+                if shortcuts.bell:
+                    write_all(1, b"\a")
+                    shortcuts.bell = False
+                if translated:
+                    write_all(master, translated)
+                if shortcuts.quitting and next_quit is None:
+                    next_quit = time.monotonic() + 0.25
+            pending = shortcuts.flush(time.monotonic())
+            if pending:
+                write_all(master, pending)
+            if next_quit is not None and time.monotonic() >= next_quit:
+                # A running turn consumes the first native Ctrl+C to cancel.
+                # Give it time to become idle before requesting exit again.
+                # Once Codex restores signal handling, shutdown is in progress.
+                # Another Ctrl+C would deliver SIGINT instead of a TUI key.
+                if termios.tcgetattr(master)[3] & termios.ISIG:
+                    next_quit = None
+                    shortcuts.quitting = False
+                else:
+                    write_all(master, b"\x03")
+                    next_quit = time.monotonic() + 0.25
+        if status is None:
+            _, status = os.waitpid(pid, 0)
+    finally:
+        termios.tcsetattr(0, termios.TCSADRAIN, original)
+        for signum, handler in handlers.items():
+            signal.signal(signum, handler)
+        if master is not None:
+            os.close(master)
+        if pid and status is None:
+            try:
+                os.killpg(pid, signal.SIGHUP)
+                os.waitpid(pid, 0)
+            except ProcessLookupError:
+                pass
+    result = os.waitstatus_to_exitcode(status)
+    return result if result >= 0 else 128 - result
+
+
+def main():
+    args = sys.argv[1:]
+    if not (os.isatty(0) and os.isatty(1) and interactive(args)):
+        os.execvp("codex", ["codex", *args])
+    print("Codex: Ctrl+X Ctrl+C cancels. Press Ctrl+C twice within 1 second to quit.",
+          file=sys.stderr, flush=True)
+    return relay(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

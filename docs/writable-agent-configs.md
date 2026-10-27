@@ -21,6 +21,8 @@ Codex keeps project trust, hook approvals, plugin choices, and UI state.
 | --- | --- | --- |
 | `dot_claude/private_dotfiles-settings.json` | `~/.claude/dotfiles-settings.json` | Shared Claude defaults, including `opus` |
 | `dot_codex/private_dotfiles.config.toml` | `~/.codex/dotfiles.config.toml` | Shared Codex defaults, including `gpt-6.1-sol` and `xhigh` |
+| `dot_claude/keybindings.json` | `~/.claude/keybindings.json` | Claude shortcuts, including protected chat cancellation |
+| `private_dot_config/my-scripts/bin/executable_codex-safe` | `~/.config/my-scripts/bin/codex-safe` | Interactive Codex shortcut protection |
 | `dot_gitconfig` | `~/.gitconfig` | Shared Git settings and the local include |
 | `create_private_dot_gitconfig.local` | `~/.gitconfig.local` | Initial Git exceptions, created only if missing |
 | `private_dot_config/lazygit/config.yml` | `~/.config/lazygit/config.yml` | Current lazygit schema |
@@ -36,6 +38,7 @@ The Bash, Zsh, and Nushell shortcuts select these defaults:
 - `ai` and `aip` load Claude's defaults with `--settings`.
 - Nushell's `cla`, `cyo`, and `cds` also load Claude's defaults.
 - `cx` and `cxp` select the Codex `dotfiles` profile.
+- `codex` selects `codex-safe` through a shell alias. `cx` and `cxp` inherit that alias.
 
 Claude shortcuts use `CLAUDE_CONFIG_DIR` when that variable has a value.
 Otherwise, they use `~/.claude`.
@@ -51,12 +54,50 @@ codex exec --profile dotfiles "read prompt.md and execute"
 ```
 
 Direct `claude` and `codex` calls continue to use their local user settings.
+The interactive `codex` alias also sets the protected cancellation keymap.
 Use direct `codex` when selecting another profile.
 Managed defaults override matching local preferences when the shortcut selects them.
 Edit the managed source to change those defaults.
 
 See the official [Claude settings documentation](https://code.claude.com/docs/en/settings)
 and [Codex configuration documentation](https://learn.chatgpt.com/docs/config-file/config-basic).
+
+## Cancel a turn and close Codex
+
+Open a new Bash, Zsh, or Nushell session after deployment.
+The `codex`, `cx`, and `cxp` aliases then use `codex-safe`.
+Existing Codex processes keep their previous keyboard behavior.
+
+| Key | Codex through the alias | Claude Code |
+| --- | --- | --- |
+| Escape | Leaves the current turn running. Still closes menus. | Leaves the current turn running. Still closes menus. |
+| Ctrl+X, then Ctrl+C | Cancels the current turn. Keeps the session open. | Cancels the current turn. Keeps the session open. |
+| Ctrl+C once | Rings the terminal bell. Keeps the turn and session running. | Uses Claude's built-in interrupt behavior. |
+| Ctrl+C twice within one second | Cancels active work and closes the Codex terminal session. | Uses Claude's built-in behavior. |
+
+Codex 0.164.0 reserves Ctrl+C for interrupt and quit handling.
+It rejects that key inside a custom chord.
+The wrapper translates Ctrl+X, Ctrl+C to the native Ctrl+X, C shortcut.
+The native shortcut also works. Codex displays it in shortcut hints.
+The wrapper sets this keymap for interactive launches, including `resume` and `fork`.
+An explicit conflicting `-c tui.keymap...` override can change that behavior.
+
+The wrapper uses a pseudo-terminal and the Python standard library.
+It preserves terminal dimensions, exit status, bracketed paste, and keyboard protocol messages.
+It forwards external termination signals and restores terminal settings when Codex exits.
+The shortcut protection also applies inside external editors opened from that session.
+
+Commands such as `codex exec`, `codex review`, and `codex --help` bypass the wrapper's input handling.
+Piped input or output also bypasses input handling.
+These paths retain their original arguments and exit status.
+Use `command codex` in Bash or Zsh, or `^codex` in Nushell, to bypass the alias explicitly.
+The original binary retains its native Ctrl+C behavior.
+
+Claude reloads its keybindings file automatically.
+Other bindings in the existing file remain present.
+Its Ctrl+C key remains reserved by Claude.
+See the official [Codex keymap reference](https://learn.chatgpt.com/docs/developer-commands#remap-tui-shortcuts-with-keymap)
+and [Claude keybindings reference](https://code.claude.com/docs/en/keybindings).
 
 ## Keep Git exceptions local
 

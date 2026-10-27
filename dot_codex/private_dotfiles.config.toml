@@ -10,6 +10,13 @@ alternate_screen = "always"
 status_line = ["model-with-reasoning", "pull-request-number", "context-used", "five-hour-limit", "weekly-limit", "task-progress", "approval-mode", "current-dir", "git-branch"]
 status_line_use_colors = true
 
+[tui.keymap.global]
+leader = "ctrl-x"
+
+[tui.keymap.chat]
+# codex-safe also accepts Ctrl+X Ctrl+C and protects the fixed Ctrl+C quit key.
+interrupt_turn = "leader c"
+
 [agents]
 max_threads = 6
 max_depth = 2
