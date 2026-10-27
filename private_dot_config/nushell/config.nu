@@ -321,7 +321,10 @@ if ("CLAUDE" not-in $env) and (which fastfetch | is-not-empty) {
 # ╚══════════════════════════════╝"
 
 if ("CLAUDE" not-in $env) and (which zellij | is-not-empty) {
-  ^zellij ls
+  let sessions = (^zellij ls | complete)
+  if $sessions.exit_code == 0 {
+    print ($sessions.stdout | str trim)
+  }
 }
 
 ulimit -c unlimited

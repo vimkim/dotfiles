@@ -1,3 +1,5 @@
+scan_timeout = 100
+
 [shlvl]
 disabled = false
 format = 'SHLVL\($shlvl\) '
