@@ -79,7 +79,9 @@ def inventory(projects):
         eligible = [
             name
             for name, entry in entries.items()
-            if name.casefold() not in protected
+            # gh-stack is reconciled explicitly through gh skill for each agent.
+            if name.casefold() != "gh-stack"
+            and name.casefold() not in protected
             and not personal_source(entry["source"], projects)
             and not personal_source(entry.get("sourceUrl", ""), projects)
         ]

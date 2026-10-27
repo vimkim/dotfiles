@@ -12,6 +12,7 @@ The launcher delegates to `daily_update/cli.py`. The modules separate these jobs
 
 - `dotfiles.py`: refresh the configured chezmoi source and deploy through the helper.
 - `tools.py`: resolve and upgrade Codex and Claude Code.
+- `github.py`: install or upgrade GitHub CLI, gh-stack, and its Codex/Claude Code skills.
 - `projects.py`: validate the TOML inventory, refresh checkouts, and run installation recipes.
 - `skills.py`: update eligible third-party skills, scan stale skills, and prune recoverably.
 - `state.py`: maintain the daily stamp and produce offline reminder/status output.
@@ -107,7 +108,34 @@ runs even when Git is unchanged. Local target edits, deletions and existing file
 without last-write history remain preserved and count as partial work. See
 [helper behavior](chezmoi-apply-unmodified.md).
 
-Codex and Claude upgrades follow. Resolution prefers `~/.local/bin` across shells.
+GitHub tools, Codex and Claude upgrades follow. Resolution prefers `~/.local/bin`
+across shells.
+Missing GitHub CLI is installed with `brew install gh`; an existing
+Homebrew-owned formula is updated with `brew upgrade gh`. A CLI installed by
+another package manager is preserved and reported as skipped, while extension
+and skill maintenance still runs. Homebrew must be on PATH for CLI maintenance.
+The extension is installed with `gh extension install github/gh-stack` when
+missing, otherwise updated with `gh extension upgrade gh-stack`. An extension
+named `gh stack` from a different repository is preserved and reported as a failure.
+
+Each user skill is refreshed with `gh skill install github/gh-stack gh-stack
+--agent AGENT --scope user --force`, once for `codex` and once for `claude-code`.
+This installs the latest released skill without prompting, including on machines
+that lack the bootstrap installs. It affects these two user skills regardless of
+the directory from which `daily-update` runs. See the
+[GitHub CLI installation options](https://cli.github.com/manual/gh_skill_install).
+Legacy `skills` lock entries named `gh-stack` are excluded from both the npm
+updater and pruning so that only the GitHub CLI flow maintains these installs.
+GitHub CLI, extension and each agent skill have independent results; failures
+do not prevent remaining upkeep. GitHub downloads require an authenticated CLI
+or `GH_TOKEN`; these flows never launch authentication or a browser themselves.
+
+The run-once after-script `install-github-tools.sh` uses this same module after
+chezmoi deploys it, installing missing CLI/extension and refreshing both skills.
+An existing Homebrew CLI is upgraded during bootstrap if it lacks `gh skill`.
+Failures and missing prerequisites leave bootstrap retryable on the next
+`chezmoi apply`. Python 3.11+ is required for bootstrap as well as daily upkeep.
+
 A Codex executable inside Homebrew's prefix is upgraded with Homebrew only when
 its package database confirms the installed cask or formula. Personal projects
 then run, followed by third-party maintenance and a stale scan.

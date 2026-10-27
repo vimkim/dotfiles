@@ -87,10 +87,10 @@ nix --extra-experimental-features nix-command --extra-experimental-features flak
 
 </details>
 
-The personal tool installers also require Git, `uv`, and `just` on PATH:
+The tool installers also require Git, `uv`, `just`, and Python 3.11+ on PATH:
 
 ```bash
-brew install git uv just
+brew install git uv just python
 ```
 
 Then apply:
@@ -99,6 +99,14 @@ Then apply:
 # github handle after --apply
 chezmoi init --apply vimkim
 ```
+
+Initialization installs GitHub CLI with Homebrew when `gh` is missing, installs
+the `github/gh-stack` extension, and installs its skill for both Codex and Claude
+Code at user scope. Homebrew and Python 3.11+ must be on PATH. GitHub downloads
+require authentication: use
+`GH_BROWSER=echo gh auth login --hostname github.com --web` and open the printed
+URL on your local machine, or provide `GH_TOKEN`. After fixing a
+failed installation, rerun `chezmoi apply` to retry.
 
 ### Updating on an existing machine
 
@@ -143,7 +151,7 @@ brew install eza fzf fd ripgrep lazygit delta
 Misc dependencies:
 
 ```bash
-brew install mise direnv zoxide fastfetch diffnav gh
+brew install mise direnv zoxide fastfetch diffnav
 ```
 
 The terminal configuration uses Maple Mono. On Fedora, follow
@@ -289,8 +297,9 @@ between Project root and the launch CWD. See [installation and updates](docs/dir
 ### Daily AI-toolchain upkeep
 
 `daily-update` (Python 3.11+, in `~/.config/my-scripts/bin`) updates dotfiles,
-personal tools including Dirpick, Codex, Claude Code, and globally installed agent
-skills. Feature modules live in `~/.config/my-scripts/daily_update/`. Personal
+personal tools including Dirpick, GitHub CLI, gh-stack, Codex, Claude Code, and
+globally installed agent skills. Feature modules live in
+`~/.config/my-scripts/daily_update/`. Personal
 GitHub checkouts are listed in `~/.config/my-scripts/daily-update.toml`; add or
 reorder projects there. Each checkout is refreshed before its `just sync` recipe
 runs. See [configuration and refresh policy](docs/daily-update.md).
@@ -315,7 +324,15 @@ The stamp records that a run happened, not that every step succeeded. A failed
 step is listed at the end of the run and left for a deliberate re-run, so a
 network blip cannot trap the reminder in a loop.
 
-Skills come from the `skills` CLI and are tracked in `~/.agents/.skill-lock.json`.
+The gh-stack skills are refreshed explicitly for each agent with `gh skill
+install github/gh-stack gh-stack --agent AGENT --scope user --force`. This
+replaces the previous release without prompting and also repairs missing installs.
+The extension uses `gh extension upgrade gh-stack`; Homebrew-managed GitHub CLI
+uses `brew upgrade gh`. Other GitHub CLI installations are preserved and reported
+as skipped for CLI upgrades; their extensions and skills are still maintained.
+
+Other third-party skills come from the `skills` CLI and are tracked in
+`~/.agents/.skill-lock.json`.
 Because `~/.claude/skills/*` symlinks into `~/.agents/skills`, the single
 filtered third-party skill update covers both Claude Code and Codex; personal
 collections reconcile through their own `just sync` recipes.

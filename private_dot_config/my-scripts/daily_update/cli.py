@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import dotfiles, projects, skills, tools
+from . import dotfiles, github, projects, skills, tools
 from .common import Failed, Results
 from .state import State
 
@@ -67,6 +67,10 @@ def main(argv=None):
             return 0
         results = Results()
         results.run("dotfiles", dotfiles.update)
+        results.run("gh", github.cli)
+        results.run("gh-stack", github.stack)
+        for agent in ("codex", "claude-code"):
+            results.run(f"gh-stack skill:{agent}", lambda agent=agent: github.skill(agent))
         results.run("codex", tools.codex)
         results.run("claude", lambda: tools.upgrade("claude", "update"))
         projects.run_projects(configured, results)

@@ -44,8 +44,27 @@ class DailyUpdateTest(unittest.TestCase):
         shutil.copyfile(SCRIPT.parents[1] / 'daily-update.toml', self.config)
         for name in ('codex', 'claude', 'npx'):
             self.executable(name, f'printf "%s\\n" "{name} $*" >>"$TEST_LOG"\nexit "${{FAIL_{name.upper()}:-0}}"\n')
-        self.executable('brew', 'exit 1\n')
-        self.executable('gh', 'exit 1\n')
+        self.env['TEST_BREW_PREFIX'] = str(self.root)
+        self.executable('brew', '''
+printf 'brew %s\n' "$*" >>"$TEST_LOG"
+case "$*" in
+  --prefix) printf '%s\n' "$TEST_BREW_PREFIX" ;;
+  'list --formula --versions gh') printf 'gh 2.102.0\n' ;;
+  'upgrade gh') exit "${FAIL_GH_UPGRADE:-0}" ;;
+  *) exit 1 ;;
+esac
+''')
+        self.executable('gh', '''
+printf 'gh %s\n' "$*" >>"$TEST_LOG"
+case "$*" in
+  'extension list') printf 'gh stack\\tgithub/gh-stack\\tv0.3.0\n' ;;
+  'extension upgrade gh-stack') exit "${FAIL_STACK_UPGRADE:-0}" ;;
+  'skill install github/gh-stack gh-stack --agent codex --scope user --force')
+    exit "${FAIL_CODEX_SKILL:-0}" ;;
+  'skill install github/gh-stack gh-stack --agent claude-code --scope user --force') exit 0 ;;
+  *) exit 1 ;;
+esac
+''')
         self.executable('git', '''
 printf 'git:%s\n' "$*" >>"$TEST_LOG"
 case "$*" in
@@ -164,6 +183,38 @@ exit "${FAIL_APPLY:-0}"
             self.assertIn('dotfiles: completed', result.stdout)
             self.assertEqual(self.git(self.dotfiles, 'rev-parse', 'HEAD'),
                              self.git(self.seeds['dotfiles'], 'rev-parse', 'HEAD'))
+
+    def test_github_cli_extension_and_both_user_skills_update_in_order(self):
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        rows = self.logged().splitlines()
+        expected = [
+            'dotfiles:before', 'brew upgrade gh', 'gh extension upgrade gh-stack',
+            'gh skill install github/gh-stack gh-stack --agent codex --scope user --force',
+            'gh skill install github/gh-stack gh-stack --agent claude-code --scope user --force',
+            'codex update',
+        ]
+        positions = [rows.index(row) for row in expected]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_github_failures_do_not_block_other_agent_or_personal_updates(self):
+        for failed in ('FAIL_GH_UPGRADE', 'FAIL_STACK_UPGRADE', 'FAIL_CODEX_SKILL'):
+            with self.subTest(failed=failed):
+                self.log.unlink(missing_ok=True)
+                result = self.run_daily(**{failed: '7'})
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn('failed:', result.stdout)
+                self.assertIn('--agent claude-code --scope user --force', self.logged())
+                self.assertIn('codex update', self.logged())
+                self.assertIn(f"{self.repos['my-skills']}:before", self.logged())
+
+    def test_non_homebrew_gh_is_preserved_while_extension_and_skills_update(self):
+        result = self.run_daily(TEST_BREW_PREFIX=str(self.root / 'other prefix'))
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('not Homebrew-managed', result.stdout)
+        self.assertNotIn('brew upgrade gh', self.logged())
+        self.assertIn('gh extension upgrade gh-stack', self.logged())
+        self.assertIn('--agent claude-code --scope user --force', self.logged())
 
     def test_dotfiles_dirty_work_is_preserved_without_fetch(self):
         self.advance('dotfiles')

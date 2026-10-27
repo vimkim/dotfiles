@@ -161,6 +161,19 @@ class FeatureTest(unittest.TestCase):
                 skills.update([collection])
             upgrade.assert_not_called()
 
+    def test_github_managed_gh_stack_is_excluded_from_legacy_update_and_prune(self):
+        path = self.lock({"gh-stack": {"source": "github/gh-stack", "sourceType": "github"}})
+        original = path.read_bytes()
+        with (
+            patch.object(skills, "upgrade") as upgrade,
+            patch.object(skills, "command") as command,
+        ):
+            skills.update([])
+            skills.prune([], state.State())
+            upgrade.assert_not_called()
+            command.assert_not_called()
+        self.assertEqual(path.read_bytes(), original)
+
     def test_reminders_are_offline_and_reuse_legacy_stamp_and_stale_cache(self):
         cached = state.State()
         cached.cache_stale({f"old{i}": "missing" for i in range(10)})
