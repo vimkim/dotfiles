@@ -1,0 +1,9 @@
+# Login environment shared with other POSIX shells.
+if [ -r "$HOME/.profile" ]; then
+    . "$HOME/.profile"
+fi
+
+# Bash aliases, functions, and interactive configuration.
+if [ -r "$HOME/.bashrc" ]; then
+    . "$HOME/.bashrc"
+fi

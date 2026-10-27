@@ -1,0 +1,4 @@
+# DeepTutor's optional runtime home comes from local chezmoi data.
+{{ with get . "deeptutorHome" -}}
+$env.DEEPTUTOR_HOME = ($env.DEEPTUTOR_HOME? | default --empty {{ . | quote }})
+{{- end }}

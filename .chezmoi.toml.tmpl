@@ -1,3 +1,8 @@
 # pager = "diffnav"
 # Default pager kept for AI-agent friendliness (diffnav is a TUI).
 # For interactive review, use the `chzdiff` alias which pipes through diffnav.
+{{ with get . "deeptutorHome" }}
+
+[data]
+    deeptutorHome = {{ . | quote }}
+{{ end }}

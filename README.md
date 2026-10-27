@@ -126,6 +126,31 @@ chezmoi diff                               # see what apply would change
 chezmoi apply                              # apply when happy
 ```
 
+### Shell login files and DeepTutor
+
+Chezmoi manages `.bash_profile`, `.profile`, `.zshenv`, and Nushell's DeepTutor
+autoload file. Bash loads the shared `.profile` before `.bashrc`. The uv and
+Cargo installer environment files are loaded only when present, and the user
+command directory is added without duplicating it in `PATH`.
+
+Keep a machine's DeepTutor runtime home in the local chezmoi configuration,
+normally `~/.config/chezmoi/chezmoi.toml`:
+
+```toml
+[data]
+    deeptutorHome = "/path/to/deeptutor-home"
+```
+
+Use the existing runtime home to retain model settings, provider login, and
+learning data. This value is local to the machine; do not commit it. The
+configuration template preserves an existing value during `chezmoi init`.
+Other machines leave it unset until DeepTutor is configured there.
+
+The shell templates set `DEEPTUTOR_HOME` only when it is empty or absent.
+An explicit environment override keeps its value. With no `deeptutorHome` data,
+the generated files leave the variable alone. These files do not install
+DeepTutor, create its runtime home, or change `TMPDIR`.
+
 ### Prerequisites for config.nu
 
 None of these are hard requirements — config.nu quietly skips every tool that
