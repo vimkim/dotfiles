@@ -322,7 +322,6 @@ alias starbucks_archlinux = curl -v http://gstatic.com/generate_204
 alias sctl = systemctl
 alias perf-enable = sudo sysctl kernel.perf_event_paranoid=-1
 alias pf = ~/.config/my-scripts/bin/ps-fuzzy.sh
-alias ports = ~/.config/my-scripts/bin/list-ports.py
 alias ports-tcp = ~/.config/my-scripts/bin/list-ports.py --tcp
 alias ports-all = somo
 alias ppath = echo $env.PATH

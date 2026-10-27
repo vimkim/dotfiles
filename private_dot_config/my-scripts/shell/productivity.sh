@@ -1,6 +1,6 @@
 # Shared interactive Bash/Zsh helpers, matching the everyday Nushell shortcuts.
-# Clear old aliases before defining functions (also permits re-sourcing).
-unalias c l ll cl cv mc gr fp cf vc y ch chf chd chp vh bm n nr na nc 2>/dev/null || :
+# Clear old aliases before defining helpers (also permits re-sourcing).
+unalias c l ll cl cv mc gr fp cf vc y ch chf chd chp vh bm n nr na nc ports 2>/dev/null || :
 
 l() {
     command ls-one-page "$@"
@@ -247,6 +247,5 @@ alias lzps='sudo-path lazydocker-with-podman'
 alias v='nvim'
 alias py='python3'
 alias sctl='systemctl'
-alias ports='list-ports.py'
 alias ports-tcp='list-ports.py --tcp'
 alias ports-all='somo'
