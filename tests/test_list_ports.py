@@ -3,6 +3,7 @@ import io
 import os
 import runpy
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -60,6 +61,13 @@ class ParseSsLineTests(unittest.TestCase):
 
 
 class DisplayTests(unittest.TestCase):
+    def test_full_process_title_is_not_truncated_in_the_application_column(self):
+        title = "dev2-baboon-rudd-gateway"
+        row = MODULE["format_entry"](
+            SocketEntry("tcp", "LISTEN", "127.0.0.1", 8443, "123", title)
+        )
+        self.assertTrue(row.endswith(title))
+
     def test_rows_begin_with_numeric_port(self):
         row = MODULE["format_entry"](
             SocketEntry("tcp", "LISTEN", "127.0.0.1", 80, "12", "nginx")
@@ -77,7 +85,55 @@ class DisplayTests(unittest.TestCase):
 class CollectEntriesTests(unittest.TestCase):
     def setUp(self):
         self.addCleanup(mock.patch.stopall)
+        mock.patch.object(Path, "read_bytes", side_effect=FileNotFoundError).start()
         mock.patch.object(MODULE["shutil"], "which", return_value="/usr/sbin/ss").start()
+
+    def collect(self, *processes):
+        output = "\n".join(
+            f'tcp LISTEN 0 128 127.0.0.1:{8000 + index} 0.0.0.0:* users:({process})'
+            for index, process in enumerate(processes)
+        )
+        completed = subprocess.CompletedProcess(["ss"], 0, output, "")
+        with mock.patch.object(MODULE["subprocess"], "run", return_value=completed):
+            return MODULE["collect_entries"](tcp=True, udp=False)
+
+    def test_reads_full_titles_once_per_pid_and_keeps_distinct_processes(self):
+        with mock.patch.object(Path, "read_bytes", side_effect=[
+            b"dev2-baboon-rudd-gateway\0--private-argument\0",
+            b"dev2-baboon-rudd-docserve\0",
+        ]) as read:
+            entries = self.collect(
+                '("python3",pid=321,fd=7),("python3",pid=322,fd=8)',
+                '("python3",pid=321,fd=9)',
+            )
+        self.assertEqual(entries[0].pid, "321,322")
+        self.assertEqual(entries[0].program,
+                         "dev2-baboon-rudd-gateway,dev2-baboon-rudd-docserve")
+        self.assertEqual(entries[1].program, "dev2-baboon-rudd-gateway")
+        self.assertEqual(read.call_count, 2)
+
+    def test_falls_back_when_process_exits_title_is_private_or_cmdline_is_empty(self):
+        for outcome in (FileNotFoundError(), PermissionError(), b"", b"\0"):
+            with self.subTest(outcome=outcome):
+                kwargs = {"side_effect": outcome} if isinstance(outcome, OSError) else {"return_value": outcome}
+                with mock.patch.object(Path, "read_bytes", **kwargs):
+                    entry = self.collect('("python3",pid=321,fd=7)')[0]
+                self.assertEqual(entry.program, "python3")
+
+    def test_process_title_cannot_add_terminal_rows(self):
+        with mock.patch.object(Path, "read_bytes", return_value=b"dev2\n\t gateway\0secret\0"):
+            self.assertEqual(MODULE["process_title"]("321"), "dev2 gateway")
+
+    def test_protocol_filters_handle_ss_omitting_the_protocol_column(self):
+        for protocol, state in (("tcp", "LISTEN"), ("udp", "UNCONN")):
+            with self.subTest(protocol=protocol):
+                output = f'{state} 0 128 [::1]:8443 [::]:* users:(("python3",pid=321,fd=7))'
+                completed = subprocess.CompletedProcess(["ss"], 0, output, "")
+                with mock.patch.object(MODULE["subprocess"], "run", return_value=completed), \
+                        mock.patch.object(Path, "read_bytes", return_value=b"dev2-baboon-rudd-gateway\0"):
+                    entries = MODULE["collect_entries"](tcp=protocol == "tcp", udp=protocol == "udp")
+                self.assertEqual(entries, [SocketEntry(protocol, state, "::1", 8443,
+                                                      "321", "dev2-baboon-rudd-gateway")])
 
     def test_sorts_ports_numerically(self):
         ss_output = "\n".join(
@@ -121,6 +177,7 @@ class CollectEntriesTests(unittest.TestCase):
 class ProcessDetailsTests(unittest.TestCase):
     def setUp(self):
         self.addCleanup(mock.patch.stopall)
+        mock.patch.object(Path, "read_bytes", side_effect=FileNotFoundError).start()
         mock.patch("os.geteuid", return_value=1000).start()
         mock.patch.object(
             MODULE["shutil"], "which",
@@ -207,6 +264,22 @@ class ProcessDetailsTests(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertIn("ss is not installed", self.stderr.getvalue())
         run.assert_not_called()
+
+
+@unittest.skipUnless(Path("/proc/self/cmdline").exists(), "Linux procfs is required")
+class LiveProcessTitleTests(unittest.TestCase):
+    def test_reads_long_argv_zero_from_a_real_process_without_arguments(self):
+        title = "dev2-baboon-rudd-gateway"
+        with subprocess.Popen(
+            [title, "-c", "print('ready', flush=True); input()"],
+            executable=sys.executable, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            text=True,
+        ) as child:
+            try:
+                self.assertEqual(child.stdout.readline().strip(), "ready")
+                self.assertEqual(MODULE["process_title"](str(child.pid)), title)
+            finally:
+                child.communicate("\n", timeout=5)
 
 
 if __name__ == "__main__":

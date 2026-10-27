@@ -201,6 +201,11 @@ when needed. The picker runs as your normal user. Use `ports --no-sudo` to
 collect without elevation. A `-` in the PID or application column means process
 metadata remains unavailable; the socket is still listed.
 
+The application column reads the full process title from `/proc/PID/cmdline`
+instead of the 15-byte name reported by `ss`. It displays only the first
+command-line field, including titles set by applications, without command
+arguments. Unreadable or empty titles fall back to the name from `ss`.
+
 `cd` retains its existing change-and-list behavior; bare `cd` goes home.
 In Nushell, Bash, and Zsh, `c` and `l` share the `ls-one-page` helper.
 It uses eza when available and sorts files and directories together before

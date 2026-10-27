@@ -11,6 +11,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 
 PROCESS_RE = re.compile(r'\("(?P<program>[^"]+)",pid=(?P<pid>\d+)')
@@ -43,20 +44,39 @@ def parse_local_endpoint(endpoint: str) -> tuple[str, int] | None:
     return address, port
 
 
-def parse_processes(process_text: str) -> tuple[str, str]:
-    """Extract unique PIDs and program names from ss process metadata."""
+def process_title(pid: str) -> str | None:
+    """Read argv[0], including application-set titles, without process arguments."""
+    try:
+        title = (Path("/proc") / pid / "cmdline").read_bytes().split(b"\0", 1)[0]
+    except OSError:
+        # A listener can exit or belong to an account whose cmdline is private.
+        return None
+    return " ".join(title.decode(errors="replace").split()) or None
+
+
+def parse_processes(process_text: str, *, titles: dict[str, str | None] | None = None) -> tuple[str, str]:
+    """Extract unique PIDs and names, resolving full titles when a cache is supplied."""
     matches = PROCESS_RE.findall(process_text)
     if not matches:
         return "-", "-"
 
-    programs = list(dict.fromkeys(program for program, _ in matches))
+    programs = []
+    for program, pid in matches:
+        if titles is not None:
+            if pid not in titles:
+                titles[pid] = process_title(pid)
+            program = titles[pid] or program
+        if program not in programs:
+            programs.append(program)
     pids = list(dict.fromkeys(pid for _, pid in matches))
     return ",".join(pids), ",".join(programs)
 
 
-def parse_ss_line(line: str, *, protocol: str | None = None) -> SocketEntry | None:
+def parse_ss_line(line: str, *, titles: dict[str, str | None] | None = None,
+                  protocol: str | None = None) -> SocketEntry | None:
     """Parse an ss row, supplying the protocol when ss omits that column."""
     parts = line.split(maxsplit=6)
+    # ss omits the protocol column when only TCP or UDP is selected.
     if protocol and parts and parts[0] not in ("tcp", "udp"):
         parts = f"{protocol} {line}".split(maxsplit=6)
     if len(parts) < 6:
@@ -68,7 +88,7 @@ def parse_ss_line(line: str, *, protocol: str | None = None) -> SocketEntry | No
         return None
 
     address, port = endpoint
-    pid, program = parse_processes(parts[6] if len(parts) == 7 else "")
+    pid, program = parse_processes(parts[6] if len(parts) == 7 else "", titles=titles)
     return SocketEntry(
         protocol=protocol,
         state=state,
@@ -116,10 +136,11 @@ def collect_entries(*, tcp: bool, udp: bool, use_sudo: bool = True) -> list[Sock
             ) from error
         raise RuntimeError(f"ss failed: {detail}") from error
 
+    titles: dict[str, str | None] = {}
     protocol = None if tcp and udp else ("tcp" if tcp else "udp")
     entries = filter(
         None,
-        (parse_ss_line(line, protocol=protocol) for line in result.stdout.splitlines()),
+        (parse_ss_line(line, protocol=protocol, titles=titles) for line in result.stdout.splitlines()),
     )
     return sorted(
         entries,
