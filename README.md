@@ -195,8 +195,11 @@ These everyday shortcuts also exist in Nushell:
 | `ports-tcp`, `ports-all` | TCP-only port listing alias, or somo. |
 
 `ports` is a CLI symlink in `~/.config/my-scripts/bin`. Run `ports 8443` to
-search for that port. A `-` in the PID or application column means process
-metadata is unavailable; the socket is still listed.
+search for that port. Socket collection uses `sudo ss` to show PID and
+application details for other users' processes, prompting for your sudo password
+when needed. The picker runs as your normal user. Use `ports --no-sudo` to
+collect without elevation. A `-` in the PID or application column means process
+metadata remains unavailable; the socket is still listed.
 
 `cd` retains its existing change-and-list behavior; bare `cd` goes home.
 In Nushell, Bash, and Zsh, `c` and `l` share the `ls-one-page` helper.

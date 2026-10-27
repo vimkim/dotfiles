@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -53,9 +54,11 @@ def parse_processes(process_text: str) -> tuple[str, str]:
     return ",".join(pids), ",".join(programs)
 
 
-def parse_ss_line(line: str) -> SocketEntry | None:
-    """Parse one line produced by ``ss -H -lntup``."""
+def parse_ss_line(line: str, *, protocol: str | None = None) -> SocketEntry | None:
+    """Parse an ss row, supplying the protocol when ss omits that column."""
     parts = line.split(maxsplit=6)
+    if protocol and parts and parts[0] not in ("tcp", "udp"):
+        parts = f"{protocol} {line}".split(maxsplit=6)
     if len(parts) < 6:
         return None
 
@@ -76,13 +79,21 @@ def parse_ss_line(line: str) -> SocketEntry | None:
     )
 
 
-def collect_entries(*, tcp: bool, udp: bool) -> list[SocketEntry]:
-    """Collect listening TCP and bound UDP sockets from ss."""
-    command = ["ss", "-H", "-l", "-n", "-p"]
+def collect_entries(*, tcp: bool, udp: bool, use_sudo: bool = True) -> list[SocketEntry]:
+    """Collect sockets, elevating only ss to read other users' process details."""
+    ss_path = shutil.which("ss")
+    if ss_path is None:
+        raise RuntimeError("ss is not installed; install the iproute2 package")
+
+    command = [ss_path, "-H", "-l", "-n", "-p"]
     if tcp:
         command.append("-t")
     if udp:
         command.append("-u")
+
+    elevated = use_sudo and os.geteuid() != 0
+    if elevated:
+        command = ["sudo", "--", *command]
 
     try:
         result = subprocess.run(
@@ -92,12 +103,24 @@ def collect_entries(*, tcp: bool, udp: bool) -> list[SocketEntry]:
             check=True,
         )
     except FileNotFoundError as error:
+        if elevated:
+            raise RuntimeError(
+                "sudo is not installed; use --no-sudo to list ports without full process details"
+            ) from error
         raise RuntimeError("ss is not installed; install the iproute2 package") from error
     except subprocess.CalledProcessError as error:
         detail = error.stderr.strip() or f"exit status {error.returncode}"
+        if elevated:
+            raise RuntimeError(
+                f"sudo ss failed: {detail}; use --no-sudo to list ports without full process details"
+            ) from error
         raise RuntimeError(f"ss failed: {detail}") from error
 
-    entries = filter(None, (parse_ss_line(line) for line in result.stdout.splitlines()))
+    protocol = None if tcp and udp else ("tcp" if tcp else "udp")
+    entries = filter(
+        None,
+        (parse_ss_line(line, protocol=protocol) for line in result.stdout.splitlines()),
+    )
     return sorted(
         entries,
         key=lambda entry: (
@@ -167,10 +190,16 @@ def select_entry(entries: Sequence[SocketEntry], query: str) -> SocketEntry | No
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Fuzzily find listening TCP and bound UDP ports.",
+        epilog="Uses sudo for socket collection to show other users' PID and application details.",
     )
     protocols = parser.add_argument_group("protocol filters")
     protocols.add_argument("-t", "--tcp", action="store_true", help="show only TCP")
     protocols.add_argument("-u", "--udp", action="store_true", help="show only UDP")
+    parser.add_argument(
+        "--no-sudo",
+        action="store_true",
+        help="collect without sudo; other users' process details may be unavailable",
+    )
     parser.add_argument(
         "query",
         nargs="*",
@@ -185,12 +214,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     udp = args.udp or not args.tcp
 
     try:
-        entries = collect_entries(tcp=tcp, udp=udp)
+        entries = collect_entries(tcp=tcp, udp=udp, use_sudo=not args.no_sudo)
         if not entries:
             print("No listening TCP or bound UDP ports found.", file=sys.stderr)
             return 0
 
         selected = select_entry(entries, " ".join(args.query))
+    except KeyboardInterrupt:
+        return 130
     except RuntimeError as error:
         print(f"ports: {error}", file=sys.stderr)
         return 1
