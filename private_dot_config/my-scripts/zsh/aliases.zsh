@@ -270,7 +270,6 @@ alias cxg='cd_fzf "$(relative_gitdir)" d'  # Navigate to directories under Git r
 
 alias ai='claude --settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/dotfiles-settings.json" --dangerously-skip-permissions'
 alias aip='ai "read prompt.md and execute"'
-alias codex='codex-safe'
 alias cx='codex --profile dotfiles'
 alias cxp='codex --profile dotfiles "read prompt.md and execute"'
 

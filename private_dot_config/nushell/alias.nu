@@ -192,7 +192,6 @@ alias cyo = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.
 alias cds = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json") --dangerously-skip-permissions
 alias crc = crc.sh
 # alias cx = cl (fd -H -I -t d | fzfm)
-alias codex = codex-safe
 alias cx = codex --profile dotfiles
 alias cxp = codex --profile dotfiles "read prompt.md and execute"
 alias cz = zi

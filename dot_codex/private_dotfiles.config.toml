@@ -14,7 +14,7 @@ status_line_use_colors = true
 leader = "ctrl-x"
 
 [tui.keymap.chat]
-# codex-safe also accepts Ctrl+X Ctrl+C and protects the fixed Ctrl+C quit key.
+# Native shortcut: press Ctrl+X, then C to cancel a turn.
 interrupt_turn = "leader c"
 
 [agents]
