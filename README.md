@@ -187,6 +187,8 @@ The terminal configuration uses Maple Mono. On Fedora, follow
 ### Shared shell shortcuts
 
 Interactive Bash and Zsh load `~/.config/my-scripts/shell/productivity.sh`.
+They leave `ls` unaliased, using the system command's defaults. `l`, `ls-full`,
+and `lsf` use the same listing helper as Nushell.
 These everyday shortcuts also exist in Nushell:
 
 | Command | Behavior |

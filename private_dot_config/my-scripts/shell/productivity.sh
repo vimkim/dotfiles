@@ -1,4 +1,7 @@
 # Shared interactive Bash/Zsh helpers, matching the everyday Nushell shortcuts.
+# Keep ls as the system command after shell frameworks have loaded.
+unalias ls 2>/dev/null || :
+
 # Clear old aliases before defining helpers (also permits re-sourcing).
 unalias c l ll cl cv mc gr fp cf vc y ch chf chd chp vh bm n nr na nc ports 2>/dev/null || :
 

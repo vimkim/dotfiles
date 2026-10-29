@@ -100,11 +100,9 @@ alias vimprofile="$EDITOR ~/.vimrc"
 # System aliases
 
 if command -v eza >/dev/null 2>&1; then
-    alias ls='eza -aF'
     alias la='eza -laF'
     alias lsd='eza -laF --only-dirs'
 else
-    alias ls='ls -aF'
     alias la='ls -lAF'
     alias lsd='ls -lAF --color=auto --group-directories-first | grep --color=never "^d"'
 fi

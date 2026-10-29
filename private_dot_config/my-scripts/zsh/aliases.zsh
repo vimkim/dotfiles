@@ -28,7 +28,6 @@ alias gdbinit="$CHEZ_EDITOR ~/.config/gdb/gdbinit"
 # alias rm='rm -i'
 # alias rm='trash'
 
-alias ls='ls -aF'
 alias la='ls -lAF'
 
 # Function to check if a command exists
@@ -79,9 +78,7 @@ if (( $+commands[eza] )); then
         # fi
         eza --no-user --no-permissions $EZA_LONG_OPTIONS --icons $EZA_SORT_MODIFIED --grid $@
     }
-    alias ls='my-list-long'
 elif (( $+commands[lsd] )); then
-    alias ls='lsd -aF'
     alias la='lsd -laF'
     alias llg='lsd -laF --git'
 fi

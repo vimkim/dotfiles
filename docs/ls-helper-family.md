@@ -5,6 +5,9 @@ They work from Nushell, Bash, and Zsh. Python 3 is required.
 The seven sorted commands require eza, and less enables their automatic paging.
 `ls-one-page`, `ls-full`, and `lsf` use system `ls` when eza is unavailable.
 
+Bash and Zsh keep `ls` unaliased, including after shell framework initialization.
+Use `l` for the bounded preview and `ls-full` or `lsf` for the complete view.
+
 ## Commands
 
 | Command | Default view |
