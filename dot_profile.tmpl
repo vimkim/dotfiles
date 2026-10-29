@@ -12,3 +12,7 @@ case ":$PATH:" in
 esac
 
 {{ template "deeptutor-env.sh" . }}
+
+# >>> Codex installer >>>
+export PATH="{{ .chezmoi.homeDir }}/.local/bin:$PATH"
+# <<< Codex installer <<<
