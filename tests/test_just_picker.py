@@ -1,5 +1,3 @@
-"""Exercise just picker choices with a real justfile."""
-
 import os
 from pathlib import Path
 import shutil

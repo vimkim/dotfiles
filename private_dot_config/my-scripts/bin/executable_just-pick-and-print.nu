@@ -33,7 +33,10 @@ def main [
     let dump = (just -f $justfile -d $justdir --dump --dump-format json | from json)
     let default_recipe = ($dump.recipes | values | where { 'default' in $in.attributes } | get name)
     let ordered = (just -f $justfile -d $justdir --summary --unsorted | split row ' ' | where { $in not-in $default_recipe })
-    let recipes = ($default_recipe | append $ordered | str join (char nl))
+    let aliases = ($dump.aliases | values | where { 'private' not-in $in.attributes and not ($in.name | str starts-with '_') })
+    let recipes = ($default_recipe | append $ordered | each {|recipe|
+        [$recipe] | append ($aliases | where target == $recipe | get name)
+    } | flatten | str join (char nl))
     if ($recipes | is-empty) {
         print -e "No recipes found."
         exit 1
