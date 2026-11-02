@@ -1,0 +1,227 @@
+#!/usr/bin/env python3
+"""Open a GitHub pull request as a full-context red/green diff in the terminal.
+
+usage: prv [-n] <github-pr-url> [nvim|nav|delta]
+       prv --prune
+
+modes:
+  nvim   (default) diffview.nvim side by side, whole files, every PR file.
+         A #diff-<sha256> anchor in the URL selects that file first.
+  nav    diffnav (file tree + delta) with whole-file context.
+  delta  delta pager with whole-file context.
+
+Run prv inside a local clone of the pull request's repository. prv fetches the
+PR head and its base branch into refs/prv/<number>/{head,base} through the
+matching remote. It does not change branches or the working tree. The diff
+starts at the merge base, as on GitHub.
+
+environment:
+  PRV_CONTEXT  git diff context option for nav and delta. Default: -U100000
+               (whole file). Use -W to show each changed function instead.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+from dataclasses import dataclass
+from urllib.parse import urlsplit
+
+MODES = ("nvim", "nav", "delta")
+PAGERS = {"nav": "diffnav", "delta": "delta"}
+REF_ROOT = "refs/prv"
+DEFAULT_CONTEXT = "-U100000"
+
+PR_PATH = re.compile(r"/([^/]+)/([^/]+)/pull/(\d+)(?:/|$)")
+# "#diff-<sha256 of path>", optionally followed by a line anchor such as R12 or L3-R5.
+FILE_ANCHOR = re.compile(r"diff-([0-9a-f]{64})(?:[LR]\d+(?:-[LR]\d+)?)?")
+GITHUB_REMOTE = re.compile(
+    r"(?:https?://(?:[^@/]+@)?github\.com/|ssh://git@github\.com/|git@github\.com:)"
+    r"([^/]+/[^/]+?)(?:\.git)?/?"
+)
+
+
+class PrvError(Exception):
+    """prv cannot continue; the message tells the user why."""
+
+    status = 1
+
+
+class UsageError(PrvError):
+    """The input or the current directory is wrong for this command."""
+
+    status = 2
+
+
+@dataclass(frozen=True)
+class PullRequest:
+    repo: str  # "owner/name", as written in the URL
+    number: int
+    anchor: str | None  # sha256 of a file path, from "#diff-<sha256>"
+
+
+def parse_pr_url(url: str) -> PullRequest:
+    url = url.strip()
+    parts = urlsplit(url if "://" in url else f"https://{url}")
+    match = PR_PATH.match(parts.path)
+    if parts.netloc.lower() not in ("github.com", "www.github.com") or not match:
+        raise UsageError(f"not a GitHub pull request URL: {url}")
+    anchor = FILE_ANCHOR.fullmatch(parts.fragment)
+    return PullRequest(f"{match[1]}/{match[2]}", int(match[3]),
+                       anchor[1] if anchor else None)
+
+
+def remote_repo(url: str) -> str | None:
+    """Return the lowercase "owner/name" of a GitHub remote URL, else None."""
+    match = GITHUB_REMOTE.fullmatch(url.strip())
+    return match[1].lower() if match else None
+
+
+def run(command: list[str], stdin: str | None = None) -> str:
+    try:
+        result = subprocess.run(command, input=stdin, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise PrvError(f"command not found: {command[0]}") from None
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"exit status {result.returncode}"
+        raise PrvError(f"{shlex.join(command)} failed: {detail}")
+    return result.stdout
+
+
+def git(*args: str) -> str:
+    return run(["git", *args])
+
+
+def find_remote(repo: str) -> str:
+    """Return the name of the remote whose URL points at repo."""
+    try:
+        git("rev-parse", "--git-dir")
+    except PrvError:
+        raise UsageError(f"run prv inside a clone of {repo}") from None
+    try:
+        config = git("config", "--get-regexp", r"^remote\..*\.url$")
+    except PrvError:
+        config = ""  # no remotes at all
+    for line in config.splitlines():
+        key, _, url = line.partition(" ")
+        if remote_repo(url) == repo.lower():
+            return key[len("remote."):-len(".url")]
+    raise UsageError(f"no remote of this repository points at github.com/{repo}")
+
+
+def base_branch(pr: PullRequest) -> str:
+    return run(["gh", "pr", "view", str(pr.number), "-R", pr.repo,
+                "--json", "baseRefName", "-q", ".baseRefName"]).strip()
+
+
+def fetch(remote: str, pr: PullRequest, base: str) -> tuple[str, str]:
+    """Fetch the PR head and base branch; return (merge base, head ref)."""
+    head_ref = f"{REF_ROOT}/{pr.number}/head"
+    base_ref = f"{REF_ROOT}/{pr.number}/base"
+    # An empty --refmap keeps fetch from also moving remote-tracking branches.
+    git("fetch", "--quiet", "--refmap=", remote,
+        f"+refs/pull/{pr.number}/head:{head_ref}",
+        f"+refs/heads/{base}:{base_ref}")
+    return git("merge-base", base_ref, head_ref).strip(), head_ref
+
+
+def anchored_path(anchor: str, merge_base: str, head: str) -> str | None:
+    """Return the changed file whose GitHub anchor (sha256 of its path) matches."""
+    changed = git("diff", "--name-only", "-z", merge_base, head).split("\0")
+    for path in filter(None, changed):
+        if hashlib.sha256(path.encode()).hexdigest() == anchor:
+            return path
+    return None
+
+
+def viewer_commands(mode: str, merge_base: str, head: str,
+                    path: str | None, context: str) -> list[list[str]]:
+    """Return the viewer as a pipeline: one command, or git diff | pager."""
+    if mode == "nvim":
+        command = f"DiffviewOpen {merge_base}..{head}"
+        if path:
+            command += f" --selected-file={path}"
+        return [["nvim", "-c", command]]
+    diff = ["git", "diff", "--no-color", context, merge_base, head]
+    if path:
+        diff += ["--", path]
+    return [diff, [PAGERS[mode]]]
+
+
+def launch(pipeline: list[list[str]]) -> int:
+    for command in pipeline:
+        if shutil.which(command[0]) is None:
+            raise PrvError(f"command not found: {command[0]}")
+    if len(pipeline) == 1:
+        os.execvp(pipeline[0][0], pipeline[0])
+    producer, pager = pipeline
+    diff = subprocess.Popen(producer, stdout=subprocess.PIPE)
+    status = subprocess.run(pager, stdin=diff.stdout).returncode
+    diff.stdout.close()  # a pager that quit early ends git diff with SIGPIPE
+    diff.wait()
+    return status
+
+
+def prune() -> int:
+    """Delete every ref under refs/prv/ and return how many were deleted."""
+    refs = git("for-each-ref", "--format=%(refname)", f"{REF_ROOT}/").split()
+    if refs:
+        run(["git", "update-ref", "--stdin"],
+            stdin="".join(f"delete {ref}\n" for ref in refs))
+    return len(refs)
+
+
+def parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="prv", usage=argparse.SUPPRESS, description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("url", nargs="?", help="GitHub pull request URL")
+    parser.add_argument("mode", nargs="?", choices=MODES, default="nvim",
+                        help="viewer (default: nvim)")
+    parser.add_argument("-n", "-p", "--print", dest="print_only", action="store_true",
+                        help="fetch, then print the viewer command instead of running it")
+    parser.add_argument("--prune", action="store_true",
+                        help="delete all refs under refs/prv/ and exit")
+    args = parser.parse_args(argv)
+    if not args.prune and not args.url:
+        parser.error("a pull request URL is required")
+    return args
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    try:
+        if args.prune:
+            print(f"prv: deleted {prune()} refs under {REF_ROOT}/", file=sys.stderr)
+            return 0
+        pr = parse_pr_url(args.url)
+        remote = find_remote(pr.repo)
+        base = base_branch(pr)
+        print(f"prv: fetching {pr.repo}#{pr.number} (base {base}) from {remote}",
+              file=sys.stderr)
+        merge_base, head = fetch(remote, pr, base)
+        path = anchored_path(pr.anchor, merge_base, head) if pr.anchor else None
+        if pr.anchor and not path:
+            print("prv: the URL's file anchor matches no changed file; showing all",
+                  file=sys.stderr)
+        pipeline = viewer_commands(args.mode, merge_base, head, path,
+                                   os.environ.get("PRV_CONTEXT", DEFAULT_CONTEXT))
+        if args.print_only:
+            print(" | ".join(shlex.join(command) for command in pipeline))
+            return 0
+        return launch(pipeline)
+    except PrvError as error:
+        print(f"prv: {error}", file=sys.stderr)
+        return error.status
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())
