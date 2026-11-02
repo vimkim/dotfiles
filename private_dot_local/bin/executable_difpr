@@ -1,0 +1,16 @@
+#!/bin/sh
+
+usage() {
+    printf '%s\n' 'Usage: difpr <pull-request-url>'
+}
+
+if [ "$#" -ne 1 ] || [ -z "${1:-}" ]; then
+    usage >&2
+    exit 2
+fi
+
+case "$1" in
+    -h|--help) usage; exit 0 ;;
+esac
+
+exec npx difit --pr "$1" --no-open --host 192.168.4.2

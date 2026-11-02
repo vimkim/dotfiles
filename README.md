@@ -301,6 +301,13 @@ and symlinks while reporting locally changed targets as successful skips.
 Run it without arguments to use chezmoi's configured source checkout; `--source`
 selects a different checkout. See [usage and verification](docs/chezmoi-apply-unmodified.md).
 
+### View a pull request with difit
+
+Run `difpr https://github.com/CUBRID/cubrid/pull/8299` to view a pull request
+with difit. The wrapper runs `npx difit --pr <url> --no-open --host 192.168.4.2`,
+so the server listens on that address without opening a browser.
+It requires Node.js and `npx` and lives in `~/.local/bin`.
+
 ### Share HTML from GitHub
 
 Run `gh-html /path/to/repository/report.html` to print a rendered githack URL.
