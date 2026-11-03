@@ -14,6 +14,10 @@
 
 Remote Linux server with slow X11 forwarding: never launch GUI programs, even with `DISPLAY` set. Disable browser auto-opening. Use headless automation, device-code logins, URLs, file paths, terminal output, or SSH-forwarded local servers.
 
+## Shell commands
+
+- Build every `rm` target from literal paths and `${NAME:?}` expansions, as in `rm -rf "${dir:?}/${name:?}"`. Claude Code's dangerous-rm check stops for human approval on any other variable or `$(...)` target, even in bypass mode, and the agent waits until someone answers.
+
 ## Git workflow
 
 1. Inspect the branch, worktrees, and status. Preserve unrelated changes throughout.
