@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+"""Compare installed user skill folders with a portable chezmoi inventory."""
+
+import argparse
+import errno
+import json
+import os
+from pathlib import Path
+import stat
+import sys
+
+
+LOCATIONS = ("shared", "claude", "codex")
+
+
+def roots():
+    home = Path.home()
+    return {
+        "shared": home / ".agents/skills",
+        "claude": Path(os.environ.get("CLAUDE_CONFIG_DIR") or home / ".claude") / "skills",
+        "codex": Path(os.environ.get("CODEX_HOME") or home / ".codex") / "skills",
+    }
+
+
+def default_manifest():
+    configured = os.environ.get("XDG_CONFIG_HOME", "")
+    base = Path(configured) if os.path.isabs(configured) else Path.home() / ".config"
+    return base / "my-scripts/skills.json"
+
+
+def validate_name(name):
+    if (
+        not isinstance(name, str)
+        or not name
+        or name.startswith(".")
+        or name == "synced"
+        or any(character in "/\\" or ord(character) < 32 or ord(character) == 127 for character in name)
+    ):
+        raise ValueError(f"invalid skill directory name: {name!r}")
+
+
+def load_manifest(path):
+    with path.open(encoding="utf-8") as stream:
+        document = json.load(stream)
+    if (
+        not isinstance(document, dict)
+        or set(document) != {"version", "skills"}
+        or type(document["version"]) is not int
+        or document["version"] != 1
+    ):
+        raise ValueError(f"{path}: expected version 1 and a skills object")
+    skills = document["skills"]
+    if not isinstance(skills, dict) or set(skills) != set(LOCATIONS):
+        raise ValueError(f"{path}: skills must contain shared, claude, and codex lists")
+    expected = set()
+    for location, names in skills.items():
+        if not isinstance(names, list):
+            raise ValueError(f"{path}: {location} must be a list")
+        for name in names:
+            validate_name(name)
+            entry = (location, name)
+            if entry in expected:
+                raise ValueError(f"{path}: duplicate skill {name!r} in {location}")
+            expected.add(entry)
+    return expected
+
+
+def inspect_skill(path, required):
+    try:
+        if not stat.S_ISDIR(path.stat().st_mode):
+            return "entry is not a directory" if required else None
+        skill = path / "SKILL.md"
+        try:
+            mode = skill.stat().st_mode
+        except (FileNotFoundError, NotADirectoryError):
+            if skill.is_symlink():
+                return "SKILL.md has a missing symlink target"
+            return "SKILL.md is missing" if required else None
+        if not stat.S_ISREG(mode):
+            return "SKILL.md is not a regular file"
+        with skill.open("rb") as stream:
+            stream.read(1)
+        return ""
+    except (FileNotFoundError, NotADirectoryError):
+        return "missing symlink target or entry disappeared during scan"
+    except OSError as error:
+        if error.errno == errno.ELOOP:
+            return "symlink loop"
+        raise
+
+
+def scan(expected):
+    installed, broken = set(), {}
+    for location, root in roots().items():
+        try:
+            children = list(root.iterdir())
+        except FileNotFoundError:
+            if root.is_symlink():
+                raise ValueError(f"{root}: skill root has a missing symlink target")
+            continue
+        for path in children:
+            if path.name.startswith(".") or path.name == "synced":
+                continue
+            entry = (location, path.name)
+            reason = inspect_skill(path, entry in expected)
+            if reason is None:
+                continue
+            validate_name(path.name)
+            if reason:
+                broken[entry] = reason
+            else:
+                installed.add(entry)
+    return installed, broken
+
+
+def manifest(installed):
+    return {
+        "version": 1,
+        "skills": {
+            location: sorted(name for place, name in installed if place == location)
+            for location in LOCATIONS
+        },
+    }
+
+
+def report(label, entries):
+    for name in sorted({name for _, name in entries}):
+        locations = [location for location in LOCATIONS if (location, name) in entries]
+        print(f"{label}: {name} [{', '.join(locations)}]")
+
+
+def report_broken(broken, stream):
+    for location, name in sorted(broken, key=lambda entry: (entry[1], LOCATIONS.index(entry[0]))):
+        print(f"Broken: {name} [{location}] ({broken[location, name]})", file=stream)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--capture", action="store_true", help="print installed skills as JSON; write no files")
+    mode.add_argument("--manifest", type=Path, help="compare against this manifest instead of the deployed list")
+    args = parser.parse_args(argv)
+    try:
+        expected = set() if args.capture else load_manifest(
+            (args.manifest or default_manifest()).expanduser()
+        )
+        installed, broken = scan(expected)
+        if args.capture:
+            if broken:
+                report_broken(broken, sys.stderr)
+                raise ValueError("capture aborted: repair broken entries before saving the inventory")
+            print(json.dumps(manifest(installed), ensure_ascii=False, indent=2))
+            return 0
+        missing = expected - installed - broken.keys()
+        extra = installed - expected
+        report("Missing", missing)
+        report("Extra", extra)
+        report_broken(broken, sys.stdout)
+        if missing or extra or broken:
+            print(f"{len(missing)} missing, {len(extra)} extra, {len(broken)} broken locations.")
+            return 1
+        print(f"Matched {len({name for _, name in installed})} skills in {len(installed)} locations.")
+        return 0
+    except (OSError, ValueError) as error:
+        print(f"my-skill-check: {error}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -339,6 +339,41 @@ Run `dirpick` to open the terminal workbench. In Nushell, run `dp` to also chang
 the shell directory with Ctrl-G. The default scope is Project root. F7 switches
 between Project root and the launch CWD. See [installation and updates](docs/dirpick.md).
 
+### Compare installed skills across computers
+
+Run `my-skill-check` after applying these dotfiles on another computer. It compares
+installed user skills with `~/.config/my-scripts/skills.json` and reports missing,
+extra, and broken entries by skill name and location. It uses Python 3 and its
+standard library, stays offline, and leaves files unchanged.
+
+```bash
+my-skill-check
+my-skill-check --manifest /path/to/skills.json
+my-skill-check --capture > /tmp/skills.json
+```
+
+The inventory records direct skill directories in `~/.agents/skills`,
+`${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills`, and
+`${CODEX_HOME:-$HOME/.codex}/skills`. Each directory needs a readable `SKILL.md`.
+The checker preserves separate locations for shared skills and Claude symlinks,
+so a missing Claude link is reported even when its shared skill still exists.
+Hidden directories, nested collections, the `synced` container, bundled skills,
+and plugin caches are excluded. Skill contents and versions are outside this check.
+
+Exit code `0` means every location matches, `1` means differences or broken
+entries, and `2` means invalid configuration or a scan failure. A missing skills
+root counts as empty. An unreadable root or skill file fails the scan.
+`--capture` prints sorted JSON and refuses broken entries. Configuration defaults
+to `${XDG_CONFIG_HOME:-$HOME/.config}/my-scripts/skills.json`, with a relative
+`XDG_CONFIG_HOME` treated as unset.
+
+To change the saved inventory, capture it into `/tmp/skills.json` on the computer
+with your intended skill collection. Review it against
+`private_dot_config/my-scripts/skills.json` in your task checkout, then copy the
+reviewed file into that source path. Commit, merge, and deploy through the normal
+chezmoi workflow. Keep the deployed inventory unchanged until deployment.
+`daily-update` maintains installations independently of this saved list.
+
 ### Daily AI-toolchain upkeep
 
 `daily-update` (Python 3.11+, in `~/.config/my-scripts/bin`) updates dotfiles,
