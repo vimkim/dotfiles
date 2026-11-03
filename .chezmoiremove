@@ -3,3 +3,6 @@
 
 # Container shortcuts now use aliases to descriptive commands.
 .config/my-scripts/bin/lzps
+
+# Retired Codex daily usage hook. hooks.json no longer runs it.
+.codex/hooks/daily-usage.py
