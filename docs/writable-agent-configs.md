@@ -29,7 +29,7 @@ Codex keeps project trust, hook approvals, plugin choices, and UI state.
 
 Claude and Codex default files contain preferences that the repository controls.
 They exclude application-maintained plugin choices and approval records.
-The Codex profile enables the existing hooks and goals features.
+Codex 0.166.0 enables hooks and goals by default, so the Codex profile does not set them.
 
 ## Launch the agents
 
