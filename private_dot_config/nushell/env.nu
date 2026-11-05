@@ -10,3 +10,11 @@ if ('/mnt/nvme/data-5' | path type) == 'dir' {
         $env.TMPDIR = '/mnt/nvme/data-5/tmp'
     } catch { }
 }
+
+# Claude Code cannot run its Bash tool in nu, so it auto-picks zsh before bash.
+# Pin bash for Claude Code only; SHELL and the login shell stay nu.
+$env.CLAUDE_CODE_SHELL = (
+    ['/home/linuxbrew/.linuxbrew/bin/bash' '/bin/bash']
+    | where {|p| $p | path exists }
+    | first
+)
