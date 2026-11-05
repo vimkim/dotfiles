@@ -374,6 +374,15 @@ reviewed file into that source path. Commit, merge, and deploy through the norma
 chezmoi workflow. Keep the deployed inventory unchanged until deployment.
 `daily-update` maintains installations independently of this saved list.
 
+### Claude accounts that share one config directory
+
+Run `ai2` … `ai5` to start Claude Code as other subscription accounts while every
+account shares `~/.claude`. `ai` and `ai1` keep the login stored by `/login`.
+Add an account with `claude-account add 2`, which runs `claude setup-token` and
+saves the token outside the chezmoi source in `~/.local/state/claude-accounts`.
+Token sessions lose Remote Control and claude.ai connectors. See
+[usage and limits](docs/claude-account.md).
+
 ### Daily AI-toolchain upkeep
 
 `daily-update` (Python 3.11+, in `~/.config/my-scripts/bin`) updates dotfiles,
