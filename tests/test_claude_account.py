@@ -1,0 +1,160 @@
+"""Exercise claude-account slots and the ai/aiN shortcuts without a real Claude login."""
+
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "private_dot_config/my-scripts/bin/executable_claude-account"
+TOKEN = "sk-ant-oat01-test-secret"
+# Records how it was called so tests can see argv and the token Claude would receive.
+STUB = f"""#!{sys.executable}
+import json, os, sys
+with open(os.environ["STUB_LOG"], "a") as handle:
+    handle.write(json.dumps({{"name": os.path.basename(sys.argv[0]), "args": sys.argv[1:],
+                              "token": os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")}}) + "\\n")
+"""
+
+
+class ClaudeAccountTest(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="claude-account-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.bin = self.root / "bin"
+        self.bin.mkdir()
+        self.log = self.root / "log.jsonl"
+        self.accounts = self.root / "state/claude-accounts"
+        self.config = self.root / "config dir"
+        (self.bin / "claude").write_text(STUB)
+        (self.bin / "claude").chmod(0o755)
+        shutil.copyfile(SCRIPT, self.bin / "claude-account")
+        (self.bin / "claude-account").chmod(0o755)
+        self.env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}",
+                    "STUB_LOG": str(self.log), "XDG_STATE_HOME": str(self.root / "state"),
+                    "CLAUDE_CONFIG_DIR": str(self.config)}
+        for name in ("CLAUDE_ACCOUNTS_DIR", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+            self.env.pop(name, None)
+
+    def account(self, *args, stdin=""):
+        return subprocess.run([str(self.bin / "claude-account"), *args], env=self.env,
+                              input=stdin, capture_output=True, text=True, timeout=10)
+
+    def calls(self):
+        if not self.log.exists():
+            return []
+        return [json.loads(line) for line in self.log.read_text().splitlines()]
+
+    def add_slot(self, slot, *extra):
+        result = self.account("add", str(slot), "--paste", *extra, stdin=TOKEN + "\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn(TOKEN, result.stdout + result.stderr)
+
+    def test_slot_one_uses_stored_login_and_drops_an_inherited_token(self):
+        self.env["CLAUDE_CODE_OAUTH_TOKEN"] = "inherited-from-ai2"
+        result = self.account("run", "1", "-c", "two words")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        settings = str(self.config / "dotfiles-settings.json")
+        self.assertEqual(self.calls(), [{"name": "claude", "token": None, "args": [
+            "--settings", settings, "--dangerously-skip-permissions", "-c", "two words"]}])
+
+    def test_settings_fall_back_to_home_claude_when_config_dir_is_empty(self):
+        self.env["CLAUDE_CONFIG_DIR"] = ""
+        self.env["HOME"] = str(self.root / "home")
+        self.assertEqual(self.account("run", "1").returncode, 0)
+        self.assertEqual(self.calls()[0]["args"][1],
+                         str(self.root / "home/.claude/dotfiles-settings.json"))
+
+    def test_added_slot_passes_its_token_and_stays_private(self):
+        self.add_slot(2, "--label", "personal")
+        stored = self.accounts / "2.json"
+        self.assertEqual(stored.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.accounts.stat().st_mode & 0o777, 0o700)
+        self.assertEqual(json.loads(stored.read_text())["token"], TOKEN)
+        self.assertEqual(self.account("run", "2", "--resume").returncode, 0)
+        call = self.calls()[0]
+        self.assertEqual(call["token"], TOKEN)
+        self.assertEqual(call["args"][-1], "--resume")
+
+    def test_missing_slot_fails_before_launching_claude(self):
+        result = self.account("run", "3")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("claude-account add 3", result.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_add_runs_setup_token_without_an_inherited_token(self):
+        self.env["CLAUDE_CODE_OAUTH_TOKEN"] = "inherited"
+        result = self.account("add", "2", stdin=TOKEN + "\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls(), [{"name": "claude", "args": ["setup-token"], "token": None}])
+
+    def test_rejects_bad_slots_and_tokens(self):
+        for args in (("run", "0"), ("add", "x", "--paste"), ("add", "2", "--bogus")):
+            with self.subTest(args=args):
+                self.assertEqual(self.account(*args).returncode, 2)
+        self.assertEqual(self.account("add", "2", "--paste", stdin="two words\n").returncode, 1)
+        self.assertFalse((self.accounts / "2.json").exists())
+
+    def test_list_shows_slots_without_tokens_and_remove_deletes(self):
+        self.add_slot(2, "--label", "personal")
+        listing = self.account("list")
+        self.assertEqual(listing.returncode, 0, listing.stderr)
+        self.assertIn("ai1  /login", listing.stdout)
+        self.assertIn("ai2  token", listing.stdout)
+        self.assertIn("personal", listing.stdout)
+        self.assertNotIn(TOKEN, listing.stdout)
+        self.assertEqual(self.account("remove", "2").returncode, 0)
+        self.assertEqual(self.account("run", "2").returncode, 1)
+
+    def test_status_reports_the_slot_login(self):
+        self.add_slot(2)
+        self.assertEqual(self.account("status", "2").returncode, 0)
+        self.assertEqual(self.calls(), [{"name": "claude", "token": TOKEN,
+                                         "args": ["auth", "status", "--text"]}])
+
+    def test_shortcuts_in_bash_zsh_and_nushell(self):
+        # Replace the launcher with a recorder; only the shortcut routing is under test.
+        (self.bin / "claude-account").write_text(STUB)
+        sources = {
+            "bash": ROOT / "dot_bashrc",
+            "zsh": ROOT / "private_dot_config/my-scripts/zsh/aliases.zsh",
+            "nu": ROOT / "private_dot_config/nushell/alias.nu",
+        }
+        prefixes = {"bash": ("alias ai=", "for _ai_slot", "alias aip="),
+                    "zsh": ("alias ai=", "for _ai_slot", "alias aip="),
+                    "nu": ("alias ai =", *(f"alias ai{n} =" for n in range(1, 6)), "alias aip =")}
+        expected = [["run", "1"], ["run", "1"], ["run", "5", "a b"],
+                    ["run", "1", "read prompt.md and execute"]]
+        for shell, source in sources.items():
+            executable = shutil.which(shell)
+            if not executable:
+                continue
+            with self.subTest(shell=shell):
+                self.log.unlink(missing_ok=True)
+                lines = [line for line in source.read_text().splitlines()
+                         if line.startswith(prefixes[shell])]
+                self.assertEqual(len(lines), len(prefixes[shell]), lines)
+                aliases = self.root / f"aliases.{shell}"
+                aliases.write_text("\n".join(lines) + "\n")
+                if shell == "nu":
+                    command = [executable, "--no-config-file", "-c",
+                               f"source '{aliases}'\nai\nai1\nai5 'a b'\naip"]
+                else:
+                    flags = ["--noprofile", "--norc"] if shell == "bash" else ["-f"]
+                    setup = "shopt -s expand_aliases\n" if shell == "bash" else ""
+                    command = [executable, *flags, "-c",
+                               f"{setup}source '{aliases}'\neval 'ai; ai1; ai5 \"a b\"; aip'"]
+                result = subprocess.run(command, env=self.env, capture_output=True,
+                                        text=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual([call["args"] for call in self.calls()], expected)
+
+
+if __name__ == "__main__":
+    unittest.main()

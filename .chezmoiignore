@@ -10,3 +10,7 @@ nushell-clip-defect.md
 tests/**
 tools
 .gitattributes
+
+# claude-account tokens are secrets; keep `chezmoi add` from capturing them.
+.local/state/claude-accounts
+.local/state/claude-accounts/**

@@ -183,7 +183,13 @@ $env.config.keybindings = (
 ###############################################################################
 
 alias ali = nvim ~/.local/share/chezmoi/private_dot_config/nushell/alias.nu
-alias ai = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json") --dangerously-skip-permissions
+# ai = account slot 1 (/login); aiN = slot N (token). See: claude-account list
+alias ai = claude-account run 1
+alias ai1 = claude-account run 1
+alias ai2 = claude-account run 2
+alias ai3 = claude-account run 3
+alias ai4 = claude-account run 4
+alias ai5 = claude-account run 5
 alias aip = ai "read prompt.md and execute"
 alias battery = do { upower -e | fzf --preview='upower -i {}' }
 alias c = cl

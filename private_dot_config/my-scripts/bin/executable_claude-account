@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+
+"""Run Claude Code as one of several subscription accounts that share one config directory.
+
+Slot 1 uses the credentials stored by `/login`. Any slot, including slot 1,
+can instead hold a long-lived `claude setup-token` token. Tokens live in
+$CLAUDE_ACCOUNTS_DIR (default: $XDG_STATE_HOME/claude-accounts), outside the
+chezmoi source, and reach Claude only through CLAUDE_CODE_OAUTH_TOKEN.
+"""
+
+import datetime
+import getpass
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+TOKEN_VAR = "CLAUDE_CODE_OAUTH_TOKEN"
+# These outrank CLAUDE_CODE_OAUTH_TOKEN, so a slot token would be silently ignored.
+OVERRIDING_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
+TOKEN_DAYS = 365
+USAGE = """usage: claude-account run [SLOT] [CLAUDE_ARGS...]
+       claude-account add SLOT [--label TEXT] [--paste]
+       claude-account list
+       claude-account status [SLOT]
+       claude-account remove SLOT"""
+
+
+def fail(message: str, code: int = 1) -> None:
+    print(f"claude-account: {message}", file=sys.stderr)
+    raise SystemExit(code)
+
+
+def accounts_dir() -> Path:
+    if os.environ.get("CLAUDE_ACCOUNTS_DIR"):
+        return Path(os.environ["CLAUDE_ACCOUNTS_DIR"])
+    state = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local/state")
+    return Path(state) / "claude-accounts"
+
+
+def slot_file(slot: int) -> Path:
+    return accounts_dir() / f"{slot}.json"
+
+
+def parse_slot(text: str) -> int:
+    if not text.isdigit() or int(text) < 1:
+        fail(f"slot must be a positive integer, got {text!r}", 2)
+    return int(text)
+
+
+def load(slot: int) -> dict | None:
+    try:
+        return json.loads(slot_file(slot).read_text())
+    except FileNotFoundError:
+        return None
+
+
+def slot_env(slot: int) -> dict:
+    env = dict(os.environ)
+    # Never inherit another slot's token, e.g. when launched from inside an ai2 session.
+    env.pop(TOKEN_VAR, None)
+    account = load(slot)
+    if account:
+        env[TOKEN_VAR] = account["token"]
+    elif slot != 1:
+        fail(f"slot {slot} has no token; run: claude-account add {slot}")
+    for name in OVERRIDING_VARS:
+        if env.get(name):
+            print(f"claude-account: warning: {name} is set and overrides the slot {slot} login",
+                  file=sys.stderr)
+    return env
+
+
+def run(args: list[str]) -> None:
+    slot = 1
+    if args and args[0].isdigit():
+        slot = parse_slot(args.pop(0))
+    env = slot_env(slot)
+    config = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+    command = ["claude", "--settings", str(config / "dotfiles-settings.json"),
+               "--dangerously-skip-permissions", *args]
+    try:
+        os.execvpe(command[0], command, env)
+    except FileNotFoundError:
+        fail("claude not found on PATH", 127)
+
+
+def read_token() -> str:
+    if sys.stdin.isatty():
+        token = getpass.getpass("Paste the token (input hidden): ")
+    else:
+        token = sys.stdin.readline()
+    token = token.strip()
+    if not token or any(char.isspace() for char in token):
+        fail("expected one token without spaces")
+    if not token.startswith("sk-ant-oat"):
+        print("claude-account: warning: token does not start with sk-ant-oat", file=sys.stderr)
+    return token
+
+
+def add(args: list[str]) -> None:
+    if not args:
+        fail(USAGE, 2)
+    slot = parse_slot(args.pop(0))
+    label, paste = "", False
+    while args:
+        flag = args.pop(0)
+        if flag == "--paste":
+            paste = True
+        elif flag == "--label" and args:
+            label = args.pop(0)
+        else:
+            fail(f"unknown add option {flag!r}\n{USAGE}", 2)
+    if not paste:
+        print(f"Sign in as the slot {slot} account in the browser (a private window helps).",
+              file=sys.stderr)
+        env = dict(os.environ)
+        env.pop(TOKEN_VAR, None)
+        if subprocess.run(["claude", "setup-token"], env=env).returncode:
+            fail("claude setup-token failed")
+    account = {"token": read_token(), "label": label,
+               "added": datetime.date.today().isoformat()}
+    directory = accounts_dir()
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    directory.chmod(0o700)
+    temporary = directory / f".{slot}.json.tmp"
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "w") as handle:
+        json.dump(account, handle)
+    os.replace(temporary, slot_file(slot))
+    print(f"Saved slot {slot} to {slot_file(slot)}. Launch it with: ai{slot}")
+
+
+def list_slots() -> None:
+    slots = {1: None}
+    for path in accounts_dir().glob("*.json"):
+        if path.stem.isdigit():
+            slots[int(path.stem)] = json.loads(path.read_text())
+    today = datetime.date.today()
+    for slot in sorted(slots):
+        account = slots[slot]
+        if account is None:
+            print(f"ai{slot}  /login credentials (full features)")
+            continue
+        expires = datetime.date.fromisoformat(account["added"]) + datetime.timedelta(TOKEN_DAYS)
+        left = (expires - today).days
+        note = "  RENEW SOON" if left < 30 else ""
+        label = f"  {account['label']}" if account.get("label") else ""
+        print(f"ai{slot}  token, added {account['added']}, ~{left} days left{note}{label}")
+
+
+def status(args: list[str]) -> None:
+    slot = parse_slot(args[0]) if args else 1
+    raise SystemExit(subprocess.run(["claude", "auth", "status", "--text"],
+                                    env=slot_env(slot)).returncode)
+
+
+def remove(args: list[str]) -> None:
+    if not args:
+        fail(USAGE, 2)
+    slot = parse_slot(args[0])
+    try:
+        slot_file(slot).unlink()
+    except FileNotFoundError:
+        fail(f"slot {slot} has no token")
+    print(f"Removed slot {slot}. Deleting the file does not revoke the token itself.")
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    commands = {"run": run, "add": add, "status": status, "remove": remove,
+                "list": lambda _: list_slots()}
+    if not args or args[0] not in commands:
+        fail(USAGE, 2)
+    commands[args[0]](args[1:])
+
+
+if __name__ == "__main__":
+    main()

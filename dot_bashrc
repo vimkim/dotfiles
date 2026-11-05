@@ -128,7 +128,9 @@ elif command -v fdfind >/dev/null 2>&1; then
     _fd_cmd=fdfind
 fi
 
-alias ai='claude --settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/dotfiles-settings.json" --dangerously-skip-permissions'
+# ai = account slot 1 (/login); aiN = slot N (token). See: claude-account list
+alias ai='claude-account run 1'
+for _ai_slot in 1 2 3 4 5; do alias "ai$_ai_slot=claude-account run $_ai_slot"; done; unset _ai_slot
 alias aip='ai "read prompt.md and execute"'
 alias cx='codex --profile dotfiles'
 alias cxp='codex --profile dotfiles "read prompt.md and execute"'
