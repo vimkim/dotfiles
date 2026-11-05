@@ -83,7 +83,7 @@ status_indicators = "symbols"
 [ui.sidebar.agents]
 row_gap = 0
 rows = [
-    ["state_icon", "agent", "state_text"],
+    ["state_icon", "$pane_id", "agent", "state_text"],
     ["machine", "workspace"],
     ["tab", "pane"],
     ["terminal_title_stripped"],

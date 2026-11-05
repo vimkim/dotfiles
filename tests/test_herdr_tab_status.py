@@ -61,6 +61,7 @@ def fixture():
             {"tab_id": "w1:t2", "agent": "claude", "agent_status": "blocked"},
             {"tab_id": "w1:t3", "agent": "codex", "agent_status": "unknown"},
         ],
+        "panes": [],
     }
 
 
@@ -209,10 +210,11 @@ class HerdrServer:
                 "type": "tab_info",
                 "tab": copy.deepcopy(self.tab(params["tab_id"])),
             }
-        if method == "workspace.report_metadata":
+        if method in ("workspace.report_metadata", "pane.report_metadata"):
             self.assert_metadata_params(params)
+            target_key = "pane_id" if method.startswith("pane.") else "workspace_id"
             tokens = self.metadata.setdefault(
-                (params["workspace_id"], params["source"]), {}
+                (params[target_key], params["source"]), {}
             )
             for key, value in params["tokens"].items():
                 if value is None:
@@ -225,7 +227,9 @@ class HerdrServer:
     @staticmethod
     def assert_metadata_params(params):
         # The real API clears keys by null values; it has no clear_tokens field.
-        assert set(params) <= {"workspace_id", "source", "tokens", "ttl_ms", "seq"}
+        assert set(params) <= {
+            "workspace_id", "pane_id", "source", "tokens", "ttl_ms", "seq"
+        }
         assert len(params["tokens"]) <= 16
         assert all(
             value is None or isinstance(value, str)
@@ -716,6 +720,24 @@ class HerdrTabStatusTest(unittest.TestCase):
             self.server.metadata[("w1", "user:git-dirty")], {"git_dirty": "*"}
         )
 
+    def test_pane_ids_are_published_and_stop_preserves_other_pane_metadata(self):
+        self.server.snapshot["panes"] = [
+            {"pane_id": "w1:p2"}, {"pane_id": "w2A:p7"}
+        ]
+        self.server.metadata[("w1:p2", "user:other")] = {"summary": "review"}
+        self.success("once")
+        for pane_id in ("w1:p2", "w2A:p7"):
+            self.assertEqual(
+                self.server.metadata[(pane_id, "user:tab-status")],
+                {"pane_id": pane_id},
+            )
+        self.success("stop")
+        for pane_id in ("w1:p2", "w2A:p7"):
+            self.assertEqual(self.server.metadata[(pane_id, "user:tab-status")], {})
+        self.assertEqual(
+            self.server.metadata[("w1:p2", "user:other")], {"summary": "review"}
+        )
+
     def test_original_names_and_cleanup_are_scoped_to_the_session_socket(self):
         self.success("once")
         with HerdrServer(self.root / "other.sock") as other:
@@ -850,6 +872,7 @@ class HerdrTabStatusTest(unittest.TestCase):
                 self.wait_for(lambda: self.server.labels()[0].startswith("1 "))
 
     def test_cached_timer_updates_renew_metadata_without_snapshot_reads(self):
+        self.server.snapshot["panes"] = [{"pane_id": "w1:p1"}]
         self.directory.mkdir(parents=True)
         module = runpy.run_path(str(HELPER))
         updater = module["Updater"](str(self.server.path), self.directory)
@@ -868,6 +891,7 @@ class HerdrTabStatusTest(unittest.TestCase):
         self.assertEqual(self.server.labels()[0], "1 [▶ Codex 1m]")
         self.assertEqual(self.request_count("session.snapshot"), 1)
         self.assertEqual(self.request_count("workspace.report_metadata"), 2)
+        self.assertEqual(self.request_count("pane.report_metadata"), 2)
 
     def test_start_is_singleton_and_stop_restores_names_without_blocking_shell(self):
         started = time.monotonic()

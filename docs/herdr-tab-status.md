@@ -61,7 +61,15 @@ Sidebar summaries normally include agent types. If there are too many for the
 13 available summary rows, they switch to compact markers such as `1▶12m 2!3m 3—`.
 If those also exceed the rows, the final line points to the tab bar for the rest.
 Missing summary rows disappear. The agent panel also shows state, workspace,
-tab/pane names, and the terminal activity title.
+tab/pane names, and the terminal activity title. Its first row includes the full
+pane ID, for example `▶ w1:p2 · Codex · working`. This ID can target commands such
+as `herdr agent read w1:p2` and `herdr agent prompt w1:p2 "Review the diff"`.
+
+The updater publishes each live pane's current ID as `$pane_id` metadata. A pane
+moved to another workspace receives its new workspace-qualified ID on the next
+lifecycle update. Ordinary shell panes also receive the token, so an agent that
+starts later can display it immediately. Publishing metadata does not rename the
+pane or take over the agent's semantic state.
 
 ## Time in the current state
 
@@ -132,7 +140,8 @@ It ignores its own tab renames and pane updates that change only presentation.
 An idle session has no periodic `session.snapshot` requests. Local timers update
 elapsed-time labels and renew sidebar metadata from the cached snapshot.
 Sidebar metadata refreshes on change and every 20 seconds, with a 60-second
-expiration. The worker sends tab renames only when labels change.
+expiration. This applies to both workspace summaries and pane IDs. The worker
+sends tab renames only when labels change.
 
 The main thread blocks until a Herdr notification, a stop request, or the next
 elapsed-time or metadata deadline. It does not check a stop file or wake at fixed

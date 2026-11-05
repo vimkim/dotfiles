@@ -105,6 +105,41 @@ class HerdrTabStatusNativeTest(unittest.TestCase):
         snapshot = self.request("session.snapshot", {})["snapshot"]
         return [tab for tab in snapshot["tabs"] if tab["workspace_id"] == workspace_id]
 
+    def test_native_pane_ids_follow_moves_and_preserve_other_metadata(self):
+        created = self.request("workspace.create", {"label": "ids", "focus": False})
+        pane_id = created["root_pane"]["pane_id"]
+        self.request("pane.report_agent", {
+            "pane_id": pane_id, "source": "user:test",
+            "agent": "codex", "state": "working",
+        })
+        self.request("pane.report_metadata", {
+            "pane_id": pane_id, "source": "user:other",
+            "tokens": {"summary": "review"},
+        })
+        updater = self.module["Updater"](self.socket_path, self.directory)
+        updater.update()
+        pane = self.request("pane.get", {"pane_id": pane_id})["pane"]
+        self.assertEqual(pane["tokens"]["pane_id"], pane_id)
+        self.assertEqual(pane["agent_status"], "working")
+
+        moved = self.request("pane.move", {
+            "pane_id": pane_id,
+            "destination": {"type": "new_workspace", "label": "moved"},
+            "focus": False,
+        })["move_result"]["pane"]["pane_id"]
+        self.assertNotEqual(moved, pane_id)
+        updater.update()
+        pane = self.request("pane.get", {"pane_id": moved})["pane"]
+        self.assertEqual(pane["tokens"]["pane_id"], moved)
+        self.assertEqual(pane["tokens"]["summary"], "review")
+        self.assertEqual(pane["agent_status"], "working")
+
+        updater.restore()
+        pane = self.request("pane.get", {"pane_id": moved})["pane"]
+        self.assertNotIn("pane_id", pane["tokens"])
+        self.assertEqual(pane["tokens"]["summary"], "review")
+        self.assertEqual(pane["agent_status"], "working")
+
     def test_native_reorder_and_close_use_positions_instead_of_creation_numbers(self):
         created = self.request("workspace.create", {"label": "test", "focus": False})
         workspace_id = created["workspace"]["workspace_id"]

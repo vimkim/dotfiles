@@ -398,7 +398,11 @@ def build_plan(snapshot, saved_tabs, now=None):
         for index, row in enumerate(rows, 1):
             tokens[f"tab_states_{index}"] = row
         workspaces[workspace["workspace_id"]] = tokens
-    return {"tabs": tabs, "workspaces": workspaces}
+    panes = {
+        pane["pane_id"]: {"pane_id": pane["pane_id"]}
+        for pane in snapshot.get("panes", [])
+    }
+    return {"tabs": tabs, "workspaces": workspaces, "panes": panes}
 
 
 class Updater:
@@ -510,24 +514,28 @@ class Updater:
                 )
                 current_tabs[tab["tab_id"]]["label"] = tab["label"]
         now = time.monotonic()
-        for workspace_id, tokens in plan["workspaces"].items():
-            previous, published_at = self.published.get(workspace_id, (None, 0))
-            if tokens != previous or now - published_at >= HEARTBEAT_SECONDS:
-                request(
-                    self.socket_path,
-                    "workspace.report_metadata",
-                    {
-                        "workspace_id": workspace_id,
-                        "source": SOURCE,
-                        "tokens": tokens,
-                        "ttl_ms": TTL_MS,
-                    },
-                )
-                self.published[workspace_id] = (tokens, now)
+        live_targets = set()
+        for scope in ("workspace", "pane"):
+            for target_id, tokens in plan[f"{scope}s"].items():
+                key = (scope, target_id)
+                live_targets.add(key)
+                previous, published_at = self.published.get(key, (None, 0))
+                if tokens != previous or now - published_at >= HEARTBEAT_SECONDS:
+                    request(
+                        self.socket_path,
+                        f"{scope}.report_metadata",
+                        {
+                            f"{scope}_id": target_id,
+                            "source": SOURCE,
+                            "tokens": tokens,
+                            "ttl_ms": TTL_MS,
+                        },
+                    )
+                    self.published[key] = (tokens, now)
         self.published = {
             key: value
             for key, value in self.published.items()
-            if key in plan["workspaces"]
+            if key in live_targets
         }
         return plan
 
@@ -549,6 +557,16 @@ class Updater:
                     "workspace_id": workspace["workspace_id"],
                     "source": SOURCE,
                     "tokens": dict.fromkeys(TOKEN_NAMES),
+                },
+            )
+        for pane in snapshot.get("panes", []):
+            request(
+                self.socket_path,
+                "pane.report_metadata",
+                {
+                    "pane_id": pane["pane_id"],
+                    "source": SOURCE,
+                    "tokens": {"pane_id": None},
                 },
             )
         self.tabs = {}
