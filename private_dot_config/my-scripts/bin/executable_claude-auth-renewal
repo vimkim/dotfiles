@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Shell startup reads only this cache. Credential parsing runs in the background.
+directory=${XDG_CACHE_HOME:-$HOME/.cache}/claude-auth-renewal
+worker=${BASH_SOURCE[0]%/*}/../claude_auth_renewal.py
+case ${1-} in
+    --refresh) exec python3 "$worker" --force ;;
+    '') ;;
+    *) printf '%s\n' 'usage: claude-auth-renewal [--refresh]' >&2; exit 2 ;;
+esac
+
+generated=0
+if [[ -r "$directory/notice" ]]; then
+    exec 8< "$directory/notice"
+    IFS= read -r generated <&8 || generated=0
+fi
+[[ $generated =~ ^[0-9]{1,12}$ ]] || generated=0
+if (( EPOCHSECONDS - generated >= 3600 )); then
+    python3 "$worker" </dev/null >/dev/null 2>&1 &
+fi
+
+[[ $generated != 0 ]] || exit 0
+IFS= read -r message <&8 || exit 0
+[[ -n $message ]] || exit 0
+
+# One lock and acknowledgement serve both shells and simultaneous Herdr panes.
+exec 9> "$directory/notice.lock"
+flock -n 9 || exit 0
+printf -v today '%(%F)T' -1
+acknowledged=
+if [[ -r "$directory/seen" ]]; then
+    IFS= read -r acknowledged < "$directory/seen" || :
+fi
+[[ $acknowledged != "$today" ]] || exit 0
+printf '%s\n' "$today" > "$directory/seen" || exit 0
+printf '%s\n' "$message"
+while IFS= read -r message <&8; do
+    printf '%s\n' "$message"
+done

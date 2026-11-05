@@ -352,6 +352,14 @@ if $env.TERM_PROGRAM? == "cursor" {
 }
 
 ###############################################################################
+# Claude renewal reminders share a daily acknowledgement with Bash.
+###############################################################################
+
+if $nu.is-interactive and (which claude-auth-renewal | is-not-empty) {
+  do { ^claude-auth-renewal } err> /dev/null
+}
+
+###############################################################################
 # Daily PR focus digest — printed once per day on first interactive shell.
 # Source file refreshed by systemd timer ~/.config/systemd/user/pr-digest.timer.
 ###############################################################################

@@ -50,6 +50,49 @@ claude-account run 2 -c    # what `ai2 -c` runs
 `list` prints `RENEW SOON` when a token has less than 30 days left. Run
 `claude-account add N` again to replace it.
 
+## Shell renewal reminders
+
+Interactive Bash logins and Nushell panes print a renewal reminder at most once
+per local calendar day, shared across both shells. Stored logins warn from seven
+days before the earliest possible expiry, and continue warning after expiry.
+Unknown or unreadable renewal metadata also produces a daily reminder.
+
+The reminder checks `~/.claude`, sibling `~/.claude*` directories containing
+credentials, and `CLAUDE_CONFIG_DIR` when set. Each login names its config
+directory and, when available, its email. A settings file passed with `--settings`
+does not select another credential directory. Slots in `CLAUDE_ACCOUNTS_DIR`,
+or its default state directory, are checked separately.
+
+For Claude Code 2.1.318, the expiry window runs from three days before
+`claudeAiOauth.refreshTokenExpiresAt` through that timestamp. `claude auth status`
+reports the latest bound as `loginExpiresAt`. For example, a latest bound of
+`2026-12-05T04:09:39.261Z` means a December 2–5 UTC window. The short-lived access
+token's `expiresAt` is not the login deadline. Refreshing a token preserves or
+shortens the stored deadline. A new `claude auth login` replaces it.
+
+Setup-token slots warn within 30 days of their estimated expiry, one year after
+the recorded `added` date. This is an estimate because pasted tokens may be older.
+Renew those slots with `claude-account add N`. `claude auth login` renews the
+stored login, not a slot's setup-token.
+
+`claude-auth-renewal` reads a text cache in
+`${XDG_CACHE_HOME:-$HOME/.cache}/claude-auth-renewal/notice`. If the cache is missing
+or at least an hour old, it starts a background Python worker. The worker reads
+local metadata, writes the cache atomically, and uses a lock to combine concurrent
+requests. Neither path runs Claude, contacts an API, or stores tokens in the cache.
+On the first run, a missing cache is ready for the next shell. A new login can
+leave a reminder stale for up to an hour.
+
+To refresh immediately after a login, run `claude-auth-renewal --refresh`.
+The command updates the cache without printing a reminder or changing the daily
+acknowledgement. The shell hooks do no work in non-interactive shells.
+
+The three-day window comes from the installed 2.1.318 bundle, whose
+`chunk-gdkqhwa0.js` reads the stored refresh expiry and whose warning code
+subtracts three days. The [official 2.1.318 changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21318)
+documents `loginExpiresAt` and the ten-day warning threshold. Future Claude
+versions may change the window. See [verification results](claude-auth-renewal-verification.md).
+
 ## How it works
 
 One config directory stores one `/login` credential, so switching accounts

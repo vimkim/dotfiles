@@ -54,6 +54,11 @@ if [[ -z ${BASH_FULL_INIT:-} && ( ! -t 0 || ! -t 1 ) ]]; then
     return
 fi
 
+# Renewal dates come from a cache; stale metadata is refreshed in the background.
+if command -v claude-auth-renewal >/dev/null 2>&1; then
+    claude-auth-renewal 2>/dev/null || :
+fi
+
 # Source global definitions for human Bash sessions.
 if [ -f /etc/bashrc ]; then
     . /etc/bashrc
