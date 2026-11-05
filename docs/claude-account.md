@@ -72,7 +72,8 @@ variable for the launched process only:
   servers still work. The official docs ask for `claude auth login` before
   `--cloud` and `--teleport`, so use slot 1 for those.
 - Tokens last about one year.
-- `remove` deletes the local file only. It does not revoke the token.
+- `remove` deletes the local file only. It does not revoke the token; see
+  [If a token leaks](#if-a-token-leaks).
 - Some files under `~/.claude` and in `~/.claude.json` cache per-account or
   per-organization data, for example `policy-limits.json`,
   `remote-settings.json`, and `oauthAccount`. Accounts from different
@@ -91,6 +92,38 @@ The token directory is outside the chezmoi source. `.chezmoiignore` also lists
 it, so `chezmoi add` prints `warning: ignoring .local/state/claude-accounts/...`
 and adds nothing. With a custom `CLAUDE_ACCOUNTS_DIR`, keep the directory out of
 chezmoi yourself.
+
+## If a token leaks
+
+Anyone holding the token can send model requests on that account until it
+expires or is revoked. Revoke it on claude.ai, signed in as that slot's account:
+
+1. Open **Settings > Claude Code** and click the trash icon next to the token.
+   The Help Center says this covers tokens created with `setup-token`.
+2. If the token is not listed there, open **Settings > Account > Active
+   sessions** and choose **Terminate** for that session.
+3. As a last resort, **Log out** of all sessions in **Settings > Account**
+   (web only). This also signs out the slot's other Claude sessions.
+
+Then run `claude-account add N` to mint and store a new token. Deleting the
+local file, `claude-account remove`, `/logout`, and `claude auth logout` do not
+revoke a setup-token token. The docs do not say whether a password change
+revokes it. For a Team or Enterprise seat, an admin can remove the member, but
+the docs do not say whether that revokes existing tokens.
+
+The token can leak through these paths on this machine:
+
+- Claude Code transcripts are plaintext under `~/.claude/projects/`. Run
+  `claude-account add` in a normal shell, not as `! claude-account add` inside
+  a Claude session, because `claude setup-token` prints the token.
+- Terminal scrollback and multiplexer logs keep the printed token.
+- An `ai2` session holds the token in `CLAUDE_CODE_OAUTH_TOKEN`. Commands that
+  session runs may inherit it (not verified), so avoid printing the environment
+  there.
+
+Sources: [Log out of all active sessions](https://support.claude.com/en/articles/10310342-how-do-i-log-out-of-all-active-sessions),
+[Managing your active sessions](https://support.claude.com/en/articles/13124001-managing-your-active-sessions),
+[Plaintext storage](https://code.claude.com/docs/en/claude-directory.md).
 
 ## More slots
 

@@ -164,7 +164,8 @@ def remove(args: list[str]) -> None:
         slot_file(slot).unlink()
     except FileNotFoundError:
         fail(f"slot {slot} has no token")
-    print(f"Removed slot {slot}. Deleting the file does not revoke the token itself.")
+    print(f"Removed slot {slot}. This does not revoke the token; delete it at "
+          "claude.ai Settings > Claude Code.")
 
 
 def main() -> None:
