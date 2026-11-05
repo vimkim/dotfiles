@@ -16,3 +16,12 @@ esac
 # >>> Codex installer >>>
 export PATH="{{ .chezmoi.homeDir }}/.local/bin:$PATH"
 # <<< Codex installer <<<
+
+# mise tools through shims for every login shell (sh, bash, nu-less sessions).
+# Shims work without `mise activate`, so non-interactive shells see them too.
+if [ -d "$HOME/.local/share/mise/shims" ]; then
+    case ":$PATH:" in
+        *":$HOME/.local/share/mise/shims:"*) ;;
+        *) export PATH="$HOME/.local/share/mise/shims:$PATH" ;;
+    esac
+fi

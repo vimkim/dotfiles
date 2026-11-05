@@ -33,6 +33,11 @@ path_prepend \
     "$HOME/.config/my-scripts/bin" \
     "$HOME/.cargo/bin"
 
+# mise tools (go, node, python, testkit, ...) through shims, ahead of the
+# rest of PATH as in nu. Shims need no prompt hook, so non-interactive
+# `bash -c` and agent shells resolve the configured versions too.
+path_prepend "$HOME/.local/share/mise/shims"
+
 # Claude Code picks zsh before bash when SHELL is not bash or zsh. Pin bash
 # for Claude Code only; nu's env.nu does the same for nu-launched sessions.
 for claude_code_bash in /home/linuxbrew/.linuxbrew/bin/bash /bin/bash; do
