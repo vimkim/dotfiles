@@ -33,6 +33,16 @@ path_prepend \
     "$HOME/.config/my-scripts/bin" \
     "$HOME/.cargo/bin"
 
+# Claude Code picks zsh before bash when SHELL is not bash or zsh. Pin bash
+# for Claude Code only; nu's env.nu does the same for nu-launched sessions.
+for claude_code_bash in /home/linuxbrew/.linuxbrew/bin/bash /bin/bash; do
+    if [ -x "$claude_code_bash" ]; then
+        export CLAUDE_CODE_SHELL="$claude_code_bash"
+        break
+    fi
+done
+unset claude_code_bash
+
 # If not running interactively, don't do anything else.
 case $- in
 *i*) ;;
