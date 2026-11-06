@@ -18,7 +18,9 @@ STUB = f"""#!{sys.executable}
 import json, os, sys
 with open(os.environ["STUB_LOG"], "a") as handle:
     handle.write(json.dumps({{"name": os.path.basename(sys.argv[0]), "args": sys.argv[1:],
-                              "token": os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")}}) + "\\n")
+                              "token": os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"),
+                              "api": os.environ.get("ANTHROPIC_API_KEY"),
+                              "auth": os.environ.get("ANTHROPIC_AUTH_TOKEN")}}) + "\\n")
 """
 
 
@@ -56,18 +58,22 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn(TOKEN, result.stdout + result.stderr)
 
-    def test_slot_one_uses_stored_login_and_drops_an_inherited_token(self):
+    def test_slot_zero_uses_stored_login_and_drops_inherited_credentials(self):
         self.env["CLAUDE_CODE_OAUTH_TOKEN"] = "inherited-from-ai2"
-        result = self.account("run", "1", "-c", "two words")
+        self.env["ANTHROPIC_API_KEY"] = "inherited-api"
+        self.env["ANTHROPIC_AUTH_TOKEN"] = "inherited-auth"
+        self.accounts.mkdir(parents=True)
+        (self.accounts / "0.json").write_text(json.dumps({"token": TOKEN}))
+        result = self.account("run", "0", "-c", "two words")
         self.assertEqual(result.returncode, 0, result.stderr)
         settings = str(self.config / "dotfiles-settings.json")
-        self.assertEqual(self.calls(), [{"name": "claude", "token": None, "args": [
+        self.assertEqual(self.calls(), [{"name": "claude", "token": None, "api": None, "auth": None, "args": [
             "--settings", settings, "--dangerously-skip-permissions", "-c", "two words"]}])
 
     def test_settings_fall_back_to_home_claude_when_config_dir_is_empty(self):
         self.env["CLAUDE_CONFIG_DIR"] = ""
         self.env["HOME"] = str(self.root / "home")
-        self.assertEqual(self.account("run", "1").returncode, 0)
+        self.assertEqual(self.account("run", "0").returncode, 0)
         self.assertEqual(self.calls()[0]["args"][1],
                          str(self.root / "home/.claude/dotfiles-settings.json"))
 
@@ -90,12 +96,14 @@ class ClaudeAccountTest(unittest.TestCase):
 
     def test_add_runs_setup_token_without_an_inherited_token(self):
         self.env["CLAUDE_CODE_OAUTH_TOKEN"] = "inherited"
+        self.env["ANTHROPIC_API_KEY"] = "inherited"
+        self.env["ANTHROPIC_AUTH_TOKEN"] = "inherited"
         result = self.account("add", "2", stdin=TOKEN + "\n")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.calls(), [{"name": "claude", "args": ["setup-token"], "token": None}])
+        self.assertEqual(self.calls(), [{"name": "claude", "args": ["setup-token"], "token": None, "api": None, "auth": None}])
 
     def test_rejects_bad_slots_and_tokens(self):
-        for args in (("run", "0"), ("add", "x", "--paste"), ("add", "2", "--bogus")):
+        for args in (("add", "0", "--paste"), ("remove", "0"), ("add", "x", "--paste"), ("add", "2", "--bogus")):
             with self.subTest(args=args):
                 self.assertEqual(self.account(*args).returncode, 2)
         self.assertEqual(self.account("add", "2", "--paste", stdin="two words\n").returncode, 1)
@@ -126,11 +134,11 @@ class ClaudeAccountTest(unittest.TestCase):
             "zsh": ROOT / "private_dot_config/my-scripts/zsh/aliases.zsh",
             "nu": ROOT / "private_dot_config/nushell/alias.nu",
         }
-        prefixes = {"bash": ("alias ai=", "for _ai_slot", "alias aip="),
-                    "zsh": ("alias ai=", "for _ai_slot", "alias aip="),
-                    "nu": ("alias ai =", *(f"alias ai{n} =" for n in range(1, 6)), "alias aip =")}
-        expected = [["run", "1"], ["run", "1"], ["run", "5", "a b"],
-                    ["run", "1", "read prompt.md and execute"]]
+        prefixes = {"bash": ("alias ai=", "alias ai0=", "alias ai-status=", "for _ai_slot", "alias aip="),
+                    "zsh": ("alias ai=", "alias ai0=", "alias ai-status=", "for _ai_slot", "alias aip="),
+                    "nu": ("alias ai =", "alias ai0 =", "alias ai-status =", *(f"alias ai{n} =" for n in range(1, 6)), "alias aip =")}
+        expected = [["run", "0"], ["run", "0"], ["run", "1"], ["run", "2"], ["run", "5", "a b"],
+                    ["run", "0", "read prompt.md and execute"], ["status", "--all"]]
         for shell, source in sources.items():
             executable = shutil.which(shell)
             if not executable:
@@ -144,12 +152,12 @@ class ClaudeAccountTest(unittest.TestCase):
                 aliases.write_text("\n".join(lines) + "\n")
                 if shell == "nu":
                     command = [executable, "--no-config-file", "-c",
-                               f"source '{aliases}'\nai\nai1\nai5 'a b'\naip"]
+                               f"source '{aliases}'\nai\nai0\nai1\nai2\nai5 'a b'\naip\nai-status"]
                 else:
                     flags = ["--noprofile", "--norc"] if shell == "bash" else ["-f"]
                     setup = "shopt -s expand_aliases\n" if shell == "bash" else ""
                     command = [executable, *flags, "-c",
-                               f"{setup}source '{aliases}'\neval 'ai; ai1; ai5 \"a b\"; aip'"]
+                               f"{setup}source '{aliases}'\neval 'ai; ai0; ai1; ai2; ai5 \"a b\"; aip; ai-status'"]
                 result = subprocess.run(command, env=self.env, capture_output=True,
                                         text=True, timeout=10)
                 self.assertEqual(result.returncode, 0, result.stderr)

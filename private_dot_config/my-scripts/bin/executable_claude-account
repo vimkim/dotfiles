@@ -2,8 +2,8 @@
 
 """Run Claude Code as one of several subscription accounts that share one config directory.
 
-Slot 1 uses the credentials stored by `/login`. Any slot, including slot 1,
-can instead hold a long-lived `claude setup-token` token. Tokens live in
+Slot 0 uses the credentials stored by `/login`. Positive slots hold
+long-lived `claude setup-token` tokens. Tokens live in
 $CLAUDE_ACCOUNTS_DIR (default: $XDG_STATE_HOME/claude-accounts), outside the
 chezmoi source, and reach Claude only through CLAUDE_CODE_OAUTH_TOKEN.
 """
@@ -43,9 +43,9 @@ def slot_file(slot: int) -> Path:
     return accounts_dir() / f"{slot}.json"
 
 
-def parse_slot(text: str) -> int:
-    if not text.isdigit() or int(text) < 1:
-        fail(f"slot must be a positive integer, got {text!r}", 2)
+def parse_slot(text: str, *, positive_only: bool = False) -> int:
+    if not text.isascii() or not text.isdigit() or (positive_only and int(text) == 0):
+        fail(f"invalid slot {text!r}", 2)
     return int(text)
 
 
@@ -56,24 +56,32 @@ def load(slot: int) -> dict | None:
         return None
 
 
-def slot_env(slot: int) -> dict:
+def clean_env() -> dict:
     env = dict(os.environ)
-    # Never inherit another slot's token, e.g. when launched from inside an ai2 session.
-    env.pop(TOKEN_VAR, None)
-    account = load(slot)
-    if account:
-        env[TOKEN_VAR] = account["token"]
-    elif slot != 1:
+    for name in (TOKEN_VAR, *OVERRIDING_VARS):
+        env.pop(name, None)
+    return env
+
+
+def slot_env(slot: int) -> dict:
+    env = clean_env()
+    if slot == 0:
+        return env
+    try:
+        account = load(slot)
+        token = account.get("token") if isinstance(account, dict) else None
+    except (OSError, ValueError):
+        fail(f"slot {slot} has an unreadable or invalid token file")
+    if account is None:
         fail(f"slot {slot} has no token; run: claude-account add {slot}")
-    for name in OVERRIDING_VARS:
-        if env.get(name):
-            print(f"claude-account: warning: {name} is set and overrides the slot {slot} login",
-                  file=sys.stderr)
+    if not isinstance(token, str) or not token or any(c.isspace() for c in token):
+        fail(f"slot {slot} has an unreadable or invalid token file")
+    env[TOKEN_VAR] = token
     return env
 
 
 def run(args: list[str]) -> None:
-    slot = 1
+    slot = 0
     if args and args[0].isdigit():
         slot = parse_slot(args.pop(0))
     env = slot_env(slot)
@@ -102,7 +110,7 @@ def read_token() -> str:
 def add(args: list[str]) -> None:
     if not args:
         fail(USAGE, 2)
-    slot = parse_slot(args.pop(0))
+    slot = parse_slot(args.pop(0), positive_only=True)
     label, paste = "", False
     while args:
         flag = args.pop(0)
@@ -115,8 +123,7 @@ def add(args: list[str]) -> None:
     if not paste:
         print(f"Sign in as the slot {slot} account in the browser (a private window helps).",
               file=sys.stderr)
-        env = dict(os.environ)
-        env.pop(TOKEN_VAR, None)
+        env = clean_env()
         if subprocess.run(["claude", "setup-token"], env=env).returncode:
             fail("claude setup-token failed")
     account = {"token": read_token(), "label": label,
@@ -159,7 +166,7 @@ def status(args: list[str]) -> None:
 def remove(args: list[str]) -> None:
     if not args:
         fail(USAGE, 2)
-    slot = parse_slot(args[0])
+    slot = parse_slot(args[0], positive_only=True)
     try:
         slot_file(slot).unlink()
     except FileNotFoundError:

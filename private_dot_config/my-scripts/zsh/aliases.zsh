@@ -268,8 +268,10 @@ alias cxx='FD_OPS=(-H -I --type d --type l) cd_fzf .'          # Navigate to dir
 alias cxh='cd_fzf "$HOME" d'   # Navigate to directories under $HOME
 alias cxg='cd_fzf "$(relative_gitdir)" d'  # Navigate to directories under Git root
 
-# ai = account slot 1 (/login); aiN = slot N (token). See: claude-account list
-alias ai='claude-account run 1'
+# ai = /login; aiN = slot N (token). See: claude-account list
+alias ai='claude-account run 0'
+alias ai0='claude-account run 0'
+alias ai-status='claude-account status --all'
 for _ai_slot in 1 2 3 4 5; do alias "ai$_ai_slot=claude-account run $_ai_slot"; done; unset _ai_slot
 alias aip='ai "read prompt.md and execute"'
 alias cx='codex --profile dotfiles'

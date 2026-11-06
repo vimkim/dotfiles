@@ -183,8 +183,10 @@ $env.config.keybindings = (
 ###############################################################################
 
 alias ali = nvim ~/.local/share/chezmoi/private_dot_config/nushell/alias.nu
-# ai = account slot 1 (/login); aiN = slot N (token). See: claude-account list
-alias ai = claude-account run 1
+# ai = /login; aiN = slot N (token). See: claude-account list
+alias ai = claude-account run 0
+alias ai0 = claude-account run 0
+alias ai-status = claude-account status --all
 alias ai1 = claude-account run 1
 alias ai2 = claude-account run 2
 alias ai3 = claude-account run 3
