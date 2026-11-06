@@ -148,7 +148,6 @@ elif command -v fdfind >/dev/null 2>&1; then
     _fd_cmd=fdfind
 fi
 
-# ai = /login; aiN = slot N (token). See: claude-account list
 alias ai='claude-account run 0'
 alias ai0='claude-account run 0'
 alias ai-status='claude-account status --all'

@@ -10,9 +10,10 @@ Bash, Zsh, and Nushell define the same shortcuts:
 
 | Command | Account |
 | --- | --- |
-| `ai`, `ai1` | Slot 1: the login stored by `/login` (full features). |
-| `ai2` … `ai5` | Slot N: the token saved with `claude-account add N`. |
+| `ai`, `ai0` | Slot 0: the login stored by `/login` (full features). |
+| `ai1` … `ai5` | Slot N: the token saved with `claude-account add N`. |
 | `aip` | `ai "read prompt.md and execute"`. |
+| `ai-status` | All account nicknames, usernames, credential states, and available usage. |
 
 Each shortcut runs `claude-account run N`, which starts:
 
@@ -26,29 +27,77 @@ Arguments pass through unchanged, so `ai2 -c` and `ai3 --resume` work.
 ## Add an account
 
 ```sh
-claude-account add 2 --label personal
+claude-account add 1 --label personal --username you@example.com
 ```
 
 1. The command runs `claude setup-token` and prints a sign-in URL.
-2. Open the URL in a browser signed in to the account for slot 2. A private
+2. Open the URL in a browser signed in to the account for slot 1. A private
    window avoids picking up the account that is already signed in.
 3. Paste the printed token at the hidden prompt.
-4. Start the account with `ai2`.
+4. Start the account with `ai1`.
 
 `--paste` skips `claude setup-token` and only reads a token you already have.
 Without a terminal, the token is read from the first line of stdin.
 
+Run account setup in a normal shell, outside an agent session, because
+`claude setup-token` prints the token. On a remote server, open the printed URL
+in your local browser. The report labels a supplied username as user-provided;
+the setup-token cannot verify that identity.
+
 ## Manage accounts
 
 ```sh
-claude-account list        # slots, label, and days left on each token
-claude-account status 2    # what `claude auth status` reports for slot 2
+claude-account list        # local slots, nicknames, and estimated token lifetimes
+claude-account status     # stored /login account and available usage
+claude-account status 2   # the saved team account
+claude-account status --all
+claude-account label 2 --username team@example.com
+claude-account label 2 --label team-common
 claude-account remove 2    # delete slot 2's token file
 claude-account run 2 -c    # what `ai2 -c` runs
 ```
 
 `list` prints `RENEW SOON` when a token has less than 30 days left. Run
 `claude-account add N` again to replace it.
+
+`label` updates only the supplied nickname or username. It preserves the token,
+the original `added` date, and other account metadata. Slot 0 is reserved for
+`/login`; `add`, `label`, and `remove` accept positive slots only. A `0.json`
+file cannot override the login.
+
+## Read the account report
+
+`ai-status` reports slots 0, 1, and 2, plus other saved numbered slots. A missing
+or unreadable account stays visible without hiding the other rows. Each row
+shows a nickname, a username and its source, the credential state, and any
+available five-hour and weekly allowance remaining.
+
+Slot 0 uses the nickname `/login`. Its username comes from the selected Claude
+configuration's login metadata and is marked as cached. Positive slots use their
+saved `label` as the nickname and their optional `username` as user-provided
+identity. Missing identity appears as unknown. The report does not copy the
+shared login identity onto token accounts.
+
+With `CLAUDE_CONFIG_DIR` set, login metadata comes from `.claude.json` inside
+that directory. Without it, the report reads `~/.claude.json`.
+
+Configured credentials have not necessarily been accepted by the server. The
+report distinguishes local credential presence from a successful usage request.
+It does not send a model request or refresh, replace, or renew credentials.
+
+For the stored login, the command makes one HTTPS request with a five-second
+timeout to Claude's private OAuth usage endpoint. This endpoint is an
+implementation detail and can change. When available, the report shows
+`100 - utilization` as the remaining percentage, the reset time, and the fetch
+time. Missing or invalid readings appear as unavailable, separately for each
+window. Permission errors, network errors, and rate limits show an explanation
+without exposing server response bodies or credentials.
+
+Long-lived setup-tokens have inference permission without the profile permission
+needed for usage retrieval. Their rows show usage as unavailable and make no
+usage request. A token's estimated expiration date is separate from subscription
+usage remaining. The report keeps all rows when a usage lookup fails; its exit
+status is not an authentication health check.
 
 ## Shell renewal reminders
 
@@ -100,20 +149,24 @@ with `/login` asks for a new browser sign-in every time. Claude Code ranks
 `CLAUDE_CODE_OAUTH_TOKEN` above the stored login, so `claude-account` sets that
 variable for the launched process only:
 
-- A slot with a saved token passes that token.
-- Slot 1 without a token uses the stored `/login`. Any inherited
-  `CLAUDE_CODE_OAUTH_TOKEN` is removed first, so `ai1` launched inside an `ai2`
-  session still uses the stored login.
-- Any other slot without a token fails before starting Claude.
-- `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_API_KEY` outrank the slot token. The
-  command warns when either is set.
+- Slot 0 always uses the stored `/login`.
+- Every positive slot requires its own saved token and passes that token.
+- A missing positive slot fails before starting Claude.
+- The launcher removes inherited `CLAUDE_CODE_OAUTH_TOKEN`,
+  `ANTHROPIC_AUTH_TOKEN`, and `ANTHROPIC_API_KEY` before selecting credentials.
+  Token setup uses the same environment cleanup.
+
+The launcher selects the initial credential. Claude Code's shared configuration
+can still supply a stored-login fallback after an environment token fails. The
+wrapper does not guarantee account isolation for the full session. Check
+Claude's `/status` if account selection changes unexpectedly.
 
 ## Limits
 
 - `claude setup-token` tokens can only make model requests. Remote Control and
-  claude.ai connectors do not work in `ai2` and higher. Locally configured MCP
+  claude.ai connectors do not work in `ai1` and higher. Locally configured MCP
   servers still work. The official docs ask for `claude auth login` before
-  `--cloud` and `--teleport`, so use slot 1 for those.
+  `--cloud` and `--teleport`, so use `ai` or `ai0` for those.
 - Tokens last about one year.
 - `remove` deletes the local file only. It does not revoke the token; see
   [If a token leaks](#if-a-token-leaks).
@@ -186,6 +239,7 @@ Run the focused checks:
 
 ```sh
 python3 -m unittest discover -s tests -p test_claude_account.py -v
+python3 -m unittest discover -s tests -p test_claude_auth_renewal.py -v
 ```
 
 Official references:

@@ -1,29 +1,25 @@
 #!/usr/bin/env python3
 
-"""Run Claude Code as one of several subscription accounts that share one config directory.
-
-Slot 0 uses the credentials stored by `/login`. Positive slots hold
-long-lived `claude setup-token` tokens. Tokens live in
-$CLAUDE_ACCOUNTS_DIR (default: $XDG_STATE_HOME/claude-accounts), outside the
-chezmoi source, and reach Claude only through CLAUDE_CODE_OAUTH_TOKEN.
-"""
-
 import datetime
 import getpass
+import http.client
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
+import urllib.error
+import urllib.request
 
 TOKEN_VAR = "CLAUDE_CODE_OAUTH_TOKEN"
-# These outrank CLAUDE_CODE_OAUTH_TOKEN, so a slot token would be silently ignored.
 OVERRIDING_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
 TOKEN_DAYS = 365
 USAGE = """usage: claude-account run [SLOT] [CLAUDE_ARGS...]
-       claude-account add SLOT [--label TEXT] [--paste]
+       claude-account add SLOT [--label TEXT] [--username TEXT] [--paste]
+       claude-account label SLOT [--label TEXT] [--username TEXT]
        claude-account list
-       claude-account status [SLOT]
+       claude-account status [SLOT | --all]
        claude-account remove SLOT"""
 
 
@@ -43,17 +39,34 @@ def slot_file(slot: int) -> Path:
     return accounts_dir() / f"{slot}.json"
 
 
+def config_dir() -> Path:
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+
+
 def parse_slot(text: str, *, positive_only: bool = False) -> int:
     if not text.isascii() or not text.isdigit() or (positive_only and int(text) == 0):
-        fail(f"invalid slot {text!r}", 2)
+        fail(f"invalid slot {safe(text)!r}", 2)
     return int(text)
 
 
-def load(slot: int) -> dict | None:
+def safe(value: str) -> str:
+    return ''.join(c if c.isprintable() else f'\\u{ord(c):04x}' for c in value)
+
+
+def read_json(path: Path):
     try:
-        return json.loads(slot_file(slot).read_text())
+        data = json.loads(path.read_text())
     except FileNotFoundError:
-        return None
+        return None, "missing"
+    except (OSError, ValueError, UnicodeError):
+        return None, "unreadable or invalid file"
+    if not isinstance(data, dict):
+        return None, "invalid file"
+    return data, None
+
+
+def valid_token(token) -> bool:
+    return isinstance(token, str) and bool(token) and all(c.isprintable() and not c.isspace() for c in token)
 
 
 def clean_env() -> dict:
@@ -67,16 +80,12 @@ def slot_env(slot: int) -> dict:
     env = clean_env()
     if slot == 0:
         return env
-    try:
-        account = load(slot)
-        token = account.get("token") if isinstance(account, dict) else None
-    except (OSError, ValueError):
-        fail(f"slot {slot} has an unreadable or invalid token file")
-    if account is None:
+    account, problem = read_json(slot_file(slot))
+    if problem == "missing":
         fail(f"slot {slot} has no token; run: claude-account add {slot}")
-    if not isinstance(token, str) or not token or any(c.isspace() for c in token):
+    if problem or not valid_token(account.get("token")):
         fail(f"slot {slot} has an unreadable or invalid token file")
-    env[TOKEN_VAR] = token
+    env[TOKEN_VAR] = account["token"]
     return env
 
 
@@ -84,87 +93,282 @@ def run(args: list[str]) -> None:
     slot = 0
     if args and args[0].isdigit():
         slot = parse_slot(args.pop(0))
-    env = slot_env(slot)
-    config = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
-    command = ["claude", "--settings", str(config / "dotfiles-settings.json"),
+    command = ["claude", "--settings", str(config_dir() / "dotfiles-settings.json"),
                "--dangerously-skip-permissions", *args]
     try:
-        os.execvpe(command[0], command, env)
+        os.execvpe(command[0], command, slot_env(slot))
     except FileNotFoundError:
         fail("claude not found on PATH", 127)
 
 
 def read_token() -> str:
-    if sys.stdin.isatty():
-        token = getpass.getpass("Paste the token (input hidden): ")
-    else:
-        token = sys.stdin.readline()
+    token = getpass.getpass("Paste the token (input hidden): ") if sys.stdin.isatty() else sys.stdin.readline()
     token = token.strip()
-    if not token or any(char.isspace() for char in token):
+    if not valid_token(token):
         fail("expected one token without spaces")
     if not token.startswith("sk-ant-oat"):
         print("claude-account: warning: token does not start with sk-ant-oat", file=sys.stderr)
     return token
 
 
+def write_slot(slot: int, account: dict) -> None:
+    directory = accounts_dir()
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    directory.chmod(0o700)
+    name = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", dir=directory, prefix=f".{slot}.", delete=False) as handle:
+            name = handle.name
+            json.dump(account, handle)
+        os.replace(name, slot_file(slot))
+    finally:
+        if name is not None and os.path.exists(name):
+            os.unlink(name)
+
+
+def metadata_options(args: list[str], *, allow_paste: bool = False) -> tuple[dict, bool]:
+    values = {}
+    paste = False
+    while args:
+        flag = args.pop(0)
+        if flag == "--paste" and allow_paste and not paste:
+            paste = True
+        elif flag in ("--label", "--username") and args and flag[2:] not in values:
+            value = args.pop(0)
+            if not value.strip():
+                fail(f"{flag} requires nonempty text", 2)
+            values[flag[2:]] = value
+        else:
+            fail(USAGE, 2)
+    return values, paste
+
+
 def add(args: list[str]) -> None:
     if not args:
         fail(USAGE, 2)
     slot = parse_slot(args.pop(0), positive_only=True)
-    label, paste = "", False
-    while args:
-        flag = args.pop(0)
-        if flag == "--paste":
-            paste = True
-        elif flag == "--label" and args:
-            label = args.pop(0)
-        else:
-            fail(f"unknown add option {flag!r}\n{USAGE}", 2)
+    metadata, paste = metadata_options(args, allow_paste=True)
     if not paste:
         print(f"Sign in as the slot {slot} account in the browser (a private window helps).",
               file=sys.stderr)
         env = clean_env()
+        env["BROWSER"] = "true"
         if subprocess.run(["claude", "setup-token"], env=env).returncode:
             fail("claude setup-token failed")
-    account = {"token": read_token(), "label": label,
-               "added": datetime.date.today().isoformat()}
-    directory = accounts_dir()
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    directory.chmod(0o700)
-    temporary = directory / f".{slot}.json.tmp"
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(descriptor, "w") as handle:
-        json.dump(account, handle)
-    os.replace(temporary, slot_file(slot))
-    print(f"Saved slot {slot} to {slot_file(slot)}. Launch it with: ai{slot}")
+    account = {"token": read_token(), "label": metadata.pop("label", ""),
+               "added": datetime.date.today().isoformat(), **metadata}
+    write_slot(slot, account)
+    print(f"Saved slot {slot}. Launch it with: ai{slot}")
+
+
+def label_metadata(args: list[str]) -> None:
+    if not args:
+        fail(USAGE, 2)
+    slot = parse_slot(args.pop(0), positive_only=True)
+    metadata, _ = metadata_options(args)
+    if not metadata:
+        fail(USAGE, 2)
+    account, problem = read_json(slot_file(slot))
+    if problem or not valid_token(account.get("token")):
+        fail(f"slot {slot} has no usable token file")
+    account.update(metadata)
+    write_slot(slot, account)
+    print(f"Updated slot {slot} metadata.")
+
+
+def account_slots() -> list[int]:
+    slots = {0, 1, 2}
+    try:
+        for path in accounts_dir().iterdir():
+            stem = path.stem
+            if path.suffix == ".json" and stem.isascii() and stem.isdigit() and stem == str(int(stem)) and int(stem) > 0:
+                slots.add(int(stem))
+    except FileNotFoundError:
+        pass
+    return sorted(slots)
+
+
+def load_account(slot: int) -> dict:
+    account = {"slot": slot, "label": "/login" if slot == 0 else f"slot {slot}",
+               "username": None, "identity_source": "unknown", "token": None,
+               "state": "missing", "scopes": None, "added": None}
+    if slot == 0:
+        data, problem = read_json(config_dir() / ".credentials.json")
+        metadata_dir = config_dir() if os.environ.get("CLAUDE_CONFIG_DIR") else Path.home()
+        identity, _ = read_json(metadata_dir / ".claude.json")
+        identity = identity.get("oauthAccount") if identity else None
+        email = identity.get("emailAddress") if isinstance(identity, dict) else None
+        if isinstance(email, str) and email:
+            account.update(username=email, identity_source="login cache")
+        oauth = data.get("claudeAiOauth") if data else None
+        if not problem and isinstance(oauth, dict):
+            account["token"] = oauth.get("accessToken")
+            scopes = oauth.get("scopes")
+            if isinstance(scopes, list) and all(isinstance(item, str) for item in scopes):
+                account["scopes"] = scopes
+        elif not problem:
+            problem = "invalid file"
+    else:
+        data, problem = read_json(slot_file(slot))
+        if data is not None:
+            for key in ("label", "username", "added"):
+                if isinstance(data.get(key), str) and data[key]:
+                    account[key] = data[key]
+            if account["username"]:
+                account["identity_source"] = "declared, unverified"
+            account["token"] = data.get("token")
+    if problem:
+        account["state"] = problem
+    elif valid_token(account["token"]):
+        account["state"] = "configured"
+    else:
+        account["state"] = "invalid credential"
+    return account
 
 
 def list_slots() -> None:
-    slots = {1: None}
-    for path in accounts_dir().glob("*.json"):
-        if path.stem.isdigit():
-            slots[int(path.stem)] = json.loads(path.read_text())
     today = datetime.date.today()
-    for slot in sorted(slots):
-        account = slots[slot]
-        if account is None:
-            print(f"ai{slot}  /login credentials (full features)")
-            continue
-        expires = datetime.date.fromisoformat(account["added"]) + datetime.timedelta(TOKEN_DAYS)
-        left = (expires - today).days
-        note = "  RENEW SOON" if left < 30 else ""
-        label = f"  {account['label']}" if account.get("label") else ""
-        print(f"ai{slot}  token, added {account['added']}, ~{left} days left{note}{label}")
+    for slot in account_slots():
+        account = load_account(slot)
+        if slot == 0:
+            print("ai/ai0  /login")
+        elif account["state"] == "missing":
+            print(f"ai{slot}  not configured")
+        elif account["state"] != "configured":
+            print(f"ai{slot}  {account['state']}")
+        else:
+            try:
+                expires = datetime.date.fromisoformat(account["added"]) + datetime.timedelta(days=TOKEN_DAYS)
+                left = (expires - today).days
+                estimate = f"added {safe(account['added'])}, ~{left} days left" + ("  RENEW SOON" if left < 30 else "")
+            except (TypeError, ValueError, OverflowError):
+                estimate = "renewal estimate unavailable"
+            print(f"ai{slot}  token, {estimate}  {safe(account['label'])}")
+
+
+def utc_now() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def timestamp(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            return None
+        return parsed.astimezone(datetime.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    except (ValueError, OverflowError):
+        return None
+
+
+def window(value):
+    if not isinstance(value, dict):
+        return None
+    used = value.get("utilization")
+    if isinstance(used, bool) or not isinstance(used, (int, float)) or not 0 <= used <= 100:
+        return None
+    return {"remaining": 100 - used, "reset": timestamp(value.get("resets_at"))}
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def fetch_usage(token: str) -> dict:
+    result = {"five_hour": None, "seven_day": None, "reason": None,
+              "attempted_at": utc_now(), "fetched_at": None, "accepted": False, "rejected": False}
+    request = urllib.request.Request("https://api.anthropic.com/api/oauth/usage", headers={
+        "Authorization": f"Bearer {token}", "anthropic-beta": "oauth-2025-04-20"})
+    try:
+        with urllib.request.build_opener(NoRedirect()).open(request, timeout=5) as response:
+            body = response.read(1024 * 1024)
+        result["accepted"] = True
+        payload = json.loads(body)
+        if not isinstance(payload, dict):
+            raise ValueError("invalid response")
+        result.update(accepted=True, fetched_at=utc_now(), five_hour=window(payload.get("five_hour")),
+                      seven_day=window(payload.get("seven_day")))
+        if not result["five_hour"] and not result["seven_day"]:
+            result["reason"] = "usage windows unavailable"
+    except urllib.error.HTTPError as error:
+        if error.code == 401:
+            result.update(rejected=True, reason="credential rejected by usage endpoint")
+        elif error.code == 403:
+            result["reason"] = "usage permission unavailable"
+        elif error.code == 429:
+            result["reason"] = "usage endpoint rate limited"
+        elif 300 <= error.code < 400:
+            result["reason"] = "usage redirect refused"
+        else:
+            result["reason"] = "usage endpoint unavailable"
+        error.close()
+    except (OSError, http.client.HTTPException, ValueError, UnicodeError, OverflowError):
+        result["reason"] = "usage request or response unavailable"
+    return result
+
+
+def account_report(slot: int) -> dict:
+    account = load_account(slot)
+    usage = {"five_hour": None, "seven_day": None, "reason": None,
+             "attempted_at": None, "fetched_at": None, "accepted": False, "rejected": False}
+    auth = account["state"]
+    if auth == "configured":
+        auth = "configured; unverified"
+        if slot != 0:
+            usage["reason"] = "setup-token usage requires profile permission"
+        elif account["scopes"] is not None and "user:profile" not in account["scopes"]:
+            usage["reason"] = "profile permission unavailable"
+        else:
+            usage = fetch_usage(account["token"])
+            if usage["accepted"]:
+                auth = "configured; usage accepted"
+            elif usage["rejected"]:
+                auth = "rejected by usage endpoint"
+    else:
+        usage["reason"] = "credential unavailable"
+    return {"slot": slot, "label": account["label"], "username": account["username"],
+            "identity_source": account["identity_source"], "auth": auth, "usage": usage}
+
+
+def render_reports(reports: list[dict]) -> str:
+    rows = []
+    details = []
+    for report in reports:
+        name = "ai/ai0" if report["slot"] == 0 else f"ai{report['slot']}"
+        username = safe(report["username"]) if report["username"] else "unknown"
+        usage = report["usage"]
+        windows = [usage["five_hour"], usage["seven_day"]]
+        rows.append([name, safe(report["label"]), f"{username} [{report['identity_source']}]",
+                     report["auth"], *(f"{item['remaining']:g}%" if item else "unavailable" for item in windows)])
+        reset = "; ".join(f"{title} reset {item['reset'] or 'unknown'}" for title, item in
+                          zip(("5h", "week"), windows) if item)
+        fields = [reset, usage["reason"],
+                  f"attempted {usage['attempted_at']}" if usage["attempted_at"] else None,
+                  f"fetched {usage['fetched_at']}" if usage["fetched_at"] else None]
+        details.append(f"{name}: " + "; ".join(field for field in fields if field))
+    header = ["ACCOUNT", "NICKNAME", "USERNAME [SOURCE]", "AUTH", "5H LEFT", "WEEK LEFT"]
+    widths = [max(len(row[i]) for row in [header, *rows]) for i in range(len(header))]
+    lines = ["  ".join(value.ljust(widths[i]) for i, value in enumerate(row)).rstrip()
+             for row in [header, *rows]]
+    return "\n".join([*lines, *details])
 
 
 def status(args: list[str]) -> None:
-    slot = parse_slot(args[0]) if args else 1
-    raise SystemExit(subprocess.run(["claude", "auth", "status", "--text"],
-                                    env=slot_env(slot)).returncode)
+    if not args:
+        slots = [0]
+    elif args == ["--all"]:
+        slots = account_slots()
+    elif len(args) == 1:
+        slots = [parse_slot(args[0])]
+    else:
+        fail(USAGE, 2)
+    print(render_reports([account_report(slot) for slot in slots]))
 
 
 def remove(args: list[str]) -> None:
-    if not args:
+    if len(args) != 1:
         fail(USAGE, 2)
     slot = parse_slot(args[0], positive_only=True)
     try:
@@ -177,12 +381,17 @@ def remove(args: list[str]) -> None:
 
 def main() -> None:
     args = sys.argv[1:]
-    commands = {"run": run, "add": add, "status": status, "remove": remove,
-                "list": lambda _: list_slots()}
-    if not args or args[0] not in commands:
+    commands = {"run": run, "add": add, "label": label_metadata, "status": status, "remove": remove}
+    if args == ["list"]:
+        list_slots()
+    elif not args or args[0] not in commands:
         fail(USAGE, 2)
-    commands[args[0]](args[1:])
+    else:
+        commands[args[0]](args[1:])
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except OSError:
+        fail("could not access account data or write output")

@@ -376,10 +376,13 @@ chezmoi workflow. Keep the deployed inventory unchanged until deployment.
 
 ### Claude accounts that share one config directory
 
-Run `ai2` … `ai5` to start Claude Code as other subscription accounts while every
-account shares `~/.claude`. `ai` and `ai1` keep the login stored by `/login`.
-Add an account with `claude-account add 2`, which runs `claude setup-token` and
-saves the token outside the chezmoi source in `~/.local/state/claude-accounts`.
+`ai` and `ai0` use the login stored by `/login`. `ai1` … `ai5` use saved
+subscription tokens while every account shares `~/.claude`. Add your personal
+token with `claude-account add 1 --label personal --username you@example.com`.
+The command runs `claude setup-token` and saves the token outside the chezmoi
+source in `~/.local/state/claude-accounts`. Run setup in a normal shell.
+`ai-status` shows every account's nickname, username, credential state, and
+available usage. Token-only accounts show usage as unavailable.
 Token sessions lose Remote Control and claude.ai connectors. See
 [usage and limits](docs/claude-account.md).
 

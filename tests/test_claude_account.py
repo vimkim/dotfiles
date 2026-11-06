@@ -1,6 +1,11 @@
 """Exercise claude-account slots and the ai/aiN shortcuts without a real Claude login."""
 
 import json
+import hashlib
+import http.client
+import importlib.machinery
+import importlib.util
+import io
 import os
 from pathlib import Path
 import shutil
@@ -8,6 +13,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
+import urllib.error
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -113,18 +120,61 @@ class ClaudeAccountTest(unittest.TestCase):
         self.add_slot(2, "--label", "personal")
         listing = self.account("list")
         self.assertEqual(listing.returncode, 0, listing.stderr)
-        self.assertIn("ai1  /login", listing.stdout)
+        self.assertIn("ai/ai0  /login", listing.stdout)
+        self.assertIn("ai1  not configured", listing.stdout)
         self.assertIn("ai2  token", listing.stdout)
         self.assertIn("personal", listing.stdout)
         self.assertNotIn(TOKEN, listing.stdout)
         self.assertEqual(self.account("remove", "2").returncode, 0)
         self.assertEqual(self.account("run", "2").returncode, 1)
 
-    def test_status_reports_the_slot_login(self):
-        self.add_slot(2)
-        self.assertEqual(self.account("status", "2").returncode, 0)
-        self.assertEqual(self.calls(), [{"name": "claude", "token": TOKEN,
-                                         "args": ["auth", "status", "--text"]}])
+    def test_status_reports_token_without_running_claude(self):
+        self.add_slot(2, "--username", "team@example.test")
+        result = self.account("status", "2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("team@example.test [declared, unverified]", result.stdout)
+        self.assertIn("configured; unverified", result.stdout)
+        self.assertNotIn(TOKEN, result.stdout + result.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_inventory_isolates_bad_files_and_preserves_credentials(self):
+        self.add_slot(2, "--label", "team\nname", "--username", "team@example.test")
+        (self.accounts / "1.json").write_text("{broken")
+        (self.accounts / "0.json").write_text(json.dumps({"token": TOKEN}))
+        (self.accounts / "4.json").write_text(json.dumps({"token": TOKEN, "added": "bad"}))
+        paths = list(self.accounts.iterdir())
+        before = {p: hashlib.sha256(p.read_bytes()).digest() for p in paths}
+        result = self.account("status", "--all")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for value in ("ai/ai0", "ai1", "ai2", "ai4", "unreadable or invalid", "team\\u000aname"):
+            self.assertIn(value, result.stdout)
+        self.assertNotIn(TOKEN, result.stdout + result.stderr)
+        self.assertEqual(before, {p: hashlib.sha256(p.read_bytes()).digest() for p in paths})
+        self.assertIn("renewal estimate unavailable", self.account("list").stdout)
+        self.assertEqual(self.calls(), [])
+
+    def test_label_preserves_existing_data_and_private_mode(self):
+        self.add_slot(2, "--label", "team")
+        path = self.accounts / "2.json"
+        existing = json.loads(path.read_text())
+        existing["extra"] = {"keep": True}
+        path.write_text(json.dumps(existing))
+        result = self.account("label", "2", "--username", "team@example.test")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(path.read_text()), {**existing, "username": "team@example.test"})
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.account("label", "0", "--label", "x").returncode, 2)
+        self.assertEqual(self.account("status", "2", "--all").returncode, 2)
+        self.assertEqual(self.account("list", "extra").returncode, 2)
+
+    def test_missing_and_malformed_slot_one_never_launch(self):
+        self.assertEqual(self.account("run", "1").returncode, 1)
+        self.accounts.mkdir(parents=True)
+        (self.accounts / "1.json").write_text("not json")
+        self.assertEqual(self.account("run", "1").returncode, 1)
+        (self.accounts / "1.json").write_text(json.dumps({"token": "bad\x00token"}))
+        self.assertEqual(self.account("run", "1").returncode, 1)
+        self.assertEqual(self.calls(), [])
 
     def test_shortcuts_in_bash_zsh_and_nushell(self):
         # Replace the launcher with a recorder; only the shortcut routing is under test.
@@ -162,6 +212,130 @@ class ClaudeAccountTest(unittest.TestCase):
                                         text=True, timeout=10)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual([call["args"] for call in self.calls()], expected)
+
+
+class UsageTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        loader = importlib.machinery.SourceFileLoader("claude_account_fixture", str(SCRIPT))
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        cls.module = importlib.util.module_from_spec(spec)
+        loader.exec_module(cls.module)
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="claude-report-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.config = self.root / "config"
+        self.config.mkdir()
+        self.accounts = self.root / "accounts"
+        self.accounts.mkdir()
+        self.env = mock.patch.dict(os.environ, {"HOME": str(self.root),
+                    "CLAUDE_CONFIG_DIR": str(self.config), "CLAUDE_ACCOUNTS_DIR": str(self.accounts)})
+        self.env.start()
+        self.addCleanup(self.env.stop)
+        self.creds = self.config / ".credentials.json"
+        self.creds.write_text(json.dumps({"claudeAiOauth": {"accessToken": TOKEN, "scopes": ["user:profile"]}}))
+
+    def response(self, payload):
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = payload
+        return response
+
+    def test_usage_windows_and_fixed_transport(self):
+        payload = json.dumps({"five_hour": {"utilization": 0, "resets_at": "2026-11-06T10:00:00Z"},
+                              "seven_day": {"utilization": 100, "resets_at": "bad"}, "unknown": TOKEN}).encode()
+        opener = mock.Mock()
+        opener.open.return_value = self.response(payload)
+        with mock.patch.object(self.module.urllib.request, "build_opener", return_value=opener):
+            report = self.module.account_report(0)
+        request = opener.open.call_args.args[0]
+        self.assertEqual(request.full_url, "https://api.anthropic.com/api/oauth/usage")
+        self.assertEqual(opener.open.call_args.kwargs["timeout"], 5)
+        self.assertEqual(request.get_header("Anthropic-beta"), "oauth-2025-04-20")
+        output = self.module.render_reports([report])
+        self.assertIn("5H LEFT", output)
+        self.assertIn("100%", output)
+        self.assertIn("0%", output)
+        self.assertIn("5h reset 2026-11-06T10:00:00Z", output)
+        self.assertIn("week reset unknown", output)
+        self.assertIn("usage accepted", output)
+        self.assertIn("fetched", output)
+        self.assertNotIn(TOKEN, output)
+        self.assertNotIn("token", report)
+
+    def test_windows_validate_independently(self):
+        for invalid in (None, True, float("nan"), -1, 101, "0", {}, {"utilization": True}, {"utilization": None}):
+            value = invalid if not isinstance(invalid, (int, float, str)) else {"utilization": invalid}
+            with self.subTest(value=value):
+                self.assertIsNone(self.module.window(value))
+        self.assertEqual(self.module.window({"utilization": 50, "resets_at": "bad"}),
+                         {"remaining": 50, "reset": None})
+        payload = json.dumps({"five_hour": {"utilization": 10**400}, "seven_day": {"utilization": 20}}).encode()
+        opener = mock.Mock()
+        opener.open.return_value = self.response(payload)
+        with mock.patch.object(self.module.urllib.request, "build_opener", return_value=opener):
+            report = self.module.account_report(0)
+        self.assertIsNone(report["usage"]["five_hour"])
+        self.assertEqual(report["usage"]["seven_day"]["remaining"], 80)
+
+    def test_transport_failures_are_safe_and_distinct(self):
+        for error, reason in [(401, "rejected"), (403, "permission"), (429, "rate limited"), (302, "redirect")]:
+            with self.subTest(error=error):
+                opener = mock.Mock()
+                opener.open.side_effect = urllib.error.HTTPError("https://example.test/" + TOKEN, error, TOKEN, {}, io.BytesIO(TOKEN.encode()))
+                with mock.patch.object(self.module.urllib.request, "build_opener", return_value=opener):
+                    report = self.module.account_report(0)
+                output = self.module.render_reports([report])
+                self.assertIn(reason, output)
+                self.assertIn("attempted", output)
+                self.assertNotIn(TOKEN, output)
+                self.assertEqual("rejected by usage endpoint" in output, error == 401)
+        opener = mock.Mock()
+        opener.open.side_effect = TimeoutError(TOKEN)
+        with mock.patch.object(self.module.urllib.request, "build_opener", return_value=opener):
+            self.assertNotIn(TOKEN, self.module.render_reports([self.module.account_report(0)]))
+        opener.open.side_effect = None
+        opener.open.return_value = self.response(b"")
+        opener.open.return_value.__enter__.return_value.read.side_effect = http.client.IncompleteRead(b"partial")
+        with mock.patch.object(self.module.urllib.request, "build_opener", return_value=opener):
+            report = self.module.account_report(0)
+        self.assertIn("unavailable", report["usage"]["reason"])
+        opener.open.return_value = self.response(b"not json")
+        with mock.patch.object(self.module.urllib.request, "build_opener", return_value=opener):
+            report = self.module.account_report(0)
+        self.assertIn("usage accepted", report["auth"])
+        self.assertIsNone(report["usage"]["fetched_at"])
+        self.assertIsNone(self.module.NoRedirect().redirect_request(None, None, 302, "", {}, "https://example.test"))
+
+    def test_token_missing_and_scopeless_rows_never_contact_network(self):
+        (self.accounts / "1.json").write_text(json.dumps({"token": TOKEN, "username": "person@example.test"}))
+        self.creds.write_text(json.dumps({"claudeAiOauth": {"accessToken": TOKEN, "scopes": ["user:inference"]}}))
+        (self.root / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": "wrong@example.test"}}))
+        with mock.patch.object(self.module.urllib.request, "build_opener", side_effect=AssertionError("network")):
+            reports = [self.module.account_report(slot) for slot in (0, 1, 2)]
+        self.assertIsNone(reports[0]["username"])
+        self.assertEqual(reports[1]["identity_source"], "declared, unverified")
+        self.assertIn("profile permission", reports[0]["usage"]["reason"])
+        self.assertEqual(reports[2]["auth"], "missing")
+
+    def test_login_identity_follows_native_config_metadata_paths(self):
+        default = self.root / ".claude"
+        default.mkdir()
+        (default / ".credentials.json").write_text(self.creds.read_text())
+        for directory, email in ((self.root, "login@example.test"),
+                                 (default, "explicit-default@example.test"),
+                                 (self.config, "custom@example.test")):
+            (directory / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": email}}))
+        for override, email in (("", "login@example.test"),
+                                (str(default), "explicit-default@example.test"),
+                                (str(self.config), "custom@example.test")):
+            with self.subTest(config=override):
+                with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": override}):
+                    with mock.patch.object(self.module, "fetch_usage", return_value={"accepted": False, "rejected": False}):
+                        report = self.module.account_report(0)
+                self.assertEqual(report["username"], email)
+                self.assertEqual(report["identity_source"], "login cache")
 
 
 if __name__ == "__main__":
