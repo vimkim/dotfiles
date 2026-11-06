@@ -5,6 +5,13 @@
 - Ask only when ambiguity changes the outcome, scope, or risk. Resolve routine, reversible details with stated assumptions.
 - Use `work-tracker` for work expected to take 30+ minutes, cross sessions, use parallel agents, or wait on an external queue.
 
+## Herdr agent launches
+
+- Default to bypass mode when starting or resuming Codex or Claude through Herdr, unless the user requests another mode. Pass native options after `--` in `herdr agent start`:
+  - Codex: `--profile dotfiles --dangerously-bypass-approvals-and-sandbox`.
+  - Claude: `--settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/dotfiles-settings.json" --dangerously-skip-permissions`.
+- Use the same options for direct `codex` or `claude` launches through pane commands. Verify the running agent's permission mode before submitting work; shell aliases and Herdr session restore do not guarantee these options.
+
 ## Next-step requests
 
 - For next-step questions such as “what to do next,” default to the session goal and review progress first. Suggest the next unfinished step within that goal. If the goal is complete, say “We’re done,” then run `work-tracker list --here` from the session's project directory and report any remaining local work.
