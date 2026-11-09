@@ -345,3 +345,7 @@ fi
 
 # Hermes Agent command
 case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+
+# >>> Codex installer >>>
+export PATH="/home/vimkim/.local/bin:$PATH"
+# <<< Codex installer <<<
