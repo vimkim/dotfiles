@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Run one non-interactive command inside a verify-dotfiles run.
+#
+# Usage: in-run RUN_DIR COMMAND [ARG ...]
+#
+# The command starts from the run's scrubbed environment (RUN_DIR/run.env)
+# with HOME set to the disposable home, in RUN_DIR/work.
+# Example: in-run "$RUN" chezmoi diff
+set -euo pipefail
+run=${1:?usage: in-run RUN_DIR COMMAND [ARG ...]}
+shift
+[ $# -gt 0 ] || { echo "in-run: missing command" >&2; exit 2; }
+[ -f "$run/run.env" ] || { echo "in-run: $run has no run.env; run launch first" >&2; exit 2; }
+vars=()
+while IFS= read -r line; do
+    case $line in '#'* | '') continue ;; esac
+    vars+=("$line")
+done <"$run/run.env"
+cd "$run/work"
+exec env -i "${vars[@]}" "$@"

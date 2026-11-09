@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2015  # ok, bad, and note always succeed, so A && ok || bad is if-then-else here
+# Read-only check: is this verify-dotfiles run worth driving?
+#
+# Usage: doctor RUN_DIR
+#
+# Exit 0 when every check passes. Prints one line per check. Changes nothing.
+set -uo pipefail
+run=${1:?usage: doctor RUN_DIR}
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+fail=0
+ok() { printf 'ok   %s\n' "$*"; }
+bad() { printf 'FAIL %s\n' "$*"; fail=1; }
+note() { printf 'note %s\n' "$*"; }
+
+if [ ! -f "$run/run.json" ]; then
+    echo "FAIL $run is not a verify-dotfiles run (no run.json)"; exit 1
+fi
+if [ ! -f "$run/run.env" ] || [ ! -d "$run/home" ]; then
+    echo "FAIL $run was cleaned up; launch a new run"; exit 1
+fi
+run=$(cd "$run" && pwd -P)
+source_dir=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source"])' "$run/run.json")
+launch_commit=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["commit"])' "$run/run.json")
+
+# 1. Isolation: the run environment points at the disposable home only.
+run_home=$(sed -n 's/^HOME=//p' "$run/run.env")
+[ "$run_home" = "$run/home" ] && ok "HOME is the disposable home ($run_home)" || bad "run.env HOME is $run_home, expected $run/home"
+live_home=$(cd "$HOME" && pwd -P)
+case "$run/" in
+"$live_home"/*) bad "run is inside the live home; mise and direnv read live config from its ancestors. Launch with VERIFY_DOTFILES_ROOT outside $live_home" ;;
+*) ok "run is outside the live home" ;;
+esac
+leaks=$(grep -E '^(XDG_|HERDR_|ATUIN_|STARSHIP_|ZDOTDIR|NU_|CLAUDE_CONFIG_DIR|CODEX_HOME)' "$run/run.env" | cut -d= -f1 | paste -sd' ')
+[ -z "$leaks" ] && ok "no live-session variables in run.env" || bad "live-session variables in run.env: $leaks"
+live_scripts="$HOME/.config/my-scripts/bin"
+if sed -n 's/^PATH=//p' "$run/run.env" | tr ':' '\n' | sed 's#/*$##' | grep -qxF "$live_scripts"; then
+    bad "run PATH contains the live helper directory $live_scripts"
+else
+    ok "run PATH excludes the live helper directory"
+fi
+
+# 2. Source: the default source path links to the checkout being verified.
+link=$(readlink "$run/home/.local/share/chezmoi" 2>/dev/null)
+[ "$link" = "$source_dir" ] && ok "source link -> $source_dir" || bad "source link is '$link', expected $source_dir"
+head_commit=$(git -C "$source_dir" rev-parse HEAD 2>/dev/null || echo unknown)
+dirty=$(git -C "$source_dir" status --porcelain 2>/dev/null | wc -l)
+if [ "$head_commit" = "$launch_commit" ]; then
+    ok "checkout HEAD ${head_commit:0:12} matches launch ($dirty dirty paths now)"
+else
+    note "checkout moved from ${launch_commit:0:12} to ${head_commit:0:12} since launch; verify below decides if the home is stale"
+fi
+
+# 3. Freshness: the home matches the current source (uncommitted edits included).
+if out=$("$here/in-run" "$run" chezmoi verify --exclude=scripts,externals 2>&1); then
+    ok "chezmoi verify: home matches the current source"
+else
+    bad "chezmoi verify: home differs from source; re-apply with: $here/in-run $run chezmoi apply --exclude=scripts,externals"
+    "$here/in-run" "$run" chezmoi status --exclude=scripts,externals 2>&1 | head -n 20 | sed 's/^/     /'
+    [ -n "$out" ] && printf '%s\n' "$out" | head -n 5 | sed 's/^/     /'
+fi
+
+# 4. Processes: list what this run started that is still alive.
+pids=$("$here/run-pids" "$run")
+if [ -z "$pids" ]; then
+    ok "no live processes from this run"
+else
+    note "live processes from this run (cleanup kills them):"
+    for pid in $pids; do printf '     %s %s\n' "$pid" "$(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | cut -c1-100)"; done
+fi
+
+# 5. Tools the drives need.
+for tool in python3 chezmoi nu bash zsh fzf eza; do
+    command -v "$tool" >/dev/null && ok "$tool: $(command -v "$tool")" || note "$tool not on PATH; features that need it cannot be driven"
+done
+
+exit "$fail"

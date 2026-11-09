@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Print the PIDs of live processes that a verify-dotfiles run started.
+#
+# Usage: run-pids RUN_DIR
+#
+# A process belongs to the run when its environment holds exactly
+# VERIFY_DOTFILES_RUN=<RUN_DIR>. Every drive and in-run command sets it, and
+# children inherit it. Process names are never used.
+set -euo pipefail
+run=$(cd "${1:?usage: run-pids RUN_DIR}" && pwd -P)
+want="VERIFY_DOTFILES_RUN=$run"
+# One grep over every readable environ; unreadable ones belong to other users.
+grep -lzxF -- "$want" /proc/[0-9]*/environ 2>/dev/null |
+    sed -n 's#^/proc/\([0-9]*\)/environ$#\1#p' | grep -vxF "$$" || :

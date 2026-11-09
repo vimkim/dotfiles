@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# Create a disposable home and apply this checkout's dotfiles into it.
+#
+# Usage: launch [--source CHECKOUT] [--root DIR]
+#
+# Runs live in --root, VERIFY_DOTFILES_ROOT, or ${TMPDIR:-/tmp}/verify-dotfiles,
+# which must be outside the live home.
+# Prints the run directory on the last stdout line. Exit 0 means the home is
+# applied and `chezmoi verify` agrees with the source (ready to drive).
+# Run scripts (.chezmoiscripts) and externals are excluded: they clone repos,
+# install tools, and download files from the network.
+set -euo pipefail
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+source_dir=$(cd "$here/../../../.." && pwd -P)
+root=${VERIFY_DOTFILES_ROOT:-${TMPDIR:-/tmp}/verify-dotfiles}
+
+while [ $# -gt 0 ]; do
+    case $1 in
+    --source) source_dir=$(cd "${2:?}" && pwd -P); shift 2 ;;
+    --root) root=${2:?}; shift 2 ;;
+    -h | --help) sed -n '2,11p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    *) echo "launch: unknown argument $1" >&2; exit 2 ;;
+    esac
+done
+
+[ -f "$source_dir/.chezmoiignore" ] || { echo "launch: $source_dir is not a chezmoi source checkout" >&2; exit 2; }
+command -v chezmoi >/dev/null || { echo "launch: chezmoi is not on PATH" >&2; exit 2; }
+
+mkdir -p "$root"
+root=$(cd "$root" && pwd -P)
+# Tools such as mise and direnv read config files from every ancestor of the
+# working directory, so a run under the live home would read live config.
+live_home=$(cd "$HOME" && pwd -P)
+case "$root/" in
+"$live_home"/*) echo "launch: run root $root is inside the live home; set VERIFY_DOTFILES_ROOT outside $live_home" >&2; exit 2 ;;
+esac
+run="$root/$(date +%Y%m%d-%H%M%S)-$$"
+mkdir -p "$run/home/.local/share" "$run/work" "$run/evidence"
+# The default source path, as on a real machine. Writes through it
+# (chezmoi add, chez-add) land in the checkout.
+ln -s "$source_dir" "$run/home/.local/share/chezmoi"
+
+# Scrubbed environment: no XDG_*, HERDR_*, ATUIN_*, or other live-session
+# variables. PATH drops the live home's chezmoi-managed helper directory so
+# the run cannot fall back to deployed copies.
+live_scripts="$HOME/.config/my-scripts/bin"
+path=$(printf '%s' "$PATH" | tr ':' '\n' | sed 's#/*$##' | grep -vxF "$live_scripts" | grep -v '^$' | paste -sd:)
+{
+    echo "# verify-dotfiles run environment; every shell and command in the run starts from exactly this"
+    echo "HOME=$run/home"
+    echo "USER=${USER:-$(id -un)}"
+    echo "LOGNAME=${LOGNAME:-$(id -un)}"
+    echo "LANG=${LANG:-C.UTF-8}"
+    echo "TERM=xterm-256color"
+    echo "PATH=$path"
+    echo "VERIFY_DOTFILES_RUN=$run"
+} >"$run/run.env"
+
+in_run() { "$here/in-run" "$run" "$@"; }
+
+commit=$(git -C "$source_dir" rev-parse HEAD 2>/dev/null || echo unknown)
+dirty=$(git -C "$source_dir" status --porcelain 2>/dev/null | wc -l)
+python3 - "$run" "$source_dir" "$commit" "$dirty" "$(chezmoi --version)" <<'PY'
+import json, sys, time
+run, source, commit, dirty, version = sys.argv[1:]
+json.dump({"run": run, "source": source, "commit": commit, "dirty_paths_at_launch": int(dirty),
+           "chezmoi": version, "launched": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+           "excluded": ["scripts", "externals"]},
+          open(f"{run}/run.json", "w"), indent=2)
+PY
+
+status=0
+in_run chezmoi init --no-tty >"$run/evidence/launch-init.log" 2>&1 || status=$?
+if [ "$status" = 0 ]; then
+    # Verification scaffolding: plain `chezmoi status/diff/apply/verify` inside
+    # the run (and helpers that call them) must not run install scripts or
+    # download externals.
+    cat >>"$run/home/.config/chezmoi/chezmoi.toml" <<'EOF'
+
+# verify-dotfiles scaffolding: keep run scripts and network externals out of disposable homes.
+[apply]
+    exclude = ["scripts", "externals"]
+[diff]
+    exclude = ["scripts", "externals"]
+[status]
+    exclude = ["scripts", "externals"]
+[verify]
+    exclude = ["scripts", "externals"]
+EOF
+fi
+if [ "$status" = 0 ]; then
+    in_run chezmoi apply --no-tty --exclude=scripts,externals >"$run/evidence/launch-apply.log" 2>&1 || status=$?
+fi
+if [ "$status" = 0 ]; then
+    in_run chezmoi verify --exclude=scripts,externals >"$run/evidence/launch-verify.log" 2>&1 || status=$?
+fi
+if [ "$status" != 0 ]; then
+    echo "launch: FAILED (exit $status); logs in $run/evidence/launch-*.log" >&2
+    tail -n 20 "$run"/evidence/launch-*.log >&2
+    echo "$run"
+    exit 1
+fi
+echo "launch: ready ($(find "$run/home" -path "$run/home/.local/share/chezmoi" -prune -o -type f -print | wc -l) files, commit ${commit:0:12}, $dirty dirty paths)" >&2
+echo "$run"

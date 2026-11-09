@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Tear down one verify-dotfiles run and keep its evidence.
+#
+# Usage: cleanup RUN_DIR
+#
+# Kills only processes that carry this run's VERIFY_DOTFILES_RUN marker, then
+# removes the disposable home, the work directory, and run.env.
+# RUN_DIR/evidence and RUN_DIR/run.json stay. The checkout behind the source
+# link is never touched.
+set -euo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+run=${1:?usage: cleanup RUN_DIR}
+[ -f "$run/run.json" ] && [ -d "$run/evidence" ] || { echo "cleanup: $run is not a verify-dotfiles run" >&2; exit 2; }
+run=$(cd "$run" && pwd -P)
+
+pids=$("$here/run-pids" "$run" | paste -sd' ')
+if [ -n "$pids" ]; then
+    # shellcheck disable=SC2086
+    kill -TERM $pids 2>/dev/null || :
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        alive=$("$here/run-pids" "$run" | paste -sd' ')
+        [ -z "$alive" ] && break
+        sleep 0.2
+    done
+    alive=$("$here/run-pids" "$run" | paste -sd' ')
+    # shellcheck disable=SC2086
+    [ -z "$alive" ] || kill -KILL $alive 2>/dev/null || :
+    echo "cleanup: stopped run processes: $pids"
+fi
+
+# Remove the source link first so nothing below can reach the checkout.
+if [ -L "$run/home/.local/share/chezmoi" ]; then
+    rm -f -- "${run:?}/home/.local/share/chezmoi"
+fi
+if [ -d "$run/home" ]; then
+    chmod -R u+w -- "${run:?}/home"
+    rm -rf -- "${run:?}/home"
+fi
+rm -rf -- "${run:?}/work"
+rm -f -- "${run:?}/run.env"
+
+python3 - "$run/run.json" <<'PY'
+import json, sys, time
+path = sys.argv[1]
+data = json.load(open(path))
+data["cleaned"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+json.dump(data, open(path, "w"), indent=2)
+PY
+echo "cleanup: removed home and work; evidence kept in $run/evidence ($(find "$run/evidence" -type f | wc -l) files)"
