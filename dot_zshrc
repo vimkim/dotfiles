@@ -460,10 +460,6 @@ if ! command -v diffnav > /dev/null 2>&1; then
   echo "warning: diffnav not installed."
 fi
 
-if command -v grc &> /dev/null; then
-    source $MY_SCRIPTS/grc.zsh
-fi
-
 
 
 if [ "$PWD" = "$HOME" ] && [ -z "$ZELLIJ" ]; then

@@ -752,7 +752,7 @@ alias chezdiff='chzdiff'
 alias confd='cd ~/.config && echo "prefer using chezmoi edit"'
 alias conf='confd'
 
-source $HOME/my-cubrid/aliases.sh
+[[ -r $HOME/my-cubrid/aliases.sh ]] && source $HOME/my-cubrid/aliases.sh
 
 ## cubrid knowledge dirs
 alias jira='cd /home/vimkim/gh/my-cubrid-jira'

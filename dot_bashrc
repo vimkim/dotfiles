@@ -338,7 +338,6 @@ fi
 if command -v atuin >/dev/null 2>&1; then
     eval "$(atuin init bash)"
 fi
-. "$HOME/.cargo/env"
 
 # Everyday helpers shared with Zsh, after shell-specific initialization.
 . "$HOME/.config/my-scripts/shell/productivity.sh"

@@ -26,14 +26,11 @@ Preconditions:
 - **Bash login.** Run `"$S/drive.py" "$RUN" --shell bash --login --label bash-startup 'cmd:shopt -q login_shell && echo LOGIN; type -t c l sl; command -v ls-by-time chezmoi-apply-unmodified; type ls | head -1'`. The output is `LOGIN`, then `function`, `function`, and `alias`. Both paths are inside `$RUN/home`, and ``ls is aliased to `eza -aF'``.
 - **Zsh.** Run `"$S/drive.py" "$RUN" --shell zsh --timeout 60 --label zsh-startup 'cmd:whence -w c l sl; command -v ls-by-time chezmoi-apply-unmodified; ls ~/.cache/zsh-init'`. The output is `c: function`, `l: function`, and `sl: alias`, then two paths inside `$RUN/home`. The cache lists `atuin.zsh`, `brew.zsh`, `mise.zsh`, `starship.zsh`, and `zoxide.zsh`, among others.
 - **Zsh home greeting.** Run `"$S/drive.py" "$RUN" --shell zsh --cwd "$RUN/home" --label zsh-greeting 'cmd:pwd'`. The startup output adds the fastfetch logo and `ZELLIJ:`, and on this host `zsh: gita: command not found...`.
-- **Proof.** Run `grep -inE 'error|warning|not found|no such file' "$RUN"/evidence/{nu,bash,zsh}-startup.txt`. Compare the hits with the expected messages below, and with a baseline run of the merge destination. Any new message is a finding.
+- **Proof.** Run `grep -inE 'error|warning|not found|no such file' "$RUN"/evidence/{nu,bash,zsh}-startup.txt`. A fresh home prints no matching line in any shell, so every hit is a finding. Compare it with a baseline run of the merge destination to tell whether the change under test caused it.
 
 ## Gotchas
 
-- Expected fresh-home messages, still present on `main` at 72d4916:
-  - Bash prints `bash: $RUN/home/.cargo/env: No such file or directory` (`dot_bashrc:341`).
-  - Zsh prints `.../aliases.zsh:source:755: no such file or directory: $RUN/home/my-cubrid/aliases.sh` (`private_dot_config/my-scripts/zsh/aliases.zsh:755`). The Zsh message is lowercase, so filter case-insensitively.
-  - Nushell prints `warning: cargo is not available` only when `cargo` is missing from the inherited PATH.
+- The only expected warning is Nushell's `warning: cargo is not available`, and it appears only when `cargo` is missing from the inherited PATH. Zsh prints its errors in lowercase (`no such file or directory`), so filter case-insensitively.
 - The daily upkeep box appears on every first start in a run, because a fresh home has no upkeep stamp for today. Nushell shows it only when `CLAUDE` is unset; the run environment leaves it unset.
 - The first Zsh start fills `~/.cache/zsh-init` and takes 1 to 3 seconds here. Sheldon plugins load only where `sheldon` is installed, and it is not installed on this host. Elsewhere the first start may clone plugins over the network, so keep `--timeout 60`.
 - The Zsh home greeting runs only when `$PWD` is `$HOME` and `ZELLIJ` is unset. Nushell's fastfetch and `zellij ls` run in every directory.
