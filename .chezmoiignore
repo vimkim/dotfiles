@@ -6,6 +6,8 @@ CLAUDE.md
 AGENTS.md
 nushell-clip-defect.md
 
+**/__pycache__
+
 # Repository verification artifacts are not deployed dotfiles.
 tests/**
 tools
