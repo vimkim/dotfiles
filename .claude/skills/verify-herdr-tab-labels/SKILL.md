@@ -20,10 +20,10 @@ The search is a model checker over the real code, not over a hand model. The ris
 ## Does a change touch the verified code?
 
 ```bash
-git diff ced486d -- private_dot_local/bin/executable_herdr-tab-status   # committed and uncommitted changes
+git diff 5b7f70c -- private_dot_local/bin/executable_herdr-tab-status   # committed and uncommitted changes
 ```
 
-Coverage, confirmed at sync commit **ced486d**, where the script last changed. Line numbers are at that commit.
+Coverage, confirmed at sync commit **5b7f70c**, where the script last changed. Line numbers are at that commit.
 
 | Code | Role in the check |
 | --- | --- |
@@ -47,7 +47,7 @@ python3 .claude/skills/verify-herdr-tab-labels/check.py      # all faults, depth
 python3 .claude/skills/verify-herdr-tab-labels/mutants.py    # proves the check can still fail, ~5 s
 ```
 
-Baseline at ced486d:
+Baseline at 5b7f70c:
 
 - `check.py` prints `PASS ... within depth 5` with 11517 states. Any `FAIL` is new.
 - `mutants.py` prints `CAUGHT` for all seven mutants.
@@ -73,7 +73,7 @@ To tell a real bug from a modeling error, replay the trace against the code:
   - the process dies right after the save;
   - the first or second `tab.rename` is rejected, has its reply lost after Herdr applied it, or the process dies just before or just after Herdr applies it;
   - the process dies between steps while its journal is unsaved.
-- Depth 5 steps by default. A `--depth 6` run with all faults (43510 states, 265767 transitions, about 2 minutes) passed at ced486d.
+- Depth 5 steps by default. A `--depth 6` run with all faults (43510 states, 265767 transitions, about 2 minutes) passed at 5b7f70c.
 - Assumptions:
   - User renames never land inside one `update()` call. `docs/herdr-tab-status.md` documents that race ("A manual rename between a snapshot and its rename request can race the updater"), and the Herdr API has no conditional rename.
   - Timer updates reuse a cached snapshot that matches Herdr, because every rename event invalidates it. The model always takes a fresh snapshot.
@@ -84,7 +84,7 @@ A `PASS` covers these bounds, not every possible history.
 
 ## Findings
 
-**F1, fixed in ced486d: a failed journal save was not retried before renaming.**
+**F1, fixed in 5b7f70c: a failed journal save was not retried before renaming.**
 
 `Updater.update` used to assign `self.tabs = journal` before `self.save()`. When the save raised (for example `ENOSPC` on `~/.cache`), `run_events` retried, the computed journal equaled `self.tabs`, and `update` renamed the tabs without saving. If the worker then died, the next worker renamed `work` to `1 1 work [▶ Codex <1m] [▶ Codex <1m]`, and `stop` restored `1 work [▶ Codex <1m]`.
 
