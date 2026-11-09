@@ -5,7 +5,7 @@ description: Prove a change to this chezmoi dotfiles checkout works the way the 
 
 # Verify dotfiles
 
-The product is the home that `chezmoi apply` builds from this checkout, used through interactive shells. Herdr panes start `herdr-shell`, which runs `nu` first, so Nushell is the primary surface. Bash is the login shell, and Zsh is still supported. Every run gets its own disposable home. The live home and the live Herdr session stay untouched.
+The product is the home that `chezmoi apply` builds from this checkout, used through interactive shells. Herdr panes start `herdr-shell`, which runs `nu` first, so Nushell is the primary surface. Bash runs login shells (`bash -l`) and Claude Code's Bash tool, and Zsh is still supported. Every run gets its own disposable home. The live home and the live Herdr session stay untouched.
 
 ```bash
 S=<checkout>/.claude/skills/verify-dotfiles/scripts   # every helper below; each explains itself in its header
@@ -20,9 +20,10 @@ RUN=$("$S/launch" | tail -n1)
 - Launch applies the checkout that holds this skill into `$RUN/home`. Use `--source DIR` to apply another checkout, such as the merge destination for a baseline.
 - Ready means exit 0 and the stderr line `launch: ready (...)`: `chezmoi verify` agreed with the source, so the home is usable. It takes about 3 seconds.
 - Runs live in `${TMPDIR:-/tmp}/verify-dotfiles/<run-id>/`; `VERIFY_DOTFILES_ROOT` moves them. Launch refuses a root inside the live home: mise and direnv read config from every ancestor of the working directory, so a run under `~` reads `~/.config/mise/config.toml`. Runs share nothing except the checkout, so several can run side by side.
-- The run is a fresh machine. `$RUN/home/.local/share/chezmoi` links to the checkout, and `~/.config/chezmoi/chezmoi.toml` comes from `chezmoi init`. Plain `chezmoi` and `chezmoi-apply-unmodified` work inside the run with no flags. Writes through the link (`chezmoi add`, `chez-add`, `chezmoi edit`) change the checkout.
-- Scaffolding: launch appends `exclude = ["scripts", "externals"]` for apply, diff, status, and verify to the run's chezmoi config. Run scripts clone repos and install tools; externals download zellij plugins from GitHub and can hang on a 504.
-- After editing the checkout, re-apply with `"$S/in-run" "$RUN" chezmoi apply`.
+- The run is a fresh machine. `$RUN/home/.local/share/chezmoi` links to the checkout, and `~/.config/chezmoi/chezmoi.toml` comes from `chezmoi init`. Plain `chezmoi` works in the run with no flags, and `chezmoi-apply-unmodified` works in drive shells. Writes through the link (`chezmoi add`, `chez-add`, `chezmoi edit`) change the checkout.
+- Launch applies the checkout's working tree, so untracked and git-ignored source files deploy too.
+- Scaffolding: launch maps every run script's extension to the `true` interpreter in the run's chezmoi config, so a plain `chezmoi apply` records the install scripts as run without cloning or installing anything. chezmoi has no apply-level exclude setting. Launch also excludes scripts and externals from diff, status, and verify. Externals (two zellij plugins from GitHub) still download on a plain `chezmoi apply`; pass `--exclude=externals` to stay offline.
+- After editing the checkout, re-apply with `"$S/in-run" "$RUN" chezmoi apply --exclude=externals`.
 - On failure, launch prints the tail of `$RUN/evidence/launch-*.log` and exits 1. Run cleanup on that run too.
 
 ## 2. Doctor
@@ -36,14 +37,15 @@ Doctor is read-only. Run it first, and again whenever a result surprises you. It
 - Isolation: HOME is the disposable home, `run.env` has no live-session variables (`XDG_*`, `HERDR_*`, `ATUIN_*`), and PATH excludes the live `~/.config/my-scripts/bin`.
 - The source link and the checkout HEAD compared with launch time.
 - Freshness: `chezmoi verify` against the current source, uncommitted edits included. A FAIL after editing the checkout means re-apply.
-- Live processes this run started, and the tools that drives need.
+- Install scripts: every run script maps to the `true` interpreter. A FAIL means a plain `chezmoi apply` would really run it; relaunch.
+- Live processes this run started, and the tools that drives need, `less` included.
 
 ## 3. Drive
 
 Both entry points start from the run's scrubbed environment (`$RUN/run.env`) with HOME set to the disposable home.
 
 - `"$S/drive.py" "$RUN" --shell nu|bash|zsh --label NAME [--cwd DIR] [--login] STEP...` types into an interactive shell. This is the user path.
-- `"$S/in-run" "$RUN" COMMAND...` runs one non-interactive command. Use it for setup and for reading side effects (`chezmoi status`, a target file). It is not proof of interactive behavior.
+- `"$S/in-run" "$RUN" COMMAND...` runs one non-interactive command in `$RUN/work`. Use it for setup and for reading side effects (`chezmoi status`, a target file). It is not proof of interactive behavior. It runs no shell, so the agent's shell expands a bare `~` to the live home first. Its PATH also lacks the run's helper directories. Wrap home paths and helpers in `sh -c`, as in `"$S/in-run" "$RUN" sh -c 'cat ~/.xprofile'`, and drive helpers in a drive shell.
 
 Steps run in order:
 
@@ -54,7 +56,7 @@ Steps run in order:
 
 The driver types a line only after the line editor turns on bracketed paste (`ESC[?2004h`), which reedline, readline, and zle do once per prompt. Reedline discards typed-ahead keys, so this wait keeps input intact. A `cmd` step after `keys` steps first waits for the prompt to return. Use `cmd` for commands that return to the prompt, and use `keys` plus `expect` for anything interactive.
 
-Drives start in `$RUN/work`. Starting in `$RUN/home` also runs the Zsh home greeting (fastfetch, `gita ll`, `zellij ls`), so start there only when the greeting is under test.
+Drives start in `$RUN/work`. Starting in `$RUN/home` also runs the Zsh home greeting (fastfetch, `gita ll`, `zellij ls`), so start there only when the greeting is under test. Nushell prints its fastfetch greeting in every directory.
 
 Before driving a feature, read [`features/README.md`](features/README.md) and the matching feature file.
 
@@ -88,7 +90,7 @@ Cleanup stops only processes whose environment carries this run's `VERIFY_DOTFIL
 ## Not driven by this skill
 
 - Run scripts (`.chezmoiscripts`) and externals: their unit tests are `tests/test_install_*.py` and `tests/test_html_serve_migration.py`.
-- Herdr itself (`private_dot_config/herdr/config.toml`): the run has no Herdr server, and the scrubbed environment turns off the shells' Herdr hooks.
+- Herdr itself (`private_dot_config/herdr/config.toml`) and `herdr-shell`: the run has no Herdr server, the scrubbed environment turns off the shells' Herdr hooks, and drives start shells directly. `herdr-shell` copies the live `DISPLAY` and `XDG_RUNTIME_DIR` from the systemd user manager, so keep it out of runs.
 - GUI terminals (WezTerm, kitty, Alacritty): this host has slow X11 forwarding, so never launch GUI programs.
 - Helpers that need network or credentials (`daily-update` upgrades, `gh-*`, `claude-account`).
 

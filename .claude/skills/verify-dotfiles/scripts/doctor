@@ -60,7 +60,25 @@ else
     [ -n "$out" ] && printf '%s\n' "$out" | head -n 5 | sed 's/^/     /'
 fi
 
-# 4. Processes: list what this run started that is still alive.
+# 4. Scripts: a plain `chezmoi apply` in the run must not run install scripts.
+# launch maps each script extension to `true`; check every script is covered.
+live_scripts=$("$here/in-run" "$run" sh -c 'chezmoi dump-config --format=json && echo "---" && chezmoi managed --include=scripts' 2>/dev/null |
+    python3 -c '
+import json, sys
+config, _, scripts = sys.stdin.read().partition("\n---\n")
+interpreters = json.loads(config).get("interpreters") or {}
+for name in scripts.split():
+    ext = name.rsplit(".", 1)[-1] if "." in name.rsplit("/", 1)[-1] else ""
+    if (interpreters.get(ext) or {}).get("command") != "true":
+        print(name)
+')
+if [ -z "$live_scripts" ]; then
+    ok "install scripts are no-ops in this run"
+else
+    bad "these scripts would really run on a plain chezmoi apply: $(printf '%s' "$live_scripts" | paste -sd' ')"
+fi
+
+# 5. Processes: list what this run started that is still alive.
 pids=$("$here/run-pids" "$run")
 if [ -z "$pids" ]; then
     ok "no live processes from this run"
@@ -69,8 +87,8 @@ else
     for pid in $pids; do printf '     %s %s\n' "$pid" "$(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | cut -c1-100)"; done
 fi
 
-# 5. Tools the drives need.
-for tool in python3 chezmoi nu bash zsh fzf eza; do
+# 6. Tools the drives need. Without less, the listing helpers never page.
+for tool in python3 chezmoi nu bash zsh fzf eza less; do
     command -v "$tool" >/dev/null && ok "$tool: $(command -v "$tool")" || note "$tool not on PATH; features that need it cannot be driven"
 done
 

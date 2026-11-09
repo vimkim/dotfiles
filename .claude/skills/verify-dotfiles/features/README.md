@@ -13,7 +13,7 @@ This directory is the maintained source for verifying what a user meets after ap
 - Drive Nushell first. It is the shell Herdr panes open. Then drive Bash and Zsh where the feature file lists them.
 - Give every drive a `--label` of `<shell>-<feature-id>`, so evidence files name what they prove.
 - Treat commands in feature files as literal. Keep quoted names and flags unchanged.
-- Restore any target you edit inside the run (`"$S/in-run" "$RUN" chezmoi apply --force -- <target>`), or launch a fresh run before driving the next feature.
+- Restore the home after a journey that edits targets (`"$S/in-run" "$RUN" chezmoi apply --force --exclude=externals`), or launch a fresh run before driving the next feature. Revert every probe edit made in the checkout.
 
 ## Proof and skip reporting
 
@@ -36,10 +36,10 @@ Keep implementation details out of the map. Name only user paths, required state
 
 ## Features
 
-- [Apply the dotfiles](./apply.md): `chezmoi apply` builds the home, templates render, and re-apply converges.
+- [Apply the dotfiles](./apply.md): `chezmoi apply` builds the home, templates render, retired targets go, and re-apply converges.
 - [Shell startup](./shell-startup.md): Nushell, Bash, and Zsh start from the applied home with the helpers on PATH.
-- [Directory picker](./directory-picker.md): `c` opens the fzf picker and moves the shell into the chosen directory.
-- [Sorted listing family](./sorted-listing.md): `ls-by-time`, `ls-by-size`, and their siblings order entries as named.
-- [Apply only unmodified targets](./apply-unmodified.md): `chezmoi-apply-unmodified` applies untouched targets and skips local edits and deletions.
+- [Directory picker](./directory-picker.md): `c` opens the fzf picker, `c PATH` and `c --query` cover the rest, and the shell lands in the chosen directory.
+- [Sorted listing family](./sorted-listing.md): `ls-by-*` order entries as named, page only when needed, and `l`, `sl`, and `c` preview one screen.
+- [Apply only unmodified targets](./apply-unmodified.md): `chezmoi-apply-unmodified` applies untouched targets and skips local edits, deletions, and targets without last-write history.
 
-Not yet mapped: `find-project`, `dir-history` and `ch`, `dir-bookmark`, `work-todo`, `prv`, `gh-html`, `html-serve`, `daily-update --remind`, and the Nushell aliases in `alias.nu`. Run `/maintain-verification-skill` to add them.
+Not yet mapped: `find-project`, `dir-history` and `ch`, `dir-bookmark`, `work-todo`, `ports` (`list-ports.py`), the `just` picker (`just-pick-and-print.nu`), `my-skill-check`, `prv`, `difpr`, `gh-html`, `html-serve`, `daily-update --remind`, the `claude-auth-renewal` reminder, and the Nushell aliases in `alias.nu`. Run `/maintain-verification-skill` to add them.

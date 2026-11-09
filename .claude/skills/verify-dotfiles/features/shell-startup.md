@@ -1,19 +1,19 @@
 # Shell startup
 
-Opening a terminal runs the applied startup files. Nushell (Herdr panes), Bash (the login shell), and Zsh each reach a working prompt, with the dotfiles' helpers resolving from `~/.config/my-scripts/bin` and the shared shortcuts defined.
+Opening a terminal runs the applied startup files. Nushell (Herdr panes), Bash (`bash -l` logins and Claude Code's Bash tool), and Zsh each reach a working prompt, with the dotfiles' helpers resolving from `~/.config/my-scripts/bin` and the shared shortcuts defined.
 
 ## Sub-features
 
-- `startup-nu` starts interactive Nushell: the starship prompt, the fastfetch greeting, and the daily upkeep box when one is due.
-- `startup-bash` starts interactive Bash, login and non-login.
-- `startup-zsh` starts interactive Zsh.
-- `startup-path` makes helpers such as `ls-by-time`, `dir-picker`, and `chezmoi-apply-unmodified` resolve inside the applied home.
-- `startup-shortcuts` defines `c`, `l`, and `sl` in all three shells.
+- `startup-nu` starts interactive Nushell with the starship prompt, the fastfetch greeting, `zellij ls`, and the daily upkeep box.
+- `startup-bash` starts interactive Bash, login and non-login. Bash shows no upkeep box.
+- `startup-zsh` starts interactive Zsh, with the daily upkeep box.
+- `startup-path` makes `ls-by-time`, `dir-picker`, and `chezmoi-apply-unmodified` resolve inside the applied home.
+- `startup-shortcuts` defines `c`, `l`, and `sl` in all three shells. In Nushell they are aliases. In Bash and Zsh, `c` and `l` are functions and `sl` is an alias.
 
 ## How to get to it (user POV)
 
-- Open a Herdr pane. `herdr-shell` runs `nu`.
-- Log in over SSH, which starts a login Bash.
+- Open a Herdr pane. `herdr-shell` runs the first of `nu`, `zsh`, or `bash` it finds.
+- Start a login shell with `bash -l`, as an SSH login does when Bash is the account's shell.
 - Type `zsh` or `bash` in any shell.
 
 ## Driving it with drive.py
@@ -22,15 +22,19 @@ Preconditions:
 
 - `"$S/doctor" "$RUN"` exits 0.
 
-- **Nushell.** Open a shell and look up a helper. Run `"$S/drive.py" "$RUN" --shell nu --label nu-startup 'cmd:which ls-by-time dir-picker | get path'`. Startup is `ok`, and both paths are inside `$RUN/home/.config/my-scripts/bin/`.
-- **Bash login.** Run `"$S/drive.py" "$RUN" --shell bash --login --label bash-startup 'cmd:shopt -q login_shell && echo LOGIN; type c | head -1; command -v ls-by-time'`. The output has `LOGIN` and `c is a function`, and the path is inside `$RUN/home`.
-- **Zsh.** Run `"$S/drive.py" "$RUN" --shell zsh --label zsh-startup 'cmd:whence -w c l; command -v ls-by-time'`. `c` and `l` are reported, and the path is inside `$RUN/home`.
-- **Proof.** Read each `<label>.json` startup step's `output` and list every line containing `error`, `warning`, `not found`, or `No such file`. Compare that list with the expected fresh-home messages below, and with a baseline run of the merge destination. A new message is a finding.
+- **Nushell.** Run `"$S/drive.py" "$RUN" --shell nu --label nu-startup 'cmd:which ls-by-time dir-picker chezmoi-apply-unmodified | get path' 'cmd:scope aliases | where name in [c l sl] | select name expansion'`. All three paths are inside `$RUN/home/.config/my-scripts/bin/`. The aliases are `c` = `cl`, `l` = `ezam`, and `sl` = `l`.
+- **Bash login.** Run `"$S/drive.py" "$RUN" --shell bash --login --label bash-startup 'cmd:shopt -q login_shell && echo LOGIN; type -t c l sl; command -v ls-by-time chezmoi-apply-unmodified; type ls | head -1'`. The output is `LOGIN`, then `function`, `function`, and `alias`. Both paths are inside `$RUN/home`, and ``ls is aliased to `eza -aF'``.
+- **Zsh.** Run `"$S/drive.py" "$RUN" --shell zsh --timeout 60 --label zsh-startup 'cmd:whence -w c l sl; command -v ls-by-time chezmoi-apply-unmodified; ls ~/.cache/zsh-init'`. The output is `c: function`, `l: function`, and `sl: alias`, then two paths inside `$RUN/home`. The cache lists `atuin.zsh`, `brew.zsh`, `mise.zsh`, `starship.zsh`, and `zoxide.zsh`, among others.
+- **Zsh home greeting.** Run `"$S/drive.py" "$RUN" --shell zsh --cwd "$RUN/home" --label zsh-greeting 'cmd:pwd'`. The startup output adds the fastfetch logo and `ZELLIJ:`, and on this host `zsh: gita: command not found...`.
+- **Proof.** Run `grep -inE 'error|warning|not found|no such file' "$RUN"/evidence/{nu,bash,zsh}-startup.txt`. Compare the hits with the expected messages below, and with a baseline run of the merge destination. Any new message is a finding.
 
 ## Gotchas
 
-- Expected fresh-home messages, also present on `main` (3e44812): Bash prints `~/.cargo/env: No such file or directory` (from `dot_bashrc:341`), and Zsh prints `no such file or directory: ~/my-cubrid/aliases.sh` (from `private_dot_config/my-scripts/zsh/aliases.zsh:755`). Nushell and Zsh print a `daily upkeep pending` box when `daily-update` has work.
-- The first Zsh start takes about 3 seconds, because it fills the `~/.cache/zsh-init` cache and sheldon may clone plugins over the network. Later drives in the same run are faster. Give a first Zsh drive `--timeout 60` on a slow network.
-- A Bash `ls` error looks like eza (`(os error 2)`), because `ls` is aliased to eza.
-- Starting in `$RUN/home` makes Zsh run fastfetch, `gita ll`, and `zellij ls`. The default `$RUN/work` skips that greeting.
-- Herdr hooks stay off because the run has no `HERDR_*` variables. Prove Herdr integration in a live pane, outside this skill.
+- Expected fresh-home messages, still present on `main` at 72d4916:
+  - Bash prints `bash: $RUN/home/.cargo/env: No such file or directory` (`dot_bashrc:341`).
+  - Zsh prints `.../aliases.zsh:source:755: no such file or directory: $RUN/home/my-cubrid/aliases.sh` (`private_dot_config/my-scripts/zsh/aliases.zsh:755`). The Zsh message is lowercase, so filter case-insensitively.
+  - Nushell prints `warning: cargo is not available` only when `cargo` is missing from the inherited PATH.
+- The daily upkeep box appears on every first start in a run, because a fresh home has no upkeep stamp for today. Nushell shows it only when `CLAUDE` is unset; the run environment leaves it unset.
+- The first Zsh start fills `~/.cache/zsh-init` and takes 1 to 3 seconds here. Sheldon plugins load only where `sheldon` is installed, and it is not installed on this host. Elsewhere the first start may clone plugins over the network, so keep `--timeout 60`.
+- The Zsh home greeting runs only when `$PWD` is `$HOME` and `ZELLIJ` is unset. Nushell's fastfetch and `zellij ls` run in every directory.
+- Herdr hooks stay off because the run has no `HERDR_*` variables, and drives never start `herdr-shell`. Prove Herdr integration in a live pane, outside this skill.

@@ -73,21 +73,27 @@ PY
 status=0
 in_run chezmoi init --no-tty >"$run/evidence/launch-init.log" 2>&1 || status=$?
 if [ "$status" = 0 ]; then
-    # Verification scaffolding: plain `chezmoi status/diff/apply/verify` inside
-    # the run (and helpers that call them) must not run install scripts or
-    # download externals.
-    cat >>"$run/home/.config/chezmoi/chezmoi.toml" <<'EOF'
-
-# verify-dotfiles scaffolding: keep run scripts and network externals out of disposable homes.
-[apply]
-    exclude = ["scripts", "externals"]
-[diff]
-    exclude = ["scripts", "externals"]
-[status]
-    exclude = ["scripts", "externals"]
-[verify]
-    exclude = ["scripts", "externals"]
-EOF
+    # Verification scaffolding. chezmoi has no apply.exclude setting, so a plain
+    # `chezmoi apply` in the run would run the install scripts (clones, uv and
+    # cargo installs). Map every script extension to `true` so each script is a
+    # no-op, and keep scripts and externals out of diff, status, and verify.
+    # A script without an extension cannot be mapped; launch refuses it.
+    scripts=$(in_run chezmoi managed --include=scripts 2>>"$run/evidence/launch-init.log") || status=$?
+    bare=$(printf '%s\n' "$scripts" | grep -v '^$' | grep -vE '/[^/]*\.[A-Za-z0-9]+$' || :)
+    if [ -n "$bare" ]; then
+        printf 'launch: scripts without an extension cannot be disabled: %s\n' "$bare" >>"$run/evidence/launch-init.log"
+        status=1
+    fi
+    {
+        echo
+        echo "# verify-dotfiles scaffolding: install scripts are no-ops and externals stay out of diff, status, and verify."
+        printf '%s\n' "$scripts" | sed -n 's/.*\.\([A-Za-z0-9]*\)$/\1/p' | sort -u | while read -r ext; do
+            printf '[interpreters.%s]\n    command = "true"\n' "$ext"
+        done
+        for cmd in diff status verify; do
+            printf '[%s]\n    exclude = ["scripts", "externals"]\n' "$cmd"
+        done
+    } >>"$run/home/.config/chezmoi/chezmoi.toml"
 fi
 if [ "$status" = 0 ]; then
     in_run chezmoi apply --no-tty --exclude=scripts,externals >"$run/evidence/launch-apply.log" 2>&1 || status=$?

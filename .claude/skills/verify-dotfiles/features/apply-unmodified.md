@@ -1,32 +1,37 @@
 # Apply only unmodified targets
 
-`chezmoi-apply-unmodified` is how merged changes reach the home. It applies every target that is unchanged since chezmoi last wrote it, and it skips a locally edited or deleted target with `Skipped locally changed target: <path>`, keeping the user's edit. Skips still return 0. See `docs/chezmoi-apply-unmodified.md`.
+`chezmoi-apply-unmodified` is how merged changes reach the home. It applies every file and symlink that is unchanged since chezmoi last wrote it. It skips a locally edited or deleted target with `Skipped locally changed target: <path>`, and an existing target with no last-write history with `Skipped pre-existing target without last-write state: <path>`. Either way it keeps the user's file, and skips still return 0. See `docs/chezmoi-apply-unmodified.md`.
 
 ## Sub-features
 
 - `unmodified-apply` brings an untouched, outdated target up to date.
 - `unmodified-skip-edit` reports and preserves a locally edited target.
 - `unmodified-skip-delete` reports a locally deleted target and leaves it deleted.
-- `unmodified-single` with `-- /abs/target` handles one file only.
+- `unmodified-single` with `-- /abs/target` handles that one file only.
+- `unmodified-preexisting` reports and preserves an outdated target that has no last-write history.
 
 ## How to get to it (user POV)
 
 - After an approved merge, run `chezmoi-apply-unmodified` from any shell.
-- Run `chezmoi-apply-unmodified --source /abs/checkout` to apply another checkout.
+- Run `chezmoi-apply-unmodified -- /abs/target` for one file, or `--source /abs/checkout` to apply another checkout.
 
 ## Driving it with drive.py
 
 Preconditions:
 
 - A fresh run with an empty `chezmoi status`. Launch has recorded chezmoi's last-write history for every target.
+- The helper is on PATH only in drive shells, so drive it with `drive.py`, not `in-run`.
 
-- **Local edit and deletion.** Change two targets the way a user would, then run the helper. Run `"$S/drive.py" "$RUN" --shell bash --label bash-apply-unmodified 'cmd:echo "# local edit" >> ~/.vimrc' 'cmd:rm ~/.fdignore' 'cmd:chezmoi status' 'cmd:chezmoi-apply-unmodified' 'cmd:tail -n1 ~/.vimrc; test -e ~/.fdignore || echo FDIGNORE-ABSENT' 'cmd:chezmoi status'`. The first status shows `DA .fdignore` and `MM .vimrc`. The helper prints one `Skipped locally changed target:` line for each, and exits 0. `~/.vimrc` still ends with `# local edit`, `FDIGNORE-ABSENT` prints, and the final status is unchanged.
-- **Outdated target applied.** Edit a source file in the checkout (the change under test), then run `"$S/drive.py" "$RUN" --shell bash --label bash-apply-unmodified-outdated 'cmd:chezmoi status' 'cmd:chezmoi-apply-unmodified' 'cmd:chezmoi status'`. The first status lists the target. The helper prints no skip line for it, and the target drops out of the final status.
-- **Proof.** Keep both `.json` files. Status before, helper output, and status after are the proof. Confirm the preserved edit with `"$S/in-run" "$RUN" tail -n1 .vimrc` (in-run starts in `$RUN/work`, so give paths from `~` inside a `sh -c`).
+- **Local edit and deletion.** Run `"$S/drive.py" "$RUN" --shell bash --label bash-apply-unmodified 'cmd:chezmoi status' 'cmd:echo "# local edit" >> ~/.vimrc' 'cmd:rm ~/.fdignore' 'cmd:chezmoi status' 'cmd:chezmoi-apply-unmodified' 'cmd:tail -n1 ~/.vimrc; test -e ~/.fdignore || echo FDIGNORE-ABSENT' 'cmd:chezmoi status'`. The first status is empty. The second shows `DA .fdignore` and `MM .vimrc`. The helper prints one `Skipped locally changed target: $RUN/home/...` line for each, `.fdignore` first, and exits 0. `# local edit` and `FDIGNORE-ABSENT` print, and the final status is unchanged.
+- **Restore.** Run `"$S/in-run" "$RUN" chezmoi apply --force --exclude=externals`. `"$S/in-run" "$RUN" chezmoi status` is empty again.
+- **Single target.** Append `# probe` to `dot_xprofile` and `dot_bash_profile` in the checkout. Run `"$S/drive.py" "$RUN" --shell bash --label bash-apply-unmodified-single 'cmd:chezmoi status' 'cmd:chezmoi-apply-unmodified -- ~/.xprofile' 'cmd:chezmoi status' 'cmd:grep -c "# probe" ~/.xprofile ~/.bash_profile'`. The first status shows ` M .bash_profile` and ` M .xprofile`. The helper prints nothing. Only ` M .bash_profile` remains, and the counts are `.xprofile:1` and `.bash_profile:0`.
+- **Outdated target.** Run `"$S/drive.py" "$RUN" --shell bash --label bash-apply-unmodified-outdated 'cmd:chezmoi status' 'cmd:chezmoi-apply-unmodified' 'cmd:chezmoi status' 'cmd:grep -c "# probe" ~/.xprofile ~/.bash_profile'`. The helper prints no skip line, the final status is empty, and both counts are `1`. Revert the probes with `git -C <checkout> checkout -- dot_xprofile dot_bash_profile`, then restore.
+- **No last-write history.** Append `# probe` to `dot_xprofile` again. Run `"$S/drive.py" "$RUN" --shell bash --label bash-apply-unmodified-preexisting 'cmd:chezmoi state delete --bucket=entryState --key="$HOME/.xprofile"' 'cmd:chezmoi status' 'cmd:chezmoi-apply-unmodified' 'cmd:grep -c "# probe" ~/.xprofile'`. Status shows ` M .xprofile`. The helper prints `Skipped pre-existing target without last-write state: $RUN/home/.xprofile`, and the count is `0`. Revert the probe and restore.
+- **Proof.** Keep every `.json`: status before, helper output, and status after are the proof.
 
 ## Gotchas
 
-- `chezmoi status` inside the run depends on launch's scaffolding exclusions. A run made some other way tries to download externals and can hang for about 50 seconds on a GitHub 504.
-- The outdated-target journey edits the checkout behind the source link. Revert that edit, or commit it as the task change. Never leave a stray edit in the checkout.
-- The helper does not handle run scripts or directory removals. `.chezmoiremove` entries need a separate check.
-- Restore edited targets before driving another feature in the same run: `"$S/in-run" "$RUN" chezmoi apply --force`.
+- `chezmoi status` prints paths relative to the home, and the skip lines print absolute paths. Match the skip lines on the path suffix.
+- The helper only checks targets that differ from the source. Deleting the last-write history of a target that matches the source prints nothing.
+- The probe journeys edit the checkout behind the source link. Revert every probe before committing. A stray probe in the checkout ships with the task.
+- The helper passes only file and symlink include lists to chezmoi, so it never runs install scripts or downloads externals. It also skips `.chezmoiremove` entries; [apply](./apply.md) drives removals.
