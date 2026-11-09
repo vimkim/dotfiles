@@ -1,6 +1,6 @@
 # Shared directory picker
 
-`c` in Nushell and Zsh browses immediate child directories using the shared
+`c` in Nushell, Bash, and Zsh browses immediate child directories using the shared
 Python script, `dir-picker`. The parent entry (`../`) comes first, followed by
 child directories ordered by modification time, newest first. Hidden
 directories and symlinks to directories are included; regular files and
@@ -23,12 +23,14 @@ manual sorting toggle.
 
 The interface uses the file picker's 60% height, reverse layout, and colors.
 Escape or Ctrl-C cancels without changing directories. Successful navigation
-still displays the shell's existing listing (`ezam` in Nushell, `my-list-long`
-in Zsh). Nushell's `cl` exposes the same interface as its `c` alias.
+still displays the shell's existing listing, `ezam` in Nushell and `l` in Bash
+and Zsh. Both run `ls-one-page`. Nushell's `cl` exposes the same interface as
+its `c` alias. In Bash and Zsh, `cl PATH` never opens the picker. It runs
+`cd PATH` and then `l`.
 
-## Nushell commands
+## Shell commands
 
-```nu
+```sh
 c                               # browse the current directory
 c ~/projects                    # navigate directly, as before
 c --query project               # browse with an initial name query
@@ -38,8 +40,7 @@ c --query ''                    # explicitly browse with an empty query
 
 The presence of `--query` selects picker mode even when its value is empty.
 Without the option, `c PATH` keeps direct navigation, including special cd
-targets such as `-`. The existing Zsh wrapper receives the shared picker UI
-and ordering changes; its positional arguments still navigate directly.
+targets such as `-`. These forms work the same way in Nushell, Bash, and Zsh.
 
 ## Reuse
 
@@ -57,7 +58,7 @@ dir-picker --query=-draft        # query text beginning with a dash
 dir-picker --list                # unfiltered ordered paths, without fzf
 dir-picker --list --json         # JSON array for structured consumers
 dir-picker --json                # one JSON string; used by Nushell
-dir-picker --null                # one NUL-terminated path; used by Zsh
+dir-picker --null                # one NUL-terminated path
 dir-picker --help
 ```
 
@@ -65,8 +66,9 @@ JSON and NUL output preserve spaces, tabs, Unicode, and newlines in names.
 fzf receives NUL-framed rows with separate metadata and name fields, and
 returns an opaque identifier which Python maps back to the actual path.
 Backslashes and control characters are escaped only for display and matching;
-paths retain their original bytes and symlinks. Line output is intended for
-ordinary names; use JSON or NUL framing for scripts.
+paths retain their original bytes and symlinks. Bash and Zsh read the line
+output of one selected path and remove only its final newline, so the path
+keeps any newlines in its name. For other scripts, use JSON or NUL framing.
 
 Equal modification times sort by name. An unavailable browsing root is an
 error; children that disappear or become inaccessible during enumeration are
@@ -82,10 +84,11 @@ always lists the unfiltered recency order.
 | `private_dot_config/my-scripts/bin/executable_dir-picker` | `/home/vimkim/.config/my-scripts/bin/dir-picker` |
 | `private_dot_config/nushell/alias.nu` | `/home/vimkim/.config/nushell/alias.nu` |
 
-The Zsh wrapper at `private_dot_config/my-scripts/zsh/aliases.zsh`, deployed as
-`/home/vimkim/.config/my-scripts/zsh/aliases.zsh`, is covered by regression
-checks and does not need source edits. Both shells already put the scripts
-directory on PATH. Documentation and verification files are excluded from
+Bash and Zsh share the wrapper at
+`private_dot_config/my-scripts/shell/productivity.sh`, deployed as
+`/home/vimkim/.config/my-scripts/shell/productivity.sh`. It is covered by Zsh
+regression checks and does not need source edits. All three shells already put
+the scripts directory on PATH. Documentation and verification files are excluded from
 chezmoi deployment. Verify and apply each concrete target separately when
 deployment is requested.
 
@@ -93,7 +96,8 @@ deployment is requested.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p test_directory_picker.py -v
-zsh -n private_dot_config/my-scripts/zsh/aliases.zsh
+zsh -n private_dot_config/my-scripts/shell/productivity.sh
+bash -n private_dot_config/my-scripts/shell/productivity.sh
 ```
 
 Tests exercise the public CLI, actual fzf terminal selection, and Nushell/Zsh
