@@ -45,7 +45,8 @@
       "Bash(sha256sum *)",
       "Bash(pkg-config *)",
       "Bash(cubrid-jira-search *)",
-      "Bash(/home/vimkim/.claude/skills/cubrid-oos-context/scripts/validate-env.sh*)"
+      "Bash(/home/vimkim/.claude/skills/cubrid-oos-context/scripts/validate-env.sh*)",
+      "Bash(cubrid-jira *)"
     ],
     "defaultMode": "auto",
     "additionalDirectories": [
@@ -64,5 +65,11 @@
   "theme": "dark",
   "remoteControlAtStartup": false,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Running the cubrid-jira CLI to comment on, create, or update jira.cubrid.org issues when the user approved the content in the conversation."
+    ]
+  }
 }
