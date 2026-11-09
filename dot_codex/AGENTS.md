@@ -8,8 +8,8 @@
 ## Herdr agent launches
 
 - Default to bypass mode when starting or resuming Codex or Claude through Herdr, unless the user requests another mode. Pass native options after `--` in `herdr agent start`:
-  - Codex: `--profile dotfiles --dangerously-bypass-approvals-and-sandbox`.
-  - Claude: `--settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/dotfiles-settings.json" --dangerously-skip-permissions`.
+  - Codex: `--profile local --dangerously-bypass-approvals-and-sandbox`.
+  - Claude: `--settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/local-settings.json" --dangerously-skip-permissions`.
 - Use the same options for direct `codex` or `claude` launches through pane commands. Verify the running agent's permission mode before submitting work; shell aliases and Herdr session restore do not guarantee these options.
 
 ## Next-step requests

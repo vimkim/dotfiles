@@ -273,8 +273,8 @@ alias ai0='claude-account run 0'
 alias ai-status='claude-account status --all'
 for _ai_slot in 1 2 3 4 5; do alias "ai$_ai_slot=claude-account run $_ai_slot"; done; unset _ai_slot
 alias aip='ai "read prompt.md and execute"'
-alias cx='codex --profile dotfiles'
-alias cxp='codex --profile dotfiles "read prompt.md and execute"'
+alias cx='codex --profile local'
+alias cxp='codex --profile local "read prompt.md and execute"'
 
 alias cff='FD_OPS=(-H -I --type f --type l --follow) cd_fzf .'          # Navigate to file-containing directories
 alias cfh='cd_fzf "$HOME" f'   # Navigate to file-containing directories under $HOME

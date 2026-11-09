@@ -1,0 +1,2 @@
+# Machine-local Codex state, selected with `codex --profile local`.
+# Codex writes project trust, hook approvals, and UI state here. Not shared.

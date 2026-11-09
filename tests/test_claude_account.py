@@ -73,7 +73,7 @@ class ClaudeAccountTest(unittest.TestCase):
         (self.accounts / "0.json").write_text(json.dumps({"token": TOKEN}))
         result = self.account("run", "0", "-c", "two words")
         self.assertEqual(result.returncode, 0, result.stderr)
-        settings = str(self.config / "dotfiles-settings.json")
+        settings = str(self.config / "local-settings.json")
         self.assertEqual(self.calls(), [{"name": "claude", "token": None, "api": None, "auth": None, "args": [
             "--settings", settings, "--dangerously-skip-permissions", "-c", "two words"]}])
 
@@ -82,7 +82,7 @@ class ClaudeAccountTest(unittest.TestCase):
         self.env["HOME"] = str(self.root / "home")
         self.assertEqual(self.account("run", "0").returncode, 0)
         self.assertEqual(self.calls()[0]["args"][1],
-                         str(self.root / "home/.claude/dotfiles-settings.json"))
+                         str(self.root / "home/.claude/local-settings.json"))
 
     def test_added_slot_passes_its_token_and_stays_private(self):
         self.add_slot(2, "--label", "personal")

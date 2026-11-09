@@ -18,7 +18,7 @@ Bash, Zsh, and Nushell define the same shortcuts:
 Each shortcut runs `claude-account run N`, which starts:
 
 ```sh
-claude --settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/dotfiles-settings.json" \
+claude --settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/local-settings.json" \
        --dangerously-skip-permissions [your arguments]
 ```
 

@@ -93,7 +93,7 @@ def run(args: list[str]) -> None:
     slot = 0
     if args and args[0].isdigit():
         slot = parse_slot(args.pop(0))
-    command = ["claude", "--settings", str(config_dir() / "dotfiles-settings.json"),
+    command = ["claude", "--settings", str(config_dir() / "local-settings.json"),
                "--dangerously-skip-permissions", *args]
     try:
         os.execvpe(command[0], command, slot_env(slot))

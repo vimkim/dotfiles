@@ -1,5 +1,5 @@
-# Shared preferences selected by `codex --profile dotfiles`.
-# Project trust, plugin choices, UI notices, and hook approvals stay in config.toml.
+# Shared Codex preferences, managed by chezmoi and published in a public repository.
+# Project trust, hook approvals, and UI state belong in local.config.toml (`--profile local`).
 model = "gpt-6.1-sol"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
@@ -20,3 +20,9 @@ interrupt_turn = "leader c"
 [agents]
 max_concurrent_threads_per_session = 6
 max_depth = 2
+
+[plugins."github@openai-curated"]
+enabled = true
+
+[notice]
+hide_rate_limit_model_nudge = true

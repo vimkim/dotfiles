@@ -70,7 +70,7 @@ class CodexLaunchTest(unittest.TestCase):
         self.addCleanup(os.close, master)
         self.addCleanup(os.close, slave)
         original = termios.tcgetattr(slave)
-        self.proc = subprocess.Popen([str(self.launcher), "--profile", "dotfiles"],
+        self.proc = subprocess.Popen([str(self.launcher), "--profile", "local"],
                                      stdin=slave, stdout=slave, stderr=slave,
                                      env=self.env, start_new_session=True)
         self.addCleanup(self.stop)
@@ -84,7 +84,7 @@ class CodexLaunchTest(unittest.TestCase):
         self.assertEqual(launch["pid"], self.proc.pid, "Codex must replace the launcher")
         self.assertEqual(launch["group"], self.proc.pid, "Codex must stay in the pane's process group")
         self.assertEqual(launch["terminal"], os.ttyname(slave), "Codex must use the pane's terminal")
-        self.assertEqual(launch["args"], ["--profile", "dotfiles"])
+        self.assertEqual(launch["args"], ["--profile", "local"])
         keys = b"\x18c\x1b[A\x03"
         os.write(master, keys)
         self.assertEqual(self.proc.wait(timeout=4), 7)
@@ -92,7 +92,7 @@ class CodexLaunchTest(unittest.TestCase):
         self.assertEqual(termios.tcgetattr(slave), original)
 
     def test_automation_preserves_arguments_input_and_exit_status(self):
-        args = ["--profile", "dotfiles", "exec", "--json", "a prompt", "", "한글"]
+        args = ["--profile", "local", "exec", "--json", "a prompt", "", "한글"]
         result = subprocess.run([str(self.launcher), *args], input="piped input",
                                 env=self.env, text=True, capture_output=True, timeout=4)
         self.assertEqual(result.returncode, 5, result.stderr)

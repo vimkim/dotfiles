@@ -194,13 +194,13 @@ alias ai5 = claude-account run 5
 alias aip = ai "read prompt.md and execute"
 alias battery = do { upower -e | fzf --preview='upower -i {}' }
 alias c = cl
-alias cla = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json")
-alias cyo = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json") --dangerously-skip-permissions
-alias cds = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "dotfiles-settings.json") --dangerously-skip-permissions
+alias cla = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "local-settings.json")
+alias cyo = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "local-settings.json") --dangerously-skip-permissions
+alias cds = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "local-settings.json") --dangerously-skip-permissions
 alias crc = crc.sh
 # alias cx = cl (fd -H -I -t d | fzfm)
-alias cx = codex --profile dotfiles
-alias cxp = codex --profile dotfiles "read prompt.md and execute"
+alias cx = codex --profile local
+alias cxp = codex --profile local "read prompt.md and execute"
 alias cz = zi
 alias activate = overlay use .venv/bin/activate.nu
 def dea [] { deactivate }

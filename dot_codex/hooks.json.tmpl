@@ -9,6 +9,16 @@
             "type": "command"
           }
         ]
+      },
+      {
+        "matcher": "^(startup|clear|compact)$",
+        "hooks": [
+          {
+            "command": "work-tracker hook session-start",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
       }
     ]
   }

@@ -43,10 +43,7 @@
       "Bash(man *)",
       "Bash(md5sum *)",
       "Bash(sha256sum *)",
-      "Bash(pkg-config *)",
-      "Bash(cubrid-jira-search *)",
-      "Bash(/home/vimkim/.claude/skills/cubrid-oos-context/scripts/validate-env.sh*)",
-      "Bash(cubrid-jira *)"
+      "Bash(pkg-config *)"
     ],
     "defaultMode": "auto",
     "additionalDirectories": [
@@ -66,10 +63,37 @@
   "remoteControlAtStartup": false,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "autoMode": {
-    "allow": [
-      "$defaults",
-      "Running the cubrid-jira CLI to comment on, create, or update jira.cubrid.org issues when the user approved the content in the conversation."
+  "enabledPlugins": {},
+  "extraKnownMarketplaces": {},
+  "pluginConfigs": {
+    "cc-plugin-agents-md@builtin": {
+      "options": {
+        "instructionFiles": "claude-md-and-agents-md"
+      }
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear|compact|fork)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/home/vimkim/.claude/hooks/herdr-agent-state.sh' session",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "^(startup|clear|compact)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "work-tracker hook session-start",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
