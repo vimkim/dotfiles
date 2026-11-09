@@ -58,6 +58,8 @@ class Crash(BaseException):
 
 
 def load(script):
+    # Never write a __pycache__ beside the script: chezmoi would deploy it.
+    sys.dont_write_bytecode = True
     loader = importlib.machinery.SourceFileLoader("herdr_tab_status_under_check", str(script))
     module = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
     loader.exec_module(module)
@@ -279,7 +281,7 @@ def main():
     parser.add_argument("--faults", type=int, default=2, help="maximum faults per trace (default 2)")
     parser.add_argument("--ticks", type=int, default=1, help="maximum minutes the clock advances (default 1)")
     parser.add_argument("--no-save-faults", action="store_true",
-                        help="leave out journal save failures (known finding F1 in SKILL.md)")
+                        help="leave out journal save failures")
     args = parser.parse_args()
     if not args.script.is_file():
         parser.error(f"no such script: {args.script}")

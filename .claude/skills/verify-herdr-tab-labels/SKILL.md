@@ -20,10 +20,10 @@ The search is a model checker over the real code, not over a hand model. The ris
 ## Does a change touch the verified code?
 
 ```bash
-git diff e7152d4 -- private_dot_local/bin/executable_herdr-tab-status   # committed and uncommitted changes
+git diff ced486d -- private_dot_local/bin/executable_herdr-tab-status   # committed and uncommitted changes
 ```
 
-Coverage, confirmed at sync commit **e7152d4** (the script last changed in 20cf0db). Line numbers are at that commit.
+Coverage, confirmed at sync commit **ced486d**, where the script last changed. Line numbers are at that commit.
 
 | Code | Role in the check |
 | --- | --- |
@@ -32,8 +32,8 @@ Coverage, confirmed at sync commit **e7152d4** (the script last changed in 20cf0
 | `Updater.__init__` (:409) | Runs as-is. It loads and validates `state.json`. |
 | `Updater.save` (:453) | Runs as-is (temporary file plus `replace`). Only `os.fsync` is a no-op. |
 | `Updater.update` (:471) | Runs as-is. One search step is one full call. |
-| `Updater.restore` (:542) | Runs as-is for both `stop` paths: the worker's `finally` (:750) and `stop` with no worker (:737). |
-| `run_events` error handling (:642) | Modeled: `OSError`, `ValueError`, `KeyError`, and `HerdrError` leave the worker alive with its in-memory journal. Anything else ends the run. |
+| `Updater.restore` (:548) | Runs as-is for both `stop` paths: the worker's `finally` (:756) and `stop` with no worker (:743). |
+| `run_events` error handling (:648) | Modeled: `OSError`, `ValueError`, `KeyError`, and `HerdrError` leave the worker alive with its in-memory journal. Anything else ends the run. |
 | `request` (:242) | Replaced by the in-memory Herdr in `check.py`. |
 
 A change outside these rows, such as the event feed, metadata tokens, or the lock and control socket, does not need this check.
@@ -43,18 +43,16 @@ A change outside these rows, such as the event feed, metadata tokens, or the loc
 From the repository root:
 
 ```bash
-python3 .claude/skills/verify-herdr-tab-labels/check.py                   # all faults, depth 5; stops at the first counterexample
-python3 .claude/skills/verify-herdr-tab-labels/check.py --no-save-faults  # without finding F1's trigger; a full pass takes ~30 s
-python3 .claude/skills/verify-herdr-tab-labels/mutants.py                 # proves the check can still fail, ~5 s
+python3 .claude/skills/verify-herdr-tab-labels/check.py      # all faults, depth 5, ~40 s; stops at the first counterexample
+python3 .claude/skills/verify-herdr-tab-labels/mutants.py    # proves the check can still fail, ~5 s
 ```
 
-Baseline at e7152d4:
+Baseline at ced486d:
 
-- The default run prints `FAIL NameRecoverable` with the two-step counterexample of finding F1 below. The search stops at the shortest counterexample, so while F1 is open the default run always stops there. `--no-save-faults` is then the run that finds new bugs. A new bug that needs a failed save stays hidden until F1 is fixed. Any counterexample other than F1's is new.
-- `--no-save-faults` prints `PASS ... within depth 5` with 11517 states. With `--depth 6` it prints `PASS` with 43510 states.
-- `mutants.py` prints `CAUGHT` for all six mutants.
+- `check.py` prints `PASS ... within depth 5` with 11517 states. Any `FAIL` is new.
+- `mutants.py` prints `CAUGHT` for all seven mutants.
 
-Run all three on every change that touches the covered code. Use `--depth 6 --no-save-faults` (about 2.5 minutes) before merging a change to `update`, `restore`, or `original_label`. Use `--script PATH` to check another copy of the script.
+Run both on every change that touches the covered code. Use `--depth 6` (about 2 minutes) before merging a change to `update`, `restore`, or `original_label`. Use `--script PATH` to check another copy of the script. `--no-save-faults` leaves out failed journal saves; use it only to tell whether a counterexample depends on one.
 
 ## Reading a result
 
@@ -75,7 +73,7 @@ To tell a real bug from a modeling error, replay the trace against the code:
   - the process dies right after the save;
   - the first or second `tab.rename` is rejected, has its reply lost after Herdr applied it, or the process dies just before or just after Herdr applies it;
   - the process dies between steps while its journal is unsaved.
-- Depth 5 steps by default. A `--depth 6 --no-save-faults` run (43510 states, 245898 transitions) passed at e7152d4.
+- Depth 5 steps by default. A `--depth 6` run with all faults (43510 states, 265767 transitions, about 2 minutes) passed at ced486d.
 - Assumptions:
   - User renames never land inside one `update()` call. `docs/herdr-tab-status.md` documents that race ("A manual rename between a snapshot and its rename request can race the updater"), and the Herdr API has no conditional rename.
   - Timer updates reuse a cached snapshot that matches Herdr, because every rename event invalidates it. The model always takes a fresh snapshot.
@@ -84,31 +82,13 @@ To tell a real bug from a modeling error, replay the trace against the code:
 
 A `PASS` covers these bounds, not every possible history.
 
-## Known findings
+## Findings
 
-**F1: a failed journal save is never retried before renaming (open).**
+**F1, fixed in ced486d: a failed journal save was not retried before renaming.**
 
-`Updater.update` assigns `self.tabs = journal` before `self.save()`. When the save raises, for example `ENOSPC` on `~/.cache`, `run_events` catches the `OSError` and retries. On the retry the computed journal equals `self.tabs`, so `update` skips the save and renames the tabs. Herdr now shows decorations that the disk journal has never recorded. The comment above the save promises the opposite: "a lost API reply must not lose the original name".
+`Updater.update` used to assign `self.tabs = journal` before `self.save()`. When the save raised (for example `ENOSPC` on `~/.cache`), `run_events` retried, the computed journal equaled `self.tabs`, and `update` renamed the tabs without saving. If the worker then died, the next worker renamed `work` to `1 1 work [▶ Codex <1m] [▶ Codex <1m]`, and `stop` restored `1 work [▶ Codex <1m]`.
 
-The checker's counterexample:
-
-1. `update()` -> the journal save raises `OSError`. The labels are unchanged, and the worker's journal differs from the disk.
-2. `update()` -> `w1:t1` is renamed to `1 work [▶ Codex <1m]` with no save. The disk journal still has no record of `work`.
-
-If the worker then dies before a later save succeeds, the damage is permanent. The next worker renames the tab to `1 1 work [▶ Codex <1m] [▶ Codex <1m]`, and `stop` "restores" `1 work [▶ Codex <1m]`. Shell-only tabs never change their journal again, so for them the window stays open.
-
-A candidate fix passed `check.py` with all faults at depth 5 on a scratch copy. It assigns the new journal only after the save succeeds:
-
-```python
-            previous, self.tabs = self.tabs, journal
-            try:
-                self.save()
-            except BaseException:
-                self.tabs = previous
-                raise
-```
-
-Once F1 is fixed, the default run must pass. Then delete this finding and update the baseline.
+The fix keeps the previous journal in memory until the save succeeds. Two things guard it: the mutant `keep-unsaved-journal`, and the test `test_failed_journal_save_is_retried_before_renaming` in `tests/test_herdr_tab_status.py`.
 
 ## Keeping it in step with the code
 

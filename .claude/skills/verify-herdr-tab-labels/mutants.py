@@ -2,7 +2,7 @@
 """Prove check.py can fail: break the real herdr-tab-status in known ways.
 
 Each mutant replaces one exact snippet of private_dot_local/bin/executable_herdr-tab-status
-in a temporary copy, then runs check.py --no-save-faults on that copy. Every mutant
+in a temporary copy, then runs check.py (all faults) on that copy. Every mutant
 must FAIL. A mutant whose snippet no longer exists is STALE: update its snippet to
 the current code so it breaks the same rule again.
 
@@ -23,8 +23,13 @@ SCRIPT = HERE.parents[2] / "private_dot_local/bin/executable_herdr-tab-status"
 MUTANTS = {
     "rename-before-save": (
         "update() renames tabs without first saving the journal",
-        "            self.tabs = journal\n            self.save()\n",
-        "            self.tabs = journal\n",
+        "            try:\n                self.save()\n            except BaseException:\n                self.tabs = previous\n                raise\n",
+        "            pass\n",
+    ),
+    "keep-unsaved-journal": (
+        "a failed save leaves the unsaved journal in memory, so the retry skips the save (finding F1)",
+        "                self.tabs = previous\n",
+        "                pass\n",
     ),
     "forget-current-label": (
         "the journal stops remembering the label Herdr currently shows",
@@ -71,7 +76,7 @@ def main():
             copy = Path(scratch) / "herdr-tab-status"
             copy.write_text(source.replace(old, new))
             result = subprocess.run(
-                [sys.executable, str(HERE / "check.py"), "--no-save-faults",
+                [sys.executable, str(HERE / "check.py"),
                  "--depth", str(args.depth), "--script", str(copy)],
                 capture_output=True, text=True,
             )
