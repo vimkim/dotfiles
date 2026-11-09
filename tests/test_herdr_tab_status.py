@@ -605,6 +605,22 @@ class HerdrTabStatusTest(unittest.TestCase):
         self.success("stop")
         self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
 
+    def test_failed_journal_save_is_retried_before_renaming(self):
+        # The worker retries an OSError with the same Updater. If it then dies,
+        # a new process must still restore the original names from disk.
+        self.directory.mkdir(parents=True, exist_ok=True)
+        module = runpy.run_path(str(HELPER))
+        updater = module["Updater"](str(self.server.path), self.directory)
+        full = OSError(28, "No space left on device")
+        with mock.patch("tempfile.NamedTemporaryFile", side_effect=full):
+            with self.assertRaises(OSError):
+                updater.update()
+        self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
+        updater.update()
+        self.assertEqual(self.server.labels()[1], "2 review [! Claude <1m]")
+        self.success("stop")
+        self.assertEqual(self.server.labels(), ["1", "review", "3", "logs"])
+
     def test_rejected_state_change_does_not_lose_previous_decoration(self):
         self.success("once")
         with self.server.lock:

@@ -503,8 +503,14 @@ class Updater:
         if journal != self.tabs:
             # Persist both possible labels before rename: a lost API reply must
             # not lose the original name or double-decorate after a restart.
-            self.tabs = journal
-            self.save()
+            # Keep the old journal in memory until the save succeeds, so a
+            # retry after a failed save saves again before renaming.
+            previous, self.tabs = self.tabs, journal
+            try:
+                self.save()
+            except BaseException:
+                self.tabs = previous
+                raise
         for tab in plan["tabs"]:
             if tab["label"] != tab["current"]:
                 request(
