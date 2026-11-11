@@ -176,6 +176,32 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(self.account("run", "1").returncode, 1)
         self.assertEqual(self.calls(), [])
 
+    def test_bash_redirected_interactive_startup_loads_ai_shortcuts(self):
+        recorder = self.bin / "claude-account"
+        recorder.write_text(f"#!{sys.executable}\nimport json, os, sys\n"
+                            "with open(os.environ['STUB_LOG'], 'a') as handle:\n"
+                            "    handle.write(json.dumps(sys.argv[1:]) + '\\n')\n")
+        env = {**self.env, "HOME": str(self.root), "PROMPT_COMMAND": "sentinel"}
+        for name in ("BASH_ENV", "BASH_FULL_INIT", "BASH_IT"):
+            env.pop(name, None)
+        names = ["ai", *(f"ai{n}" for n in range(6)), "ai-status"]
+        commands = "\n".join(f"{name} 'two words' '' --option" for name in names)
+        result = subprocess.run(
+            ["bash", "--rcfile", str(ROOT / "dot_bashrc"), "-ic",
+             f"set -e\n{commands}\n[[ ! -v BASH_IT && $PROMPT_COMMAND == sentinel ]]"],
+            env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([json.loads(line) for line in self.log.read_text().splitlines()],
+                         [["run", str(slot), "two words", "", "--option"]
+                          for slot in (0, 0, 1, 2, 3, 4, 5)]
+                         + [["status", "--all", "two words", "", "--option"]])
+        result = subprocess.run(
+            ["bash", "--noprofile", "--norc", "-c",
+             f"source '{ROOT / 'dot_bashrc'}'; "
+             + " && ".join(f"! alias {name} 2>/dev/null" for name in names)],
+            env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_shortcuts_in_bash_zsh_and_nushell(self):
         # Replace the launcher with a recorder; only the shortcut routing is under test.
         (self.bin / "claude-account").write_text(STUB)

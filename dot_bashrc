@@ -54,6 +54,11 @@ case $- in
 *) return ;;
 esac
 
+alias ai='claude-account run 0'
+alias ai0='claude-account run 0'
+alias ai-status='claude-account status --all'
+for _ai_slot in 1 2 3 4 5; do alias "ai$_ai_slot=claude-account run $_ai_slot"; done; unset _ai_slot
+
 # Agent-style `bash -i -c ...` shells get PATH/env, not prompt/history UI.
 if [[ -z ${BASH_FULL_INIT:-} && ( ! -t 0 || ! -t 1 ) ]]; then
     return
@@ -148,10 +153,6 @@ elif command -v fdfind >/dev/null 2>&1; then
     _fd_cmd=fdfind
 fi
 
-alias ai='claude-account run 0'
-alias ai0='claude-account run 0'
-alias ai-status='claude-account status --all'
-for _ai_slot in 1 2 3 4 5; do alias "ai$_ai_slot=claude-account run $_ai_slot"; done; unset _ai_slot
 alias aip='ai "read prompt.md and execute"'
 alias cx='codex --profile local'
 alias cxp='codex --profile local "read prompt.md and execute"'
