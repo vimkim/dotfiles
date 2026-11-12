@@ -7,7 +7,7 @@ existing socket API and runs with Python's standard library on Linux.
 Example tab labels:
 
 ```text
-1 [▶ Codex 12m]     2 review [! Claude 3m]     3 logs [— shell]
+1 [t1 ▶ Codex 12m]     2 review [t2 ! Claude 3m]     3 logs [t3 — shell]
 ```
 
 Example workspace entry:
@@ -34,7 +34,7 @@ main · * ↑2
 
 The updater reads `session.snapshot`: agent entries determine which tabs contain
 agents, and each tab's native `agent_status` supplies the aggregate state. Multiple
-agents appear as, for example, `review [! Claude+Codex ×2 3m]`. Shells, editors, and
+agents appear as, for example, `review [t2 ! Claude+Codex ×2 3m]`. Shells, editors, and
 servers without a detected agent get the ordinary-terminal marker.
 
 The server's `done`/`idle` distinction uses its seen state. Each attached client
@@ -43,9 +43,11 @@ from the updater. These markers are text decorations; setting sidebar symbol
 colors does not color the decorations themselves.
 
 Every tab label starts with its current position in the workspace, followed by
-its name and status suffix. Bare numeric names display only the current position.
-For example, moving `1 [▶ Codex 12m]` after `2 review [! Claude 3m]` produces
-`1 review [! Claude 3m]` and `2 [▶ Codex 12m]` after the move event.
+its name and status suffix. The suffix starts with the short tab ID. Bare numeric
+names display only the current position. For example, moving `1 [t1 ▶ Codex 12m]`
+after `2 review [t2 ! Claude 3m]` produces `1 review [t2 ! Claude 3m]` and
+`2 [t1 ▶ Codex 12m]`. The position changes when tabs move. The ID stays with
+the tab.
 The sidebar uses the same positions. With the managed bindings, `Alt+Shift+1…9`
 focuses tabs by these numbers. `Alt+1…9` focuses workspaces.
 
@@ -70,6 +72,21 @@ moved to another workspace receives its new workspace-qualified ID on the next
 lifecycle update. Ordinary shell panes also receive the token, so an agent that
 starts later can display it immediately. Publishing metadata does not rename the
 pane or take over the agent's semantic state.
+
+## Copy a location
+
+Press `Ctrl+a`, then `y` to open the location popup for the active pane. The
+popup displays the workspace name, tab label, and full workspace, tab, and pane
+IDs. Press Enter or `c` to copy a reference containing all of them. Press `w`,
+`t`, or `p` to copy one ID. Press `q` or Escape to close without copying. The
+popup closes after a copy. It sends the copied text with OSC 52, so the terminal
+must support clipboard access through that escape sequence.
+
+Run `herdr-location` inside a pane to print the reference for a report. The
+command uses `HERDR_ACTIVE_PANE_ID` when available and otherwise uses
+`HERDR_PANE_ID`. It reads one live snapshot from `HERDR_SOCKET_PATH`. Names are
+quoted, and control characters are escaped, so the reference stays on one line.
+The displayed tab label includes any active status suffix.
 
 ## Time in the current state
 
@@ -100,6 +117,7 @@ change.
 | Chezmoi source | Deployed target |
 | --- | --- |
 | `private_dot_local/bin/executable_herdr-tab-status` | `~/.local/bin/herdr-tab-status` |
+| `private_dot_local/bin/executable_herdr-location` | `~/.local/bin/herdr-location` |
 | `private_dot_local/bin/executable_herdr-shell` | `~/.local/bin/herdr-shell` |
 | `private_dot_config/herdr/config.toml` | `~/.config/herdr/config.toml` |
 
@@ -179,7 +197,7 @@ retain their last status until `start` or `stop` succeeds.
 ## Verification
 
 ```sh
-python3 -m unittest tests.test_herdr_tab_status tests.test_herdr_shell tests.test_herdr_move_workspace -v
+python3 -m unittest tests.test_herdr_tab_status tests.test_herdr_location tests.test_herdr_shell tests.test_herdr_move_workspace -v
 HERDR_NATIVE_TESTS=1 python3 -B -m unittest tests.test_herdr_tab_status_native -v
 HERDR_CONFIG_PATH="$PWD/private_dot_config/herdr/config.toml" herdr config check
 sh -n private_dot_local/bin/executable_herdr-shell

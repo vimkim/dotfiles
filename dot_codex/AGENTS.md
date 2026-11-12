@@ -5,7 +5,9 @@
 - Ask only when ambiguity changes the outcome, scope, or risk. Resolve routine, reversible details with stated assumptions.
 - Use `work-tracker` for work expected to take 30+ minutes, cross sessions, use parallel agents, or wait on an external queue.
 
-## Herdr agent launches
+## Herdr
+
+- When reporting a Herdr location, include the workspace name, tab name, and full target ID, for example `CBRD-28035, tab sa-rollback-issue (w2GX:t2), pane w2GX:p2`. Read the names and IDs from the live API.
 
 - Default to bypass mode when starting or resuming Codex or Claude through Herdr, unless the user requests another mode. Pass native options after `--` in `herdr agent start`:
   - Codex: `--profile local --dangerously-bypass-approvals-and-sandbox`.

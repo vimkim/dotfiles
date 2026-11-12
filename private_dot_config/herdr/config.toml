@@ -50,6 +50,14 @@ type = "shell"
 command = "$HOME/.local/bin/herdr-move-workspace down"
 description = "move workspace down"
 
+[[keys.command]]
+key = "prefix+y"
+type = "popup"
+command = '"$HOME/.local/bin/herdr-location" --popup'
+description = "copy current location"
+width = "80%"
+height = "50%"
+
 # Adjacent creation and the numbered source-to-anchor popup.
 [[keys.command]]
 key = "alt+t"

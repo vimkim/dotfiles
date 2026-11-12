@@ -356,7 +356,7 @@ def build_plan(snapshot, saved_tabs, now=None):
             if base.isascii() and base.isdecimal()
             else prefix + base
         )
-        suffix = f" [{marker} {name}{age}]"
+        suffix = f" [{tab['tab_id'].rsplit(':', 1)[-1]} {marker} {name}{age}]"
         item = {
             "tab_id": tab["tab_id"],
             "base": base,

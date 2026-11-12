@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+
+"""Print or copy the location of the invoking Herdr pane."""
+
+import argparse
+import base64
+from dataclasses import dataclass
+import json
+import os
+import shutil
+import socket
+import sys
+import termios
+import tty
+import unicodedata
+
+
+class LocationError(Exception):
+    pass
+
+
+@dataclass(frozen=True)
+class Location:
+    workspace_name: str
+    workspace_id: str
+    tab_label: str
+    tab_id: str
+    pane_id: str
+
+    def reference(self):
+        return (f"{quoted(self.workspace_name)} ({self.workspace_id}), "
+                f"tab {quoted(self.tab_label)} ({self.tab_id}), pane {self.pane_id}")
+
+
+def quoted(value):
+    encoded = json.dumps(value, ensure_ascii=False)
+    return "".join(
+        json.dumps(char, ensure_ascii=True)[1:-1]
+        if unicodedata.category(char) in {"Cc", "Cf", "Cs", "Zl", "Zp"} else char
+        for char in encoded
+    )
+
+
+def snapshot(socket_path):
+    payload = {"id": "herdr-location", "method": "session.snapshot", "params": {}}
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        client.settimeout(3)
+        client.connect(socket_path)
+        with client.makefile("rwb") as stream:
+            stream.write(json.dumps(payload, separators=(",", ":")).encode() + b"\n")
+            stream.flush()
+            line = stream.readline(16 * 1024 * 1024 + 1)
+    if not line or not line.endswith(b"\n"):
+        raise LocationError("incomplete snapshot response")
+    response = json.loads(line)
+    if not isinstance(response, dict) or response.get("id") != payload["id"]:
+        raise LocationError("unexpected snapshot response")
+    if "error" in response:
+        raise LocationError("Herdr rejected the snapshot request")
+    return response["result"]["snapshot"]
+
+
+def locate(data, pane_id):
+    def find(kind, field, value):
+        entries = data[kind]
+        if not isinstance(entries, list):
+            raise LocationError(f"invalid {kind} in snapshot")
+        matches = [entry for entry in entries if entry.get(field) == value]
+        if len(matches) != 1:
+            raise LocationError(f"{kind[:-1]} {quoted(value)} not found uniquely")
+        return matches[0]
+
+    pane = find("panes", "pane_id", pane_id)
+    tab = find("tabs", "tab_id", pane["tab_id"])
+    workspace = find("workspaces", "workspace_id", tab["workspace_id"])
+    if pane["workspace_id"] != tab["workspace_id"]:
+        raise LocationError("pane and tab belong to different workspaces")
+    values = (workspace["label"], workspace["workspace_id"], tab["label"],
+              tab["tab_id"], pane["pane_id"])
+    if not all(isinstance(value, str) and value for value in values):
+        raise LocationError("location contains missing or invalid fields")
+    if any(any(unicodedata.category(char).startswith("C") for char in value)
+           for value in (values[1], values[3], values[4])):
+        raise LocationError("location contains invalid IDs")
+    return Location(*values)
+
+
+def fit(line, width):
+    sizes = [0 if unicodedata.combining(char) else 2
+             if unicodedata.east_asian_width(char) in "WF" else 1 for char in line]
+    if sum(sizes) <= width:
+        return line
+    used = 0
+    for index, columns in enumerate(sizes):
+        if used + columns > width - 1:
+            return line[:index] + "…"
+        used += columns
+    return line
+
+
+def popup(location=None, error=None):
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        raise LocationError("popup requires a terminal")
+    fd = sys.stdin.fileno()
+    original = termios.tcgetattr(fd)
+    try:
+        tty.setcbreak(fd)
+        if error:
+            print(f"herdr-location: {quoted(error)}\nPress q, Escape, or Enter to close.", flush=True)
+        else:
+            width = max(1, shutil.get_terminal_size((80, 24)).columns - 1)
+            lines = [f"Workspace: {quoted(location.workspace_name)}",
+                     f"Workspace ID: {location.workspace_id}",
+                     f"Tab: {quoted(location.tab_label)}",
+                     f"Tab ID: {location.tab_id}",
+                     f"Pane: {location.pane_id}",
+                     "Enter/c: copy reference  p: pane  t: tab  w: workspace",
+                     "q/Esc: close"]
+            for line in lines:
+                print(fit(line, width))
+            sys.stdout.flush()
+        while True:
+            key = os.read(fd, 1)
+            if not key or key in (b"q", b"\x1b") or (error and key in (b"\r", b"\n")):
+                return
+            if not error:
+                value = {b"\r": location.reference(), b"\n": location.reference(),
+                         b"c": location.reference(), b"p": location.pane_id,
+                         b"t": location.tab_id, b"w": location.workspace_id}.get(key)
+                if value is not None:
+                    encoded = base64.b64encode(value.encode()).decode("ascii")
+                    sys.stdout.write(f"\x1b]52;c;{encoded}\x07")
+                    sys.stdout.flush()
+                    return
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, original)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--popup", action="store_true", help="show location and copy options")
+    args = parser.parse_args()
+    try:
+        socket_path = os.environ.get("HERDR_SOCKET_PATH")
+        pane_id = os.environ.get("HERDR_ACTIVE_PANE_ID") or os.environ.get("HERDR_PANE_ID")
+        if not socket_path:
+            raise LocationError("HERDR_SOCKET_PATH is not set")
+        if not pane_id:
+            raise LocationError("HERDR_ACTIVE_PANE_ID and HERDR_PANE_ID are not set")
+        location = locate(snapshot(socket_path), pane_id)
+    except (LocationError, OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        message = str(exc) or "invalid snapshot"
+        if args.popup:
+            try:
+                popup(error=message)
+            except (LocationError, OSError, termios.error) as terminal_error:
+                print(f"herdr-location: {quoted(str(terminal_error))}", file=sys.stderr)
+        else:
+            print(f"herdr-location: {quoted(message)}", file=sys.stderr)
+        return 1
+    if args.popup:
+        try:
+            popup(location=location)
+        except (LocationError, OSError, termios.error) as exc:
+            print(f"herdr-location: {quoted(str(exc))}", file=sys.stderr)
+            return 1
+    else:
+        print(location.reference())
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)
