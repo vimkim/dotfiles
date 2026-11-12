@@ -18,3 +18,6 @@ $env.CLAUDE_CODE_SHELL = (
     | where {|p| $p | path exists }
     | first
 )
+
+# CUBRID engine checkout that cubrid-tcr check reads for fix commits.
+$env.TCR_ENGINE_REPO = ($env.HOME | path join gh/cb/develop)

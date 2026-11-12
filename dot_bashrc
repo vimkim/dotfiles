@@ -19,6 +19,7 @@ path_prepend() {
 }
 
 export EDITOR='nvim'
+export TCR_ENGINE_REPO="$HOME/gh/cb/develop"
 export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
 export HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"
 export HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"

@@ -13,3 +13,6 @@ for claude_code_bash in /home/linuxbrew/.linuxbrew/bin/bash /bin/bash; do
     fi
 done
 unset claude_code_bash
+
+# CUBRID engine checkout that cubrid-tcr check reads for fix commits.
+export TCR_ENGINE_REPO="$HOME/gh/cb/develop"
