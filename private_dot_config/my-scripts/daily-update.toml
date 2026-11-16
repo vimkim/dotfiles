@@ -15,6 +15,8 @@ name = "my-cubrid-skills"
 path = "~/gh/my-cubrid-skills"
 github = "vimkim/my-cubrid-skills"
 kind = "collection"
+# CUBRID upkeep owns synchronization; retain external-update/prune protection.
+update = false
 
 [[projects]]
 name = "my-git-utils"
@@ -48,7 +50,9 @@ github = "vimkim/dirpick"
 primary_main = true
 
 [[projects]]
-name = "cubrid-tc-chronicle"
-path = "~/gh/cubrid-tc-chronicle"
-github = "vimkim/cubrid-tc-chronicle"
+# CUBRID employment: set update = false here to stop automatic CUBRID upkeep.
+name = "my-cubrid"
+path = "~/my-cubrid"
+github = "vimkim/my-cubrid"
 primary_main = true
+recipe = "daily-update"

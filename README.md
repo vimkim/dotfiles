@@ -394,7 +394,11 @@ globally installed agent skills. Feature modules live in
 `~/.config/my-scripts/daily_update/`. Personal
 GitHub checkouts are listed in `~/.config/my-scripts/daily-update.toml`; add or
 reorder projects there. Each checkout is refreshed before its `just sync` recipe
-runs. See [configuration and refresh policy](docs/daily-update.md).
+runs. The `my-cubrid` entry refreshes and installs `daily-update-cubrid`, then
+runs CUBRID upkeep, including `my-cubrid-skills` and `cubrid-tc-chronicle`.
+Set `update = false` on `my-cubrid` to disable this integration after leaving
+CUBRID. The protection-only `my-cubrid-skills` entry stays in the inventory.
+See [configuration and refresh policy](docs/daily-update.md).
 
 ```bash
 daily-update            # run everything, report stale skills, mark today done

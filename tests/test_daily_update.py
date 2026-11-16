@@ -41,7 +41,6 @@ class DailyUpdateTest(unittest.TestCase):
         }
         self.config = self.home / '.config/my-scripts/daily-update.toml'
         self.config.parent.mkdir(parents=True)
-        shutil.copyfile(SCRIPT.parents[1] / 'daily-update.toml', self.config)
         for name in ('codex', 'claude', 'npx'):
             self.executable(name, f'printf "%s\\n" "{name} $*" >>"$TEST_LOG"\nexit "${{FAIL_{name.upper()}:-0}}"\n')
         self.env['TEST_BREW_PREFIX'] = str(self.root)
@@ -78,6 +77,7 @@ exec "$REAL_GIT" "$@"
         self.repos = {}
         self.tools = {}
         self.seeds = {}
+        entries = []
         for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'work-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
             remote = self.root / f'{name}.git'
             seed = self.root / f'{name}-seed'
@@ -103,6 +103,16 @@ exec "$REAL_GIT" "$@"
                 self.git(repo, 'config', 'remote.origin.url', official)
             (self.tools if name in ('my-git-utils', 'work-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle') else self.repos)[name] = repo
             self.seeds[name] = seed
+            entry = f'[[projects]]\nname = "{name}"\npath = "~/gh/{name}"\ngithub = "vimkim/{name}"\n'
+            if name in self.repos:
+                entry += 'kind = "collection"\n'
+            elif name != 'my-git-utils':
+                entry += 'primary_main = true\n'
+            if name == 'work-tracker':
+                entry += 'recipe = "install"\n'
+            entries.append(entry)
+        # Generic inventory coverage includes collections/tools owned by other updaters.
+        self.config.write_text('\n'.join(entries))
 
         remote = self.root / 'dotfiles.git'
         seed = self.root / 'dotfiles-seed'
@@ -158,6 +168,83 @@ exit "${FAIL_APPLY:-0}"
         path.parent.mkdir(exist_ok=True)
         path.write_text(json.dumps({'version': 3, 'skills': skills}))
         return path
+
+    def default_cubrid_project(self):
+        shutil.copyfile(SCRIPT.parents[1] / 'daily-update.toml', self.config)
+        remote = self.root / 'my-cubrid.git'
+        seed = self.root / 'my-cubrid-seed'
+        self.git(self.root, 'init', '--bare', '--initial-branch=main', str(remote))
+        self.git(self.root, 'clone', str(remote), str(seed))
+        (seed / 'updater').write_text(
+            '#!/bin/sh\nprintf "cubrid-upkeep:fresh:%s\\n" "$*" >>"$TEST_LOG"\n'
+            'exit "${CUBRID_RESULT:-0}"\n'
+        )
+        (seed / 'justfile').write_text(
+            'daily-update:\n'
+            '    @mkdir -p "$HOME/.local/bin"\n'
+            '    @install -m 755 updater "$HOME/.local/bin/daily-update-cubrid"\n'
+            '    @"$HOME/.local/bin/daily-update-cubrid" --skip-dotfiles\n'
+        )
+        self.git(seed, 'add', '.')
+        self.git(seed, 'commit', '-m', 'updater')
+        self.git(seed, 'push', '-u', 'origin', 'HEAD')
+        repo = self.home / 'my-cubrid'
+        self.git(self.root, 'clone', str(remote), str(repo))
+        official = 'https://github.com/vimkim/my-cubrid.git'
+        self.git(repo, 'config', f'url.{remote}.insteadOf', official)
+        self.git(repo, 'config', 'remote.origin.url', official)
+        # A stale installed updater must be replaced before CUBRID upkeep.
+        installed = self.home / '.local/bin/daily-update-cubrid'
+        installed.parent.mkdir(parents=True)
+        installed.write_text('#!/bin/sh\nexit 91\n')
+        installed.chmod(0o755)
+        (seed / 'updater').write_text((seed / 'updater').read_text().replace('fresh', 'updated'))
+        self.git(seed, 'commit', '-am', 'new updater')
+        self.git(seed, 'push')
+        return repo
+
+    def test_default_upkeep_refreshes_updater_then_delegates_cubrid_once(self):
+        self.default_cubrid_project()
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        rows = self.logged().splitlines()
+        self.assertEqual(rows.count('cubrid-upkeep:updated:--skip-dotfiles'), 1)
+        self.assertEqual(rows.count('dotfiles:before'), 1)
+        for name in ('my-cubrid-skills', 'cubrid-tc-chronicle'):
+            self.assertNotIn(f'{self.home / "gh" / name}:before', rows)
+            self.assertNotIn(f'git:-C {self.home / "gh" / name} fetch', self.logged())
+        self.assertIn('tool:my-cubrid: completed', result.stdout)
+
+    def test_cubrid_partial_and_failure_reach_general_summary(self):
+        self.default_cubrid_project()
+        for code in (2, 1):
+            with self.subTest(code=code):
+                result = self.run_daily(CUBRID_RESULT=str(code))
+                self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+                self.assertIn('partial/skipped' if code == 2 else 'FAILED', result.stdout)
+                self.assertIn('stale scan: completed', result.stdout)
+                self.assertEqual(self.run_daily('--remind').stdout, '')
+
+    def test_protection_only_collection_keeps_identity_and_name_protection(self):
+        self.default_cubrid_project()
+        self.config.write_text(self.config.read_text().replace(
+            'name = "my-cubrid"\n', 'name = "my-cubrid"\nupdate = false\n'))
+        root = self.repos['my-cubrid-skills']
+        skill = root / 'collision'
+        skill.mkdir()
+        (skill / 'SKILL.md').write_text('owned by CUBRID collection')
+        lock = self.lock({
+            'collision': {'source': 'someone/other'},
+            'mine': {'source': 'vimkim/my-cubrid-skills'},
+            'local': {'source': str(root)},
+        })
+        before = lock.read_bytes()
+        for args in ([], ['--prune']):
+            result = self.run_daily(*args)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertNotIn('npx', self.logged())
+            self.assertNotIn('cubrid-upkeep:', self.logged())
+            self.assertEqual(lock.read_bytes(), before)
 
     def assert_other_runs(self, result, bad, code):
         self.assertEqual(result.returncode, code, result.stdout + result.stderr)
@@ -885,6 +972,7 @@ sys.exit(main(sys.argv[1:]))
         cases = ['{broken', original + '\nprimay_main = true\n',
                  original.replace('kind = "collection"', 'kind = "other"'),
                  original.replace('primary_main = true', 'primary_main = "true"'),
+                 original.replace('kind = "collection"', 'kind = "collection"\nupdate = "false"'),
                  original.replace('recipe = "install"', 'recipe = "--evaluate"'),
                  original.replace('recipe = "install"', 'recipe = "install; touch forbidden"'),
                  original.replace('recipe = "install"', 'recipe = []'),

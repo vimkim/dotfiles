@@ -17,6 +17,7 @@ class Project:
     kind: str = "tool"
     primary_main: bool = False
     recipe: str = "sync"
+    update: bool = True
 
     @property
     def label(self):
@@ -45,6 +46,7 @@ def load_projects(path):
             "kind",
             "primary_main",
             "recipe",
+            "update",
         }:
             raise ValueError("invalid project fields")
         for key in ("name", "path", "github"):
@@ -59,10 +61,13 @@ def load_projects(path):
             raise ValueError("project paths must be absolute or start with ~/")
         kind = item.get("kind", "tool")
         primary = item.get("primary_main", False)
+        update = item.get("update", True)
         if kind not in ("tool", "collection") or not isinstance(primary, bool):
             raise ValueError(
                 "kind must be tool/collection and primary_main must be boolean"
             )
+        if not isinstance(update, bool):
+            raise ValueError("update must be boolean")
         recipe = item.get("recipe", "sync")
         if not isinstance(recipe, str) or not re.fullmatch(
             r"[A-Za-z_][A-Za-z0-9_-]*", recipe
@@ -72,7 +77,7 @@ def load_projects(path):
             raise ValueError("duplicate project name or path")
         names.add(item["name"])
         paths.add(path.resolve())
-        projects.append(Project(item["name"], path, item["github"], kind, primary, recipe))
+        projects.append(Project(item["name"], path, item["github"], kind, primary, recipe, update))
     return projects
 
 
@@ -157,14 +162,14 @@ def sync(project):
     result = command(
         "just", "--justfile", "./justfile", project.recipe, cwd=project.path, capture=False
     )
-    if result.returncode == 2 and project.recipe == "sync":
-        raise Skipped("partial/skipped (sync exit 2)")
+    if result.returncode == 2 and project.recipe in ("sync", "daily-update"):
+        raise Skipped(f"partial/skipped ({project.recipe} exit 2)")
     if result.returncode:
         raise Failed(f"{project.recipe} exit {result.returncode}")
 
 
 def run_projects(projects, results):
-    ordered = list(projects)
+    ordered = [project for project in projects if project.update]
     if os.environ.get("DAILY_UPDATE_COLLECTION_ORDER") == "cubrid-first":
         slots = [i for i, p in enumerate(ordered) if p.kind == "collection"]
         for i, project in zip(slots, reversed([ordered[i] for i in slots])):

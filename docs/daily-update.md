@@ -51,9 +51,14 @@ on `main` tracking `origin/main` with the configured GitHub origin; linked
 worktrees and symlinks are skipped. Unknown fields, malformed entries, and
 duplicate names or paths reject the entire inventory before updates or pruning.
 An empty inventory uses `projects = []`.
+`update` defaults to `true`. With `update = false`, the project is never
+fetched or installed, while collection identities and skill names remain
+protected from third-party updates and pruning.
 
-The supplied list contains the two skill collections and six personal tools,
-including `work-tracker`.
+The supplied list updates `my-skills` and personal tools, including
+`work-tracker` and the `my-cubrid` updater checkout.
+`my-cubrid-skills` has `update = false` because `daily-update-cubrid` owns its
+synchronization. Its entry keeps the collection protected.
 Add a project by editing TOML; Python code needs no project-specific entry.
 The legacy `DAILY_UPDATE_COLLECTION_ORDER=cubrid-first` override reverses
 collection order while retaining their slots in the inventory.
@@ -70,8 +75,16 @@ that project's sync while independent work continues.
 After refresh, the runner requires a local `justfile` and executes
 `just --justfile ./justfile RECIPE` inside that project. The recipe owns installation
 and reconciliation. Skill ownership, pruning and recovery stay in the collection
-sync engines. Chronicle's recipe reinstalls the CLI; collecting CI evidence
-still requires an explicit `cubrid-tcc sync-data` invocation.
+sync engines.
+
+The `my-cubrid` entry uses `just daily-update`. This installs the freshly
+fetched updater through `just sync`, then runs
+`daily-update-cubrid --skip-dotfiles`. Dotfiles are handled once by the outer
+run. CUBRID skips and failures reach the general summary, and remaining
+maintenance continues. `--dotfiles-only`, `--remind`, `--status`, `--stale`,
+and `--prune` never invoke CUBRID upkeep.
+To stop automatic CUBRID upkeep after leaving CUBRID, set `update = false`
+on the `my-cubrid` entry. Keep the protection-only `my-cubrid-skills` entry.
 
 Python CLI recipes use regular `uv tool install --reinstall .` installations.
 Source changes reach installed commands on the next sync, including changes without a version bump.
@@ -87,10 +100,11 @@ about project quality, maturity, maintenance, or deprecation. Keep these
 repositories out of both default inventories unless the owner explicitly
 changes the decision. Their entries can remain in the public profile catalog.
 
-The accepted additions are `work-tracker` here and `cubrid-ci`, `cubrid-qahome`,
-and `cubrid-ini-fzf` in the companion `my-cubrid` updater. `my-skills` is already
-registered here as a collection. `cubrid-tc-chronicle` stays here to avoid
-updating the same installation twice.
+`work-tracker` and `my-skills` are updated here. As of 2026-11-16,
+`my-cubrid-skills` and `cubrid-tc-chronicle` are updated only by
+`daily-update-cubrid`, which the general updater invokes through `my-cubrid`.
+Chronicle's sync reinstalls its CLI. Collecting CI evidence still requires
+an explicit `cubrid-tcc sync-data` invocation.
 
 Both updaters fetch and fast-forward eligible source checkouts before running
 installation commands. The accepted tools use their existing Cargo/Just and uv
@@ -114,10 +128,11 @@ This also makes project fetches and fast-forwards visible when Git has no change
 `daily-update --dotfiles-only` runs just this guarded dotfiles refresh and apply,
 without loading the project inventory, upgrading other tools or stamping the day.
 It uses the same success, partial and failure exit codes as a normal run.
-`daily-update-cubrid` calls this mode before updating its CUBRID tools, including
+By default, `daily-update-cubrid` calls this mode before updating its CUBRID tools, including
 when positional directories replace its default tool inventory. A dotfiles skip
 or failure is reported while independent tool updates continue. Its `--list`
-and `--dry-run` modes never run the dotfiles updater.
+and `--dry-run` modes never run the dotfiles updater. `--skip-dotfiles`
+omits that step when the general updater has already handled dotfiles.
 
 GitHub tools, Codex and Claude upgrades follow. Resolution prefers `~/.local/bin`
 across shells.
