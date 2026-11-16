@@ -123,3 +123,15 @@ name = "catppuccin"
 
 [theme.custom]
 overlay0 = "#cad3f5"
+
+[[keys.command]]
+key = "alt+u"
+type = "shell"
+command = '"$HOME/.local/bin/herdr-attention" previous --quiet'
+description = "previous workspace needing attention"
+
+[[keys.command]]
+key = "alt+o"
+type = "shell"
+command = '"$HOME/.local/bin/herdr-attention" next --quiet'
+description = "next workspace needing attention"

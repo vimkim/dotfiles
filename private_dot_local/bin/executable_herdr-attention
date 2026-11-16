@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""Navigate Herdr workspaces with agents that need attention."""
+
+import argparse
+from dataclasses import asdict, dataclass
+import json
+import os
+import re
+import socket
+import sys
+import time
+import unicodedata
+
+
+class AttentionError(Exception):
+    pass
+
+
+@dataclass(frozen=True)
+class Pane:
+    workspace_id: str
+    workspace: str
+    tab_id: str
+    tab: str
+    pane_id: str
+    agent: str
+    state: str
+
+
+@dataclass(frozen=True)
+class Decision:
+    pane: Pane
+    eligible: bool
+    reason: str
+
+
+def quoted(value):
+    encoded = json.dumps(value, ensure_ascii=False)
+    return "".join(json.dumps(c, ensure_ascii=True)[1:-1]
+                   if unicodedata.category(c) in {"Cc", "Cf", "Cs", "Zl", "Zp"} else c
+                   for c in encoded)
+
+
+class Herdr:
+    def __init__(self, path):
+        self.path = path
+        self.deadline = time.monotonic() + 5
+
+    def request(self, method, params, limit=4 * 1024 * 1024, reserve=0):
+        timeout = min(1.0, self.deadline - time.monotonic() - reserve)
+        if timeout <= 0:
+            raise AttentionError("Herdr request deadline exceeded")
+        payload = {"id": "herdr-attention", "method": method, "params": params}
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                client.settimeout(timeout)
+                client.connect(self.path)
+                with client.makefile("rwb") as stream:
+                    stream.write(json.dumps(payload).encode() + b"\n")
+                    stream.flush()
+                    line = stream.readline(limit + 1)
+            if not line.endswith(b"\n") or len(line) > limit:
+                raise AttentionError("incomplete or oversized Herdr response")
+            response = json.loads(line)
+            if not isinstance(response, dict) or response.get("id") != payload["id"]:
+                raise AttentionError("unexpected Herdr response")
+            if "error" in response:
+                raise AttentionError("Herdr rejected " + method)
+            result = response["result"]
+            if not isinstance(result, dict):
+                raise AttentionError("invalid Herdr response")
+            return result
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise AttentionError(f"{method} failed: {exc}") from exc
+
+
+def snapshot(data):
+    try:
+        workspaces, tabs, agents = (data[k] for k in ("workspaces", "tabs", "agents"))
+        if not all(isinstance(x, list) for x in (workspaces, tabs, agents)):
+            raise ValueError
+        ordered = []
+        for workspace in workspaces:
+            wid, name = workspace["workspace_id"], workspace["label"]
+            if not isinstance(wid, str) or not wid or not isinstance(name, str):
+                raise ValueError
+            panes = []
+            for tab in tabs:
+                if tab["workspace_id"] != wid:
+                    continue
+                tid, label = tab["tab_id"], tab["label"]
+                if not isinstance(tid, str) or not tid or not isinstance(label, str):
+                    raise ValueError
+                for agent in agents:
+                    if agent["workspace_id"] != wid or agent["tab_id"] != tid:
+                        continue
+                    pid, kind, state = agent["pane_id"], agent["agent"], agent["agent_status"]
+                    if not all(isinstance(x, str) and x for x in (pid, kind, state)):
+                        raise ValueError
+                    panes.append(Pane(wid, name, tid, label, pid, kind, state))
+            ordered.append((wid, panes))
+        if len({wid for wid, _ in ordered}) != len(ordered):
+            raise ValueError
+        return ordered
+    except (KeyError, TypeError, ValueError) as exc:
+        raise AttentionError("invalid Herdr snapshot") from exc
+
+
+RULE = re.compile(r"^\s*─{3,}\s*$")
+PROMPT = re.compile(r"^\s*❯")
+CONTROL = re.compile(r"^\s*(?:⏵⏵|▶▶|⏸|⏵|▶)\s+.*·\s*(?:[1-9]\d*)\s+(?:shells?|(?:background |running )?agents?|(?:background |running )?tasks?)(?:\s*$|\s*·)", re.I)
+LIVE_ACTIVITY = re.compile(r"^\s*[✻✽✶✳✢✣⠂⠐⠄⠠⠁⠈⠈⠙⠹⠸⠼⠴⠦⠧⠇⠏*·]?\s*(?:Waiting for [1-9]\d* background agents? to finish|[1-9]\d* MCP tasks? still running)\s*[.…]*\s*$", re.I)
+
+
+def claude_activity(text, custom):
+    lines = text.splitlines()
+    box = None
+    for end in range(len(lines) - 1, -1, -1):
+        if RULE.match(lines[end]):
+            for start in range(end - 1, -1, -1):
+                if RULE.match(lines[start]):
+                    if any(PROMPT.match(line) for line in lines[start + 1:end]):
+                        box = (start, end)
+                    break
+            break
+    if box is None:
+        return "unverified"
+    start, end = box
+    footer = lines[end + 1:]
+    if any(CONTROL.search(line) for line in footer):
+        return "claude_busy"
+    if custom and any(custom.search(line) for line in footer):
+        return "claude_busy"
+    above = next((line for line in reversed(lines[:start]) if line.strip()), "")
+    if LIVE_ACTIVITY.match(above):
+        return "claude_busy"
+    if not any(re.match(r"^\s*(?:⏵⏵|▶▶|⏸|⏵|▶)\s+", line) for line in footer):
+        return "unverified"
+    return "eligible"
+
+
+def decide(pane, herdr, states, include_busy, custom):
+    if pane.state not in states:
+        return Decision(pane, False, "state_excluded")
+    if pane.state == "blocked" or pane.agent.lower() != "claude" or include_busy:
+        return Decision(pane, True, "eligible")
+    if pane.state not in {"idle", "done"}:
+        return Decision(pane, True, "eligible")
+    try:
+        result = herdr.request("agent.read", {"target": pane.pane_id, "source": "detection", "lines": 60}, 128 * 1024, reserve=1)
+        read = result["read"]
+        text = read["text"]
+        if not isinstance(text, str) or read.get("pane_id") != pane.pane_id:
+            raise ValueError
+        reason = claude_activity(text, custom)
+    except (AttentionError, KeyError, TypeError, ValueError):
+        reason = "unverified"
+    return Decision(pane, reason != "claude_busy", reason)
+
+
+def refreshed(pane, herdr):
+    result = herdr.request("agent.get", {"target": pane.pane_id})
+    try:
+        agent = result["agent"]
+        if (agent["pane_id"], agent["tab_id"], agent["workspace_id"]) != (pane.pane_id, pane.tab_id, pane.workspace_id):
+            raise ValueError
+        kind, state = agent["agent"], agent["agent_status"]
+        if not all(isinstance(x, str) and x for x in (kind, state)):
+            raise ValueError
+        return Pane(pane.workspace_id, pane.workspace, pane.tab_id, pane.tab, pane.pane_id, kind, state)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise AttentionError("invalid agent refresh response") from exc
+
+
+def failure(message, json_output):
+    if json_output:
+        print(json.dumps({"ok": False, "error": {"code": "ATTENTION_ERROR", "message": message}}, ensure_ascii=True), file=sys.stderr)
+    else:
+        print(f"herdr-attention: {quoted(message)}", file=sys.stderr)
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        failure(message, "--json" in sys.argv[1:])
+        self.exit(2)
+
+
+def main():
+    parser = Parser(description=__doc__, epilog="Exit codes: 0 success, 1 runtime or configuration failure, 2 invalid command syntax.")
+    parser.add_argument("command", choices=("next", "previous", "list"))
+    parser.add_argument("--json", action="store_true", help="return JSON")
+    parser.add_argument("--quiet", action="store_true", help="suppress successful text output")
+    parser.add_argument("--states", default="idle,done,blocked", help="comma-separated native states")
+    parser.add_argument("--include-busy-claude", action="store_true", help="ignore Claude background activity")
+    parser.add_argument("--claude-busy-pattern", help="additional regex matched only in the current footer")
+    args = parser.parse_args()
+    try:
+        states = set(args.states.split(","))
+        if not states or not states <= {"idle", "done", "blocked", "working", "unknown"}:
+            raise AttentionError("invalid --states; use idle, done, blocked, working, or unknown")
+        try:
+            custom = re.compile(args.claude_busy_pattern) if args.claude_busy_pattern else None
+        except re.error as exc:
+            raise AttentionError(f"invalid --claude-busy-pattern: {exc}") from exc
+        path = os.environ.get("HERDR_SOCKET_PATH")
+        if not path:
+            raise AttentionError("HERDR_SOCKET_PATH is not set")
+        herdr = Herdr(path)
+        ordered = snapshot(herdr.request("session.snapshot", {})["snapshot"])
+        chosen = None
+        decisions = []
+        if args.command == "list":
+            decisions = [decide(p, herdr, states, args.include_busy_claude, custom) for _, panes in ordered for p in panes]
+        else:
+            current = os.environ.get("HERDR_ACTIVE_WORKSPACE_ID") or os.environ.get("HERDR_WORKSPACE_ID")
+            ids = [wid for wid, _ in ordered]
+            if not current or current not in ids:
+                raise AttentionError("invoking workspace is missing from Herdr snapshot")
+            index = ids.index(current)
+            step = 1 if args.command == "next" else -1
+            for offset in range(1, len(ordered)):
+                _, panes = ordered[(index + step * offset) % len(ordered)]
+                priority = {"blocked": 0, "done": 1, "idle": 2}
+                for pane in sorted(panes, key=lambda p: priority.get(p.state, 3)):
+                    decision = decide(pane, herdr, states, args.include_busy_claude, custom)
+                    if decision.eligible:
+                        decision = decide(refreshed(pane, herdr), herdr, states, args.include_busy_claude, custom)
+                        if decision.eligible:
+                            herdr.request("agent.focus", {"target": pane.pane_id})
+                            chosen = decision
+                            break
+                if chosen:
+                    break
+        data = {"decisions": [asdict(d) for d in decisions]} if args.command == "list" else {"selected": asdict(chosen) if chosen else None}
+        if args.json:
+            print(json.dumps({"ok": True, "data": data}, ensure_ascii=True))
+        elif not args.quiet:
+            for decision in decisions if args.command == "list" else ([chosen] if chosen else []):
+                pane = decision.pane
+                print(f"{quoted(pane.workspace)} ({quoted(pane.workspace_id)}), tab {quoted(pane.tab)} ({quoted(pane.tab_id)}), pane {quoted(pane.pane_id)}: {quoted(pane.state)} {decision.reason}")
+            if args.command != "list" and not chosen:
+                print("No other workspace needs attention.")
+        if chosen and chosen.reason == "unverified":
+            print("herdr-attention: Claude activity could not be verified", file=sys.stderr)
+        return 0
+    except (AttentionError, KeyError, TypeError) as exc:
+        failure(str(exc), args.json)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
