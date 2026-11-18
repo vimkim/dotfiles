@@ -17,6 +17,7 @@ After `herdr tab create`, use the returned root pane ID in
 | `ai1` through `ai9` | The token saved for slot N with `claude-account add N`. |
 | `aip` | `ai "read prompt.md and execute"`. |
 | `ai-status` | All account nicknames, usernames, credential states, and available usage. |
+| `ai-best` | Choose an account by its remaining usage and open it in a new Herdr tab. |
 
 `ai` and the numbered shortcuts run `claude-account run N`. The launcher starts
 Claude with these options.
@@ -27,6 +28,29 @@ claude --settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/local-settings.json" \
 ```
 
 Arguments pass through unchanged, so `ai2 -c` and `ai3 --resume` work.
+
+## Choose an account in Herdr
+
+Run `ai-best` from a Herdr pane. It opens a tab in your current workspace and
+working directory. It checks slot 0 directly and reads the last usage
+percentages reported by Claude's status line for each saved setup-token.
+These observations come from ordinary sessions. The picker sends no model
+requests.
+
+The score is the lower of the five-hour and weekly remaining percentages.
+If the scores tie, the picker prefers more five-hour allowance, then more
+weekly allowance, then the lower slot number. The picker shows when it last
+saw the selected account's usage. It treats a missing or expired observation
+as unknown. A configured account with unknown usage can be picked when
+the known candidates are below the cutoff.
+
+If the new session's first usable observation shows less than 10% in either
+window, the picker can open one alternative tab in the background. The
+original tab remains open with its conversation. Known accounts below 10%
+and slots identified as the same account are skipped when choosing the
+alternative. Claude's status line needs an API response before it can report
+usage, so an idle or blocked session without a reading may require you to
+pick another slot manually.
 
 ## Add an account
 

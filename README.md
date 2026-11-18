@@ -384,6 +384,8 @@ The command runs `claude setup-token` and saves the token outside the chezmoi
 source in `~/.local/state/claude-accounts`. Run setup in a normal shell.
 `ai-status` shows every account's nickname, username, credential state, and
 available usage. Token-only accounts show usage as unavailable.
+From Herdr, `ai-best` opens a new tab using the latest usage it can observe,
+including percentages from the status line of token sessions.
 Token sessions lose Remote Control and claude.ai connectors. See
 [usage and limits](docs/claude-account.md).
 

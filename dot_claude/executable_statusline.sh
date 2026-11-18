@@ -100,9 +100,10 @@ fi
 # Extract everything in one jq pass, joined by the ASCII Unit Separator (\x1f).
 # A non-whitespace delimiter keeps empty fields in place — IFS-whitespace (tab) would
 # collapse adjacent empties and shift every column. Numeric fields floor to int, else "".
-IFS=$'\x1f' read -r MODEL CTX_PCT IN_TOK CTX_SIZE FH_PCT FH_RESET WK_PCT WK_RESET <<EOF
+IFS=$'\x1f' read -r MODEL CTX_PCT IN_TOK CTX_SIZE FH_PCT FH_RESET WK_PCT WK_RESET USAGE_JSON <<EOF
 $(printf '%s' "$input" | "$JQ" -r '
   def num: if type=="number" then floor else "" end;
+  def usage: if type=="object" then {used_percentage,resets_at} else null end;
   [ (.model.display_name // "?"),
     (.context_window.used_percentage      // "" | num),
     (.context_window.total_input_tokens   // "" | num),
@@ -110,9 +111,26 @@ $(printf '%s' "$input" | "$JQ" -r '
     (.rate_limits.five_hour.used_percentage // "" | num),
     (.rate_limits.five_hour.resets_at       // ""),
     (.rate_limits.seven_day.used_percentage // "" | num),
-    (.rate_limits.seven_day.resets_at       // "")
+    (.rate_limits.seven_day.resets_at       // ""),
+    ({rate_limits: {five_hour: (.rate_limits.five_hour | usage),
+                    seven_day: (.rate_limits.seven_day | usage)}} | tojson)
   ] | map(tostring) | join("\u001f")')
 EOF
+
+if [ -n "$FH_PCT" ] || [ -n "$WK_PCT" ]; then
+  record_usage() {
+    local account_helper
+    account_helper="$(command -v claude-account || true)"
+    account_helper="${account_helper:-$HOME/.config/my-scripts/bin/claude-account}"
+    printf '%s\n' "$USAGE_JSON" | "$account_helper" observe
+  }
+  retry="${CLAUDE_ACCOUNT_RETRY:-}"
+  if [[ "$retry" =~ ^[0-9a-f]{32}$ && -f "${CLAUDE_ACCOUNTS_DIR:-}/retry/$retry.json" ]]; then
+    record_usage </dev/null >/dev/null 2>&1
+  else
+    record_usage </dev/null >/dev/null 2>&1 &
+  fi
+fi
 
 # --- most recent user prompt (rendered on a second status line) ---
 # Lets you glance at what you last asked after a long-running or resumed session.

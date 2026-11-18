@@ -1,31 +1,42 @@
 #!/usr/bin/env python3
 
 import datetime
+from dataclasses import dataclass, replace
 import getpass
+import hashlib
 import http.client
 import json
 import os
 from pathlib import Path
+import re
+import secrets
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 
 TOKEN_VAR = "CLAUDE_CODE_OAUTH_TOKEN"
+SLOT_VAR = "CLAUDE_ACCOUNT_SLOT"
+RETRY_VAR = "CLAUDE_ACCOUNT_RETRY"
 OVERRIDING_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
 TOKEN_DAYS = 365
+WINDOWS = ("five_hour", "seven_day")
+MIN_REMAINING = 10
 SHORTCUTS = {
     "ai": ("run", "0"),
     **{f"ai{slot}": ("run", str(slot)) for slot in range(10)},
     "aip": ("run", "0", "read prompt.md and execute"),
     "ai-status": ("status", "--all"),
+    "ai-best": ("best",),
 }
 USAGE = """usage: claude-account run [SLOT] [CLAUDE_ARGS...]
        claude-account add SLOT [--label TEXT] [--username TEXT] [--paste]
        claude-account label SLOT [--label TEXT] [--username TEXT]
        claude-account list
        claude-account status [SLOT | --all]
+       claude-account best
        claude-account remove SLOT"""
 
 
@@ -79,11 +90,14 @@ def clean_env() -> dict:
     env = dict(os.environ)
     for name in (TOKEN_VAR, *OVERRIDING_VARS):
         env.pop(name, None)
+    if env.get("CLAUDE_CONFIG_DIR") == "":
+        env.pop("CLAUDE_CONFIG_DIR")
     return env
 
 
 def slot_env(slot: int) -> dict:
     env = clean_env()
+    env[SLOT_VAR] = str(slot)
     if slot == 0:
         return env
     account, problem = read_json(slot_file(slot))
@@ -117,19 +131,23 @@ def read_token() -> str:
     return token
 
 
-def write_slot(slot: int, account: dict) -> None:
-    directory = accounts_dir()
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    directory.chmod(0o700)
+def write_private_json(path: Path, data: dict) -> None:
+    for directory in dict.fromkeys((accounts_dir(), path.parent)):
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        directory.chmod(0o700)
     name = None
     try:
-        with tempfile.NamedTemporaryFile(mode="w", dir=directory, prefix=f".{slot}.", delete=False) as handle:
+        with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, prefix=f".{path.stem}.", delete=False) as handle:
             name = handle.name
-            json.dump(account, handle)
-        os.replace(name, slot_file(slot))
+            json.dump(data, handle)
+        os.replace(name, path)
     finally:
         if name is not None and os.path.exists(name):
             os.unlink(name)
+
+
+def write_slot(slot: int, account: dict) -> None:
+    write_private_json(slot_file(slot), account)
 
 
 def metadata_options(args: list[str], *, allow_paste: bool = False) -> tuple[dict, bool]:
@@ -375,6 +393,321 @@ def status(args: list[str]) -> None:
     print(render_reports([account_report(slot) for slot in slots]))
 
 
+def fingerprint(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def observation_file(slot: int, credential: str, window: str) -> Path:
+    return accounts_dir() / "usage" / f"{slot}-{credential}-{window}.json"
+
+
+def percentage(value) -> bool:
+    return type(value) in (int, float) and 0 <= value <= 100
+
+
+def epoch(value) -> bool:
+    return type(value) in (int, float) and 0 <= value <= 253402300800
+
+
+def report_epoch(value):
+    return datetime.datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() if value else None
+
+
+def statusline_window(value):
+    if not isinstance(value, dict) or not percentage(value.get("used_percentage")):
+        return None
+    reset = value.get("resets_at")
+    return {"remaining": 100 - value["used_percentage"], "reset": reset if epoch(reset) else None}
+
+
+def remaining(windows: dict, now: float, *, fresh: bool = False) -> tuple:
+    def active(window):
+        if not isinstance(window, dict) or not percentage(window.get("remaining")):
+            return None
+        reset = window.get("reset")
+        if (epoch(reset) and reset > now) or (reset is None and fresh):
+            return window["remaining"]
+        return None
+
+    return tuple(active(windows.get(name)) for name in WINDOWS)
+
+
+def low(allowance: tuple) -> bool:
+    return any(value is not None and value < MIN_REMAINING for value in allowance)
+
+
+@dataclass(frozen=True)
+class Identity:
+    username: str | None
+    credential: str | None
+
+    @classmethod
+    def from_account(cls, account: dict):
+        username = (account["username"] or "").strip().casefold() or None
+        credential = fingerprint(account["token"]) if account["state"] == "configured" else None
+        return cls(username, credential)
+
+    def matches(self, other) -> bool:
+        return ((self.username is not None and self.username == other.username)
+                or (self.credential is not None and self.credential == other.credential))
+
+
+@dataclass(frozen=True)
+class Candidate:
+    slot: int
+    identity: Identity
+    remaining: tuple
+    source: str
+    observed_at: float | None
+    unavailable: str | None = None
+
+    @property
+    def name(self) -> str:
+        return f"ai{self.slot}"
+
+    def describe(self, now: float) -> str:
+        fields = [f"{title} {value:g}% left" if value is not None else f"{title} unknown"
+                  for title, value in zip(("5h", "7d"), self.remaining)]
+        if self.observed_at is not None:
+            fields.append(f"{self.source}, {max(0, int(now - self.observed_at))}s old")
+        if self.unavailable:
+            fields.append(self.unavailable)
+        elif low(self.remaining):
+            fields.append(f"below {MIN_REMAINING}% minimum")
+        return f"{self.name}  " + " · ".join(fields)
+
+
+def best_candidates() -> list[Candidate]:
+    login = account_report(0)
+    now = time.time()
+    login_usage = login["usage"]
+    live = {name: {**login_usage[name], "reset": report_epoch(login_usage[name]["reset"])}
+            for name in WINDOWS if login_usage[name]}
+    live_at = report_epoch(login_usage["fetched_at"])
+    candidates = []
+    for slot in account_slots():
+        account = load_account(slot)
+        configured = account["state"] == "configured"
+        identity = Identity.from_account(account)
+        if slot == 0:
+            unavailable = None
+            if not configured or login_usage["rejected"]:
+                unavailable = login_usage["reason"] or account["state"]
+            candidates.append(Candidate(slot, identity, remaining(live, now, fresh=True),
+                                        "live ai0", live_at, unavailable))
+        elif configured:
+            observations = {name: read_json(observation_file(slot, identity.credential, name))[0] or {}
+                            for name in WINDOWS}
+            allowance = remaining(observations, now)
+            timestamps = (observations[name].get("observed_at")
+                          for name, value in zip(WINDOWS, allowance) if value is not None)
+            candidates.append(Candidate(slot, identity, allowance, "statusline",
+                                        min(filter(epoch, timestamps), default=None)))
+
+    login_candidate = candidates[0]
+    if login_candidate.unavailable:
+        return candidates
+    aliases = sorted((candidate for candidate in candidates[1:]
+                      if candidate.identity.matches(login_candidate.identity)),
+                     key=lambda candidate: candidate.observed_at or 0, reverse=True)
+    for alias in aliases:
+        combined = tuple(primary if primary is not None else cached
+                         for primary, cached in zip(login_candidate.remaining, alias.remaining))
+        if combined != login_candidate.remaining:
+            dates = (date for date in (login_candidate.observed_at, alias.observed_at) if date is not None)
+            source = "live ai0 + statusline" if live_at is not None else "statusline"
+            login_candidate = replace(login_candidate, remaining=combined, source=source,
+                                      observed_at=min(dates, default=None))
+    candidates[0] = login_candidate
+    for alias in aliases:
+        candidates[candidates.index(alias)] = replace(alias, remaining=login_candidate.remaining,
+                                                      source=login_candidate.source,
+                                                      observed_at=login_candidate.observed_at)
+    return candidates
+
+
+def rank(candidates: list[Candidate]) -> list[Candidate]:
+    def priority(candidate):
+        five_hour, seven_day = candidate.remaining
+        if five_hour is None or seven_day is None:
+            return (1, 0, 0, 0, candidate.slot)
+        return (0, -min(five_hour, seven_day), -five_hour, -seven_day, candidate.slot)
+
+    return sorted((candidate for candidate in candidates
+                   if not candidate.unavailable and not low(candidate.remaining)), key=priority)
+
+
+class HerdrError(Exception):
+    pass
+
+
+def herdr(*args: str) -> str:
+    try:
+        result = subprocess.run(["herdr", *args], env=clean_env(), stdin=subprocess.DEVNULL,
+                                capture_output=True, text=True, timeout=5)
+    except FileNotFoundError:
+        raise HerdrError("herdr is unavailable on PATH") from None
+    except (OSError, subprocess.TimeoutExpired):
+        raise HerdrError("could not complete a request to Herdr") from None
+    if result.returncode:
+        raise HerdrError(f"Herdr rejected {' '.join(args[:2])}")
+    return result.stdout
+
+
+def launch_tab(slot: int, workspace: str, cwd: str, *, nonce: str = "") -> None:
+    label = f"ai{slot}" if nonce else f"ai{slot} (ai-best fallback)"
+    config = os.environ.get("CLAUDE_CONFIG_DIR")
+    config = str(config_dir().absolute()) if config else ""
+    command = f"claude-account run {slot}"
+    launch = f"env {RETRY_VAR}={nonce} {command}"
+    reply = herdr("tab", "create", "--workspace", workspace, "--cwd", cwd, "--label", label,
+                  "--no-focus", "--env", f"CLAUDE_ACCOUNTS_DIR={accounts_dir().absolute()}",
+                  "--env", f"CLAUDE_CONFIG_DIR={config}")
+    try:
+        result = json.loads(reply)["result"]
+        tab_id = result["tab"]["tab_id"]
+        if not isinstance(tab_id, str) or not tab_id:
+            raise ValueError("empty tab ID")
+    except (ValueError, KeyError, TypeError):
+        raise HerdrError(f"Herdr returned no tab ID. Check for tab {label!r} before retrying") from None
+    try:
+        pane_id = result["root_pane"]["pane_id"]
+        if not isinstance(pane_id, str) or not pane_id:
+            raise KeyError("missing pane ID")
+        herdr("pane", "run", pane_id, launch)
+    except (KeyError, TypeError, HerdrError):
+        raise HerdrError(f"Tab {label!r} ({safe(tab_id)}) was created, but the queue was not confirmed. "
+                         f"Check the tab and run `{command}` there if the shell is idle") from None
+
+
+def retry_file(nonce: str) -> Path:
+    return accounts_dir() / "retry" / f"{nonce}.json"
+
+
+def best(args: list[str]) -> None:
+    if args:
+        fail("usage: ai-best", 2)
+    workspace = os.environ.get("HERDR_WORKSPACE_ID") or os.environ.get("HERDR_ACTIVE_WORKSPACE_ID")
+    if os.environ.get("HERDR_ENV") != "1" or not workspace:
+        fail("ai-best requires a current Herdr workspace")
+    candidates = best_candidates()
+    now = time.time()
+    for candidate in candidates:
+        print(candidate.describe(now))
+    choices = rank(candidates)
+    if not choices:
+        fail(f"no configured account qualifies at the {MIN_REMAINING}% minimum")
+    selected = choices[0]
+    cwd = os.getcwd()
+    nonce = secrets.token_hex(16)
+    write_private_json(retry_file(nonce), {"slot": selected.slot, "workspace": workspace, "cwd": cwd,
+                                          "credential": selected.identity.credential if selected.slot else None})
+    try:
+        launch_tab(selected.slot, workspace, cwd, nonce=nonce)
+    except HerdrError as error:
+        fail(str(error))
+    print(f"Queued {selected.name}" + (" with unknown allowance" if None in selected.remaining else ""))
+
+
+def observed_identity() -> tuple[int, Identity] | None:
+    if any(os.environ.get(name) for name in OVERRIDING_VARS):
+        return None
+    token = os.environ.get(TOKEN_VAR)
+    stamped = os.environ.get(SLOT_VAR)
+    if not token:
+        return (0, Identity.from_account(load_account(0))) if stamped == "0" else None
+    if not valid_token(token):
+        return None
+    slots = [slot for slot in account_slots() if slot > 0]
+    slots.sort(key=lambda slot: str(slot) != stamped)
+    for slot in slots:
+        account = load_account(slot)
+        if account["token"] == token:
+            return slot, Identity.from_account(account)
+    return None
+
+
+def claim_retry(slot: int, credential: str | None) -> dict | None:
+    nonce = os.environ.get(RETRY_VAR, "")
+    if not re.fullmatch(r"[0-9a-f]{32}", nonce):
+        return None
+    path = retry_file(nonce)
+    retry, problem = read_json(path)
+    if problem or retry.get("slot") != slot or retry.get("credential") != credential:
+        return None
+    if not isinstance(retry.get("workspace"), str) or not isinstance(retry.get("cwd"), str):
+        return None
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return None
+    return retry
+
+
+def fallback(slot: int, identity: Identity, retry: dict) -> None:
+    candidates = best_candidates()
+    choices = rank([candidate for candidate in candidates
+                    if candidate.slot != slot and not identity.matches(candidate.identity)])
+    if choices:
+        candidate = choices[0]
+        try:
+            launch_tab(candidate.slot, retry["workspace"], retry["cwd"])
+            outcome = f"Queued fallback {candidate.describe(time.time())}"
+        except HerdrError as error:
+            outcome = str(error)
+    else:
+        outcome = "No distinct configured account qualifies for fallback."
+    message = f"ai{slot} reported less than {MIN_REMAINING}% left. {outcome}"
+    try:
+        herdr("notification", "show", "ai-best", "--body", message)
+    except HerdrError:
+        print(message, file=sys.stderr)
+
+
+def detach_fallback(slot: int, identity: Identity, retry: dict) -> None:
+    if os.fork():
+        return
+    try:
+        os.setsid()
+        with open(os.devnull, "r+b", buffering=0) as sink:
+            for fd in (0, 1, 2):
+                os.dup2(sink.fileno(), fd)
+        fallback(slot, identity, retry)
+    finally:
+        os._exit(0)
+
+
+def observe(args: list[str]) -> None:
+    if args:
+        fail("usage: claude-account observe < statusline.json", 2)
+    try:
+        payload = json.load(sys.stdin)
+    except (ValueError, UnicodeError):
+        return
+    limits = payload.get("rate_limits") if isinstance(payload, dict) else None
+    if not isinstance(limits, dict):
+        return
+    windows = {name: statusline_window(limits.get(name)) for name in WINDOWS}
+    if not any(windows.values()):
+        return
+    observed = observed_identity()
+    if observed is None:
+        return
+    now = time.time()
+    slot, identity = observed
+    if slot:
+        for name, window in windows.items():
+            if window is not None:
+                write_private_json(observation_file(slot, identity.credential, name),
+                                   {"observed_at": now, **window})
+    allowance = remaining(windows, now, fresh=True)
+    exhausted = low(allowance)
+    if exhausted or None not in allowance:
+        retry = claim_retry(slot, identity.credential if slot else None)
+        if retry and exhausted:
+            detach_fallback(slot, identity, retry)
+
+
 def remove(args: list[str]) -> None:
     if len(args) != 1:
         fail(USAGE, 2)
@@ -390,7 +723,8 @@ def remove(args: list[str]) -> None:
 def main() -> None:
     shortcut = SHORTCUTS.get(Path(sys.argv[0]).name, ())
     args = [*shortcut, *sys.argv[1:]]
-    commands = {"run": run, "add": add, "label": label_metadata, "status": status, "remove": remove}
+    commands = {"run": run, "add": add, "label": label_metadata, "status": status,
+                "remove": remove, "best": best, "observe": observe}
     if args == ["list"]:
         list_slots()
     elif not args or args[0] not in commands:
