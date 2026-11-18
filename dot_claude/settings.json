@@ -56,6 +56,11 @@
     "command": "bash ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/statusline.sh"
   },
   "effortLevel": "xhigh",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "xhigh"
+    }
+  },
   "tui": "fullscreen",
   "autoMemoryEnabled": false,
   "skipDangerousModePermissionPrompt": true,
@@ -63,7 +68,9 @@
   "remoteControlAtStartup": false,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "enabledPlugins": {},
+  "enabledPlugins": {
+    "clangd-lsp@claude-plugins-official": true
+  },
   "extraKnownMarketplaces": {},
   "pluginConfigs": {
     "cc-plugin-agents-md@builtin": {
