@@ -6,16 +6,20 @@ history). Requires Python 3.10 or newer. No Python packages are needed.
 
 ## Shortcuts
 
-Bash, Zsh, and Nushell define the same shortcuts:
+The shortcuts are executable commands in `~/.config/my-scripts/bin` on `PATH`.
+Use them in a shell or as the command for a new Herdr tab.
+After `herdr tab create`, use the returned root pane ID in
+`herdr pane run <pane-id> 'ai2 --resume'`.
 
 | Command | Account |
 | --- | --- |
 | `ai`, `ai0` | Slot 0: the login stored by `/login` (full features). |
-| `ai1` … `ai5` | Slot N: the token saved with `claude-account add N`. |
+| `ai1` through `ai9` | The token saved for slot N with `claude-account add N`. |
 | `aip` | `ai "read prompt.md and execute"`. |
 | `ai-status` | All account nicknames, usernames, credential states, and available usage. |
 
-Each shortcut runs `claude-account run N`, which starts:
+`ai` and the numbered shortcuts run `claude-account run N`. The launcher starts
+Claude with these options.
 
 ```sh
 claude --settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/local-settings.json" \
@@ -223,17 +227,15 @@ Sources: [Log out of all active sessions](https://support.claude.com/en/articles
 
 ## More slots
 
-The shortcuts stop at `ai5`. To add more, extend the slot list in
-`dot_bashrc` and `private_dot_config/my-scripts/zsh/aliases.zsh`, and add
-`alias aiN = claude-account run N` lines in
-`private_dot_config/nushell/alias.nu`. Without a shortcut,
-`claude-account run 6` works for any slot.
+For slots 10 and higher, use `claude-account run` with the slot number, such as
+`claude-account run 10`.
 
 ## Sources and checks
 
 Chezmoi manages the executable source at
 `private_dot_config/my-scripts/bin/executable_claude-account` and deploys it to
-`~/.config/my-scripts/bin/claude-account`, which is already on PATH.
+`~/.config/my-scripts/bin/claude-account`. The shortcuts are symbolic links to
+`claude-account` in the same directory.
 
 Run the focused checks:
 

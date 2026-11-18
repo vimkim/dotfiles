@@ -45,14 +45,16 @@ class ClaudeAccountTest(unittest.TestCase):
         (self.bin / "claude").chmod(0o755)
         shutil.copyfile(SCRIPT, self.bin / "claude-account")
         (self.bin / "claude-account").chmod(0o755)
+        for source in SCRIPT.parent.glob("symlink_ai*"):
+            (self.bin / source.name.removeprefix("symlink_")).symlink_to(source.read_text().strip())
         self.env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}",
                     "STUB_LOG": str(self.log), "XDG_STATE_HOME": str(self.root / "state"),
                     "CLAUDE_CONFIG_DIR": str(self.config)}
         for name in ("CLAUDE_ACCOUNTS_DIR", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
             self.env.pop(name, None)
 
-    def account(self, *args, stdin=""):
-        return subprocess.run([str(self.bin / "claude-account"), *args], env=self.env,
+    def account(self, *args, stdin="", command="claude-account"):
+        return subprocess.run([str(self.bin / command), *args], env=self.env,
                               input=stdin, capture_output=True, text=True, timeout=10)
 
     def calls(self):
@@ -176,68 +178,55 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(self.account("run", "1").returncode, 1)
         self.assertEqual(self.calls(), [])
 
-    def test_bash_redirected_interactive_startup_loads_ai_shortcuts(self):
-        recorder = self.bin / "claude-account"
-        recorder.write_text(f"#!{sys.executable}\nimport json, os, sys\n"
-                            "with open(os.environ['STUB_LOG'], 'a') as handle:\n"
-                            "    handle.write(json.dumps(sys.argv[1:]) + '\\n')\n")
-        env = {**self.env, "HOME": str(self.root), "PROMPT_COMMAND": "sentinel"}
+    def test_bash_redirected_startup_puts_ai_on_path(self):
+        home = self.root / "home"
+        helpers = home / ".config/my-scripts/bin"
+        helpers.parent.mkdir(parents=True)
+        helpers.symlink_to(self.bin, target_is_directory=True)
+        env = {**self.env, "HOME": str(home), "PROMPT_COMMAND": "sentinel"}
+        env["PATH"] = os.pathsep.join(path for path in os.get_exec_path(env) if path != str(self.bin))
         for name in ("BASH_ENV", "BASH_FULL_INIT", "BASH_IT"):
             env.pop(name, None)
-        names = ["ai", *(f"ai{n}" for n in range(6)), "ai-status"]
-        commands = "\n".join(f"{name} 'two words' '' --option" for name in names)
         result = subprocess.run(
             ["bash", "--rcfile", str(ROOT / "dot_bashrc"), "-ic",
-             f"set -e\n{commands}\n[[ ! -v BASH_IT && $PROMPT_COMMAND == sentinel ]]"],
+             '[[ $(type -t ai) == file && ! -v BASH_IT && $PROMPT_COMMAND == sentinel ]] && ai "two words"'],
             env=env, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual([json.loads(line) for line in self.log.read_text().splitlines()],
-                         [["run", str(slot), "two words", "", "--option"]
-                          for slot in (0, 0, 1, 2, 3, 4, 5)]
-                         + [["status", "--all", "two words", "", "--option"]])
-        result = subprocess.run(
-            ["bash", "--noprofile", "--norc", "-c",
-             f"source '{ROOT / 'dot_bashrc'}'; "
-             + " && ".join(f"! alias {name} 2>/dev/null" for name in names)],
-            env=env, capture_output=True, text=True, timeout=10)
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls()[0]["args"][-1], "two words")
 
-    def test_shortcuts_in_bash_zsh_and_nushell(self):
-        # Replace the launcher with a recorder; only the shortcut routing is under test.
-        (self.bin / "claude-account").write_text(STUB)
-        sources = {
-            "bash": ROOT / "dot_bashrc",
-            "zsh": ROOT / "private_dot_config/my-scripts/zsh/aliases.zsh",
-            "nu": ROOT / "private_dot_config/nushell/alias.nu",
-        }
-        prefixes = {"bash": ("alias ai=", "alias ai0=", "alias ai-status=", "for _ai_slot", "alias aip="),
-                    "zsh": ("alias ai=", "alias ai0=", "alias ai-status=", "for _ai_slot", "alias aip="),
-                    "nu": ("alias ai =", "alias ai0 =", "alias ai-status =", *(f"alias ai{n} =" for n in range(1, 6)), "alias aip =")}
-        expected = [["run", "0"], ["run", "0"], ["run", "1"], ["run", "2"], ["run", "5", "a b"],
-                    ["run", "0", "read prompt.md and execute"], ["status", "--all"]]
-        for shell, source in sources.items():
-            executable = shutil.which(shell)
-            if not executable:
-                continue
-            with self.subTest(shell=shell):
-                self.log.unlink(missing_ok=True)
-                lines = [line for line in source.read_text().splitlines()
-                         if line.startswith(prefixes[shell])]
-                self.assertEqual(len(lines), len(prefixes[shell]), lines)
-                aliases = self.root / f"aliases.{shell}"
-                aliases.write_text("\n".join(lines) + "\n")
-                if shell == "nu":
-                    command = [executable, "--no-config-file", "-c",
-                               f"source '{aliases}'\nai\nai0\nai1\nai2\nai5 'a b'\naip\nai-status"]
-                else:
-                    flags = ["--noprofile", "--norc"] if shell == "bash" else ["-f"]
-                    setup = "shopt -s expand_aliases\n" if shell == "bash" else ""
-                    command = [executable, *flags, "-c",
-                               f"{setup}source '{aliases}'\neval 'ai; ai0; ai1; ai2; ai5 \"a b\"; aip; ai-status'"]
-                result = subprocess.run(command, env=self.env, capture_output=True,
-                                        text=True, timeout=10)
+    def test_executable_shortcuts_forward_arguments_and_select_account(self):
+        self.env["CLAUDE_CODE_OAUTH_TOKEN"] = "inherited"
+        self.accounts.mkdir(parents=True)
+        for slot in range(1, 10):
+            (self.accounts / f"{slot}.json").write_text(json.dumps({"token": f"{TOKEN}-{slot}"}))
+        settings = ["--settings", str(self.config / "local-settings.json"), "--dangerously-skip-permissions"]
+        args = ["123", "two words", "", "--resume"]
+        for name, slot in [("ai", 0), *((f"ai{slot}", slot) for slot in range(10))]:
+            with self.subTest(name=name):
+                result = self.account(*args, command=name)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual([call["args"] for call in self.calls()], expected)
+                call = self.calls()[-1]
+                self.assertEqual(call["token"], f"{TOKEN}-{slot}" if slot else None)
+                self.assertEqual(call["args"], [*settings, *args])
+        result = self.account("-c", command="aip")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls()[-1]["args"], [*settings, "read prompt.md and execute", "-c"])
+        self.assertIsNone(self.calls()[-1]["token"])
+
+    def test_status_shortcut_reports_all_accounts(self):
+        self.add_slot(2)
+        result = self.account(command="ai-status")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, self.account("status", "--all").stdout)
+        self.assertIn("ai2", result.stdout)
+        self.assertEqual(self.calls(), [])
+
+    def test_larger_slot_uses_the_full_launch_command(self):
+        result = self.account("add", "10", "--paste", stdin=TOKEN + "\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("claude-account run 10", result.stdout)
+        self.assertEqual(self.account("run", "10").returncode, 0)
+        self.assertEqual(self.calls()[0]["token"], TOKEN)
 
 
 class UsageTest(unittest.TestCase):

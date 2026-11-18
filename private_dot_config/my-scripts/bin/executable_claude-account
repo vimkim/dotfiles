@@ -15,6 +15,12 @@ import urllib.request
 TOKEN_VAR = "CLAUDE_CODE_OAUTH_TOKEN"
 OVERRIDING_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
 TOKEN_DAYS = 365
+SHORTCUTS = {
+    "ai": ("run", "0"),
+    **{f"ai{slot}": ("run", str(slot)) for slot in range(10)},
+    "aip": ("run", "0", "read prompt.md and execute"),
+    "ai-status": ("status", "--all"),
+}
 USAGE = """usage: claude-account run [SLOT] [CLAUDE_ARGS...]
        claude-account add SLOT [--label TEXT] [--username TEXT] [--paste]
        claude-account label SLOT [--label TEXT] [--username TEXT]
@@ -158,7 +164,9 @@ def add(args: list[str]) -> None:
     account = {"token": read_token(), "label": metadata.pop("label", ""),
                "added": datetime.date.today().isoformat(), **metadata}
     write_slot(slot, account)
-    print(f"Saved slot {slot}. Launch it with: ai{slot}")
+    shortcut = f"ai{slot}"
+    launch = shortcut if shortcut in SHORTCUTS else f"claude-account run {slot}"
+    print(f"Saved slot {slot}. Launch it with: {launch}")
 
 
 def label_metadata(args: list[str]) -> None:
@@ -380,7 +388,8 @@ def remove(args: list[str]) -> None:
 
 
 def main() -> None:
-    args = sys.argv[1:]
+    shortcut = SHORTCUTS.get(Path(sys.argv[0]).name, ())
+    args = [*shortcut, *sys.argv[1:]]
     commands = {"run": run, "add": add, "label": label_metadata, "status": status, "remove": remove}
     if args == ["list"]:
         list_slots()

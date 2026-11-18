@@ -376,9 +376,10 @@ chezmoi workflow. Keep the deployed inventory unchanged until deployment.
 
 ### Claude accounts that share one config directory
 
-`ai` and `ai0` use the login stored by `/login`. `ai1` … `ai5` use saved
-subscription tokens while every account shares `~/.claude`. Add your personal
-token with `claude-account add 1 --label personal --username you@example.com`.
+`ai` and `ai0` use the login stored by `/login`. `ai1` through `ai9` use saved
+subscription tokens. All accounts share `~/.claude`. The shortcuts are on `PATH`
+and work as commands for new Herdr tabs. Add your personal token with
+`claude-account add 1 --label personal --username you@example.com`.
 The command runs `claude setup-token` and saves the token outside the chezmoi
 source in `~/.local/state/claude-accounts`. Run setup in a normal shell.
 `ai-status` shows every account's nickname, username, credential state, and

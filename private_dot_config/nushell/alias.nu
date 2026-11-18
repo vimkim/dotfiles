@@ -183,15 +183,6 @@ $env.config.keybindings = (
 ###############################################################################
 
 alias ali = nvim ~/.local/share/chezmoi/private_dot_config/nushell/alias.nu
-alias ai = claude-account run 0
-alias ai0 = claude-account run 0
-alias ai-status = claude-account status --all
-alias ai1 = claude-account run 1
-alias ai2 = claude-account run 2
-alias ai3 = claude-account run 3
-alias ai4 = claude-account run 4
-alias ai5 = claude-account run 5
-alias aip = ai "read prompt.md and execute"
 alias battery = do { upower -e | fzf --preview='upower -i {}' }
 alias c = cl
 alias cla = claude --settings (($env.CLAUDE_CONFIG_DIR? | default --empty ($env.HOME | path join ".claude")) | path join "local-settings.json")
