@@ -18,7 +18,7 @@ After `herdr tab create`, use the returned root pane ID in
 | `aip` | `ai "read prompt.md and execute"`. |
 | `ai-status` | All account nicknames, usernames, credential states, and available usage. |
 | `ai-best` | Choose an account by its remaining allowance and start Claude in this terminal. |
-| `ai-round` | Rotate through accounts with at least 20% remaining in both usage windows. |
+| `ai-round` | Rotate through saved numbered accounts and skip any with a current reading below 20%. |
 | `herdr-new-tab-ai-best` | Run `ai-best` in a new tab in the current Herdr workspace. |
 | `herdr-new-workspace-ai-best` | Run `ai-best` in a new Herdr workspace. |
 
@@ -56,12 +56,16 @@ Once Claude reports a window below 10%, its status line shows
 Run `ai-round` to spread launches across accounts. It starts Claude in the
 current terminal. Use `ai-round --resume` to pass an option to Claude.
 
-`ai-round` uses the same usage readings as `ai-best`. Both the five-hour and
-weekly windows must have a known remaining allowance of at least 20%.
+`ai-round` reads the local usage cache for saved slots from `ai1` up.
+It skips a slot if either current window shows less than 20% remaining.
+Missing or expired readings count as unknown, and slots with unknown readings
+get a turn if neither known window is below 20%. The launcher reports unknown
+allowance when it starts one of those slots. Claude's status line can record
+usage after the first response.
+
 Eligible slots that share a username or token get one turn. The command
 chooses the next eligible slot number and wraps to the lowest. If no account
-qualifies, it exits without starting Claude. Start a numbered account directly
-so Claude's status line can record its allowance.
+qualifies, the command exits without starting Claude.
 
 Concurrent launches share the last selected slot in `round-robin.json` in the
 account state directory. A file lock protects the selection and update. Each
@@ -136,11 +140,14 @@ time. Missing or invalid readings appear as unavailable, separately for each
 window. Permission errors, network errors, and rate limits show an explanation
 without exposing server response bodies or credentials.
 
-Long-lived setup-tokens have inference permission without the profile permission
-needed for usage retrieval. Their rows show usage as unavailable and make no
-usage request. A token's estimated expiration date is separate from subscription
-usage remaining. The report keeps all rows when a usage lookup fails; its exit
-status is not an authentication health check.
+For numbered slots, the report reads the last status-line observation for each
+window from the local cache. The report shows each current reading with its
+source, reset time, and observation time. A missing or expired reading appears
+as unavailable. The report makes no usage requests with setup-tokens.
+
+A token's estimated expiration date is separate from subscription usage
+remaining. The report keeps all rows when a usage lookup fails. Its exit
+status does not indicate whether authentication succeeded.
 
 ## Shell renewal reminders
 

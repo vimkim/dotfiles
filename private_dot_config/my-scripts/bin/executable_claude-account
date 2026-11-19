@@ -341,7 +341,12 @@ def account_report(slot: int) -> dict:
     if auth == "configured":
         auth = "configured; unverified"
         if slot != 0:
-            usage["reason"] = "setup-token usage requires profile permission"
+            observations = cached_usage(slot, fingerprint(account["token"]), time.time())
+            for name, observation in observations.items():
+                usage[name] = {"remaining": observation.remaining, "reset": format_epoch(observation.reset),
+                               "source": "status line", "observed_at": format_epoch(observation.observed_at)}
+            if not observations:
+                usage["reason"] = "status line usage unavailable"
         elif account["scopes"] is not None and "user:profile" not in account["scopes"]:
             usage["reason"] = "profile permission unavailable"
         else:
@@ -366,9 +371,14 @@ def render_reports(reports: list[dict]) -> str:
         windows = [usage["five_hour"], usage["seven_day"]]
         rows.append([name, safe(report["label"]), f"{username} [{report['identity_source']}]",
                      report["auth"], *(f"{item['remaining']:g}%" if item else "unavailable" for item in windows)])
-        reset = "; ".join(f"{title} reset {item['reset'] or 'unknown'}" for title, item in
-                          zip(("5h", "week"), windows) if item)
-        fields = [reset, usage["reason"],
+        resets = []
+        for title, item in zip(("5h", "week"), windows):
+            if item:
+                detail = f"{title} reset {item['reset'] or 'unknown'}"
+                if "source" in item:
+                    detail += f" ({item['source']}, observed {item['observed_at'] or 'unknown'})"
+                resets.append(detail)
+        fields = [*resets, usage["reason"],
                   f"attempted {usage['attempted_at']}" if usage["attempted_at"] else None,
                   f"fetched {usage['fetched_at']}" if usage["fetched_at"] else None]
         details.append(f"{name}: " + "; ".join(field for field in fields if field))
@@ -411,6 +421,10 @@ def report_epoch(value):
     return datetime.datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() if value else None
 
 
+def format_epoch(value: float | None) -> str | None:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(value)) if value is not None else None
+
+
 def statusline_window(value):
     if not isinstance(value, dict) or not percentage(value.get("used_percentage")):
         return None
@@ -418,16 +432,26 @@ def statusline_window(value):
     return {"remaining": 100 - value["used_percentage"], "reset": reset if epoch(reset) else None}
 
 
-def remaining(windows: dict, now: float, *, fresh: bool = False) -> tuple:
-    def active(window):
-        if not isinstance(window, dict) or not percentage(window.get("remaining")):
-            return None
-        reset = window.get("reset")
-        if (epoch(reset) and reset > now) or (reset is None and fresh):
-            return window["remaining"]
-        return None
+@dataclass(frozen=True)
+class UsageObservation:
+    remaining: float
+    reset: float
+    observed_at: float | None
 
-    return tuple(active(windows.get(name)) for name in WINDOWS)
+
+def cached_usage(slot: int, credential: str, now: float) -> dict[str, UsageObservation]:
+    observations = {}
+    for name in WINDOWS:
+        data, _ = read_json(observation_file(slot, credential, name))
+        if data is None:
+            continue
+        remaining = data.get("remaining")
+        reset = data.get("reset")
+        if not percentage(remaining) or not epoch(reset) or reset <= now:
+            continue
+        observed_at = data.get("observed_at")
+        observations[name] = UsageObservation(remaining, reset, observed_at if epoch(observed_at) else None)
+    return observations
 
 
 @dataclass(frozen=True)
@@ -456,34 +480,36 @@ class AccountUsage:
     unavailable: str | None = None
 
 
-def usage_candidates() -> list[AccountUsage]:
-    login = account_report(0)
-    now = time.time()
-    login_usage = login["usage"]
-    live = {name: {**login_usage[name], "reset": report_epoch(login_usage[name]["reset"])}
-            for name in WINDOWS if login_usage[name]}
-    live_at = report_epoch(login_usage["fetched_at"])
+def numbered_usage_candidates(now: float) -> list[AccountUsage]:
     candidates = []
     for slot in account_slots():
-        account = load_account(slot)
-        configured = account["state"] == "configured"
-        identity = Identity.from_account(account)
         if slot == 0:
-            unavailable = None
-            if not configured or login_usage["rejected"]:
-                unavailable = login_usage["reason"] or account["state"]
-            candidates.append(AccountUsage(slot, identity, remaining(live, now, fresh=True),
-                                           "live ai0", live_at, unavailable))
-        elif configured:
-            observations = {name: read_json(observation_file(slot, identity.credential, name))[0] or {}
-                            for name in WINDOWS}
-            allowance = remaining(observations, now)
-            timestamps = (observations[name].get("observed_at")
-                          for name, value in zip(WINDOWS, allowance) if value is not None)
-            candidates.append(AccountUsage(slot, identity, allowance, "statusline",
-                                           min(filter(epoch, timestamps), default=None)))
+            continue
+        identity = Identity.from_account(load_account(slot))
+        if identity.credential is None:
+            continue
+        observations = cached_usage(slot, identity.credential, now)
+        allowance = tuple(observations[name].remaining if name in observations else None for name in WINDOWS)
+        timestamps = (item.observed_at for item in observations.values() if item.observed_at is not None)
+        candidates.append(AccountUsage(slot, identity, allowance, "statusline", min(timestamps, default=None)))
+    return candidates
 
-    login_candidate = candidates[0]
+
+def usage_candidates() -> list[AccountUsage]:
+    login_usage = account_report(0)["usage"]
+    now = time.time()
+    live = []
+    for name in WINDOWS:
+        item = login_usage[name]
+        reset = report_epoch(item["reset"]) if item else None
+        live.append(item["remaining"] if item and (reset is None or (epoch(reset) and reset > now)) else None)
+    live_at = report_epoch(login_usage["fetched_at"])
+    account = load_account(0)
+    unavailable = None
+    if account["state"] != "configured" or login_usage["rejected"]:
+        unavailable = login_usage["reason"] or account["state"]
+    login_candidate = AccountUsage(0, Identity.from_account(account), tuple(live), "live ai0", live_at, unavailable)
+    candidates = [login_candidate, *numbered_usage_candidates(now)]
     if login_candidate.unavailable:
         return candidates
     aliases = sorted((candidate for candidate in candidates[1:]
@@ -536,8 +562,9 @@ def run_round(args: list[str]) -> None:
     if args[:1] in (["-h"], ["--help"]):
         print(f"""usage: ai-round [CLAUDE_ARGS...]
 
-Start Claude in the current terminal. Rotate through configured accounts
-with at least {ROUND_MIN_REMAINING}% remaining in both the 5-hour and 7-day windows.
+Start Claude in the current terminal. Rotate through configured slots ai1 and up.
+Skip a slot if a current status line reading shows less than {ROUND_MIN_REMAINING}% remaining
+in either the 5-hour or 7-day window. Slots with unknown allowance get a turn.
 
 Run ai-round --resume to resume a session.
 Use ai-round -- --help to get help from Claude.""")
@@ -545,21 +572,21 @@ Use ai-round -- --help to get help from Claude.""")
     if args[:1] == ["--"]:
         args = args[1:]
 
-    eligible: list[AccountUsage] = []
-    for item in usage_candidates():
-        if item.unavailable or any(value is None or value < ROUND_MIN_REMAINING
-                                   for value in item.remaining):
+    eligible: dict[int, AccountUsage] = {}
+    for item in numbered_usage_candidates(time.time()):
+        if any(value is not None and value < ROUND_MIN_REMAINING for value in item.remaining):
             continue
-        if not any(item.identity.matches(account.identity) for account in eligible):
-            eligible.append(item)
+        if not any(item.identity.matches(account.identity) for account in eligible.values()):
+            eligible[item.slot] = item
     if not eligible:
-        raise SystemExit(f"ai-round: no account has at least {ROUND_MIN_REMAINING}% remaining "
-                         "in both windows. Start a numbered account to refresh its usage reading.")
+        raise SystemExit("ai-round: no eligible numbered slot. Configure a slot with claude-account add N "
+                         f"or wait for usage windows below {ROUND_MIN_REMAINING}% to reset.")
     try:
-        slot = reserve_round_slot([item.slot for item in eligible])
+        slot = reserve_round_slot(list(eligible))
     except OSError as error:
         raise SystemExit(f"ai-round: could not save rotation: {error}") from None
-    print(f"Starting ai{slot}", file=sys.stderr, flush=True)
+    note = " with unknown allowance" if None in eligible[slot].remaining else ""
+    print(f"Starting ai{slot}{note}", file=sys.stderr, flush=True)
     run([str(slot), *args])
 
 

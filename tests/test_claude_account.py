@@ -324,34 +324,69 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertIn("Starting ai3 with unknown allowance", result.stderr)
         self.assertEqual(self.calls()[0]["token"], f"{TOKEN}-3")
 
-    def test_round_rotates_distinct_accounts_with_two_known_windows_at_threshold(self):
+    def test_status_shows_current_cached_usage_and_ignores_an_expired_window(self):
+        self.prepare_accounts((2,))
+        self.observe(2, 18, 79)
+        result = self.account("status", "2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines()[1].split()[-2:], ["18%", "79%"])
+        self.assertIn("status line", result.stdout)
+        self.assertIn("observed", result.stdout)
+        self.assertIn("5h reset", result.stdout)
+        self.assertNotIn(TOKEN, result.stdout + result.stderr)
+
+        sample = json.loads(self.usage_input(18, 0, int(time.time()) - 1))
+        del sample["rate_limits"]["seven_day"]
+        with mock.patch.dict(self.env, {"CLAUDE_CODE_OAUTH_TOKEN": f"{TOKEN}-2"}):
+            self.assertEqual(self.account("observe", stdin=json.dumps(sample)).returncode, 0)
+        result = self.account("status", "2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines()[1].split()[-2:], ["unavailable", "79%"])
+        self.assertEqual(self.calls(), [])
+
+    def test_round_rotates_distinct_accounts_and_admits_unknown_windows(self):
         self.prepare_accounts((1, 2, 3, 4, 5, 6, 10))
         self.observe(1, 19, 90)
         self.observe(2, 20, 90)
-        self.observe(3, 90, 19)
+        sample = json.loads(self.usage_input(90, 19))
+        del sample["rate_limits"]["five_hour"]
+        with mock.patch.dict(self.env, {"CLAUDE_CODE_OAUTH_TOKEN": f"{TOKEN}-3"}):
+            self.assertEqual(self.account("observe", stdin=json.dumps(sample)).returncode, 0)
         self.observe(4, 100, 100, reset=int(time.time()) - 1)
         self.observe(5, 80, 80)
         self.observe(10, 90, 20)
         for slot in (2, 5):
             result = self.account("label", str(slot), "--username", "person@example.test")
             self.assertEqual(result.returncode, 0, result.stderr)
-        for slot, args in ((2, ("--resume", "a prompt")), (10, ("--", "--resume")), (2, ())):
+        turns = ((2, ("--resume", "a prompt")), (4, ()), (6, ()), (10, ("--", "--resume")), (2, ()))
+        for slot, args in turns:
             result = self.account(*args, command="ai-round")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout, "")
-            self.assertEqual(result.stderr, f"Starting ai{slot}\n")
+            note = " with unknown allowance" if slot in (4, 6) else ""
+            self.assertEqual(result.stderr, f"Starting ai{slot}{note}\n")
         calls = self.calls()
-        self.assertEqual([call["token"] for call in calls],
-                         [f"{TOKEN}-{slot}" for slot in (2, 10, 2)])
+        self.assertEqual([call["token"] for call in calls], [f"{TOKEN}-{slot}" for slot, _ in turns])
         self.assertEqual(calls[0]["args"][-2:], ["--resume", "a prompt"])
-        self.assertEqual(calls[1]["args"][-1], "--resume")
+        self.assertEqual(calls[3]["args"][-1], "--resume")
+
+    def test_round_starts_with_no_saved_usage(self):
+        self.prepare_accounts((1, 3))
+        result = self.account("add", "2", "--paste", stdin=f"{TOKEN}-1\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for slot in (1, 3, 1):
+            result = self.account(command="ai-round")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(f"Starting ai{slot} with unknown allowance", result.stderr)
+        self.assertEqual([call["token"] for call in self.calls()],
+                         [f"{TOKEN}-{slot}" for slot in (1, 3, 1)])
 
     def test_round_exits_without_launch_when_no_account_qualifies(self):
         self.prepare_accounts((2,))
         self.observe(2, 19, 100)
         result = self.account(command="ai-round")
         self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertIn("at least 20%", result.stderr)
+        self.assertIn("20%", result.stderr)
         self.assertEqual(self.calls(), [])
 
     def test_round_distributes_concurrent_launches_evenly(self):
@@ -510,6 +545,13 @@ class UsageTest(unittest.TestCase):
         self.assertEqual(reports[1]["identity_source"], "declared, unverified")
         self.assertIn("profile permission", reports[0]["usage"]["reason"])
         self.assertEqual(reports[2]["auth"], "missing")
+
+    def test_round_does_not_fetch_usage_for_the_stored_login(self):
+        (self.accounts / "1.json").write_text(json.dumps({"token": TOKEN + "-1"}))
+        with mock.patch.object(self.module, "fetch_usage", side_effect=AssertionError("network")):
+            with mock.patch.object(self.module, "run") as launch:
+                self.module.run_round([])
+        launch.assert_called_once_with(["1"])
 
     def test_login_identity_follows_native_config_metadata_paths(self):
         default = self.root / ".claude"
