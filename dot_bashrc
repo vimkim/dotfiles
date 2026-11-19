@@ -19,6 +19,13 @@ path_prepend() {
 }
 
 export EDITOR='nvim'
+
+# Over SSH, keep browser helpers and Claude Code artifacts from launching a
+# GUI browser through X11 forwarding (matches dot_zshrc and nushell).
+if [ -n "${SSH_CONNECTION:-}${SSH_CLIENT:-}${SSH_TTY:-}" ]; then
+    export BROWSER="$HOME/.local/bin/no-browser"
+    export CLAUDE_CODE_ARTIFACT_AUTO_OPEN=0
+fi
 export TCR_ENGINE_REPO="$HOME/gh/cb/develop"
 export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
 export HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"

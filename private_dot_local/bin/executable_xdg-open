@@ -1,0 +1,31 @@
+#!/bin/sh
+# Shadow xdg-open so programs that call it by name (Herdr's Ctrl-click link
+# opener, fzf-git, CLIs) cannot start a GUI browser over SSH X11 forwarding.
+# On a local desktop session, hand off to the system xdg-open unchanged.
+
+over_ssh=
+if [ -n "${SSH_CONNECTION:-}${SSH_CLIENT:-}${SSH_TTY:-}" ]; then
+    over_ssh=1
+fi
+# A display with a host part, such as localhost:10.0, is forwarded X11.
+case "${DISPLAY:-}" in
+?*:*) over_ssh=1 ;;
+esac
+
+if [ -n "$over_ssh" ]; then
+    exec "${0%/*}/no-browser" "$@"
+fi
+
+old_ifs=$IFS
+IFS=:
+for dir in $PATH; do
+    candidate="${dir:-.}/xdg-open"
+    if [ -x "$candidate" ] && ! [ "$candidate" -ef "$0" ]; then
+        IFS=$old_ifs
+        exec "$candidate" "$@"
+    fi
+done
+IFS=$old_ifs
+
+echo "xdg-open: no system xdg-open found in PATH" >&2
+exit 127
