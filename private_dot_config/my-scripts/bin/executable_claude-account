@@ -2,6 +2,7 @@
 
 import datetime
 from dataclasses import dataclass, replace
+import fcntl
 import getpass
 import hashlib
 import http.client
@@ -20,13 +21,16 @@ SLOT_VAR = "CLAUDE_ACCOUNT_SLOT"
 OVERRIDING_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
 TOKEN_DAYS = 365
 WINDOWS = ("five_hour", "seven_day")
+ROUND_MIN_REMAINING = 20
 SHORTCUTS = {
     "ai": ("run", "0"),
     **{f"ai{slot}": ("run", str(slot)) for slot in range(10)},
     "aip": ("run", "0", "read prompt.md and execute"),
     "ai-status": ("status", "--all"),
+    "ai-round": ("round",),
 }
 USAGE = """usage: claude-account run [SLOT] [CLAUDE_ARGS...]
+       claude-account round [CLAUDE_ARGS...]
        claude-account add SLOT [--label TEXT] [--username TEXT] [--paste]
        claude-account label SLOT [--label TEXT] [--username TEXT]
        claude-account list
@@ -511,6 +515,54 @@ def usage_snapshot(args: list[str]) -> None:
     ]))
 
 
+def reserve_round_slot(slots: list[int]) -> int:
+    directory = accounts_dir()
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    cursor = directory / "round-robin.json"
+    # Keep the lock on a separate file because write_private_json replaces the cursor.
+    descriptor = os.open(directory / ".round-robin.lock", os.O_CREAT | os.O_RDWR, 0o600)
+    with os.fdopen(descriptor, "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        saved, _ = read_json(cursor)
+        previous = (saved or {}).get("slot")
+        if type(previous) is not int:
+            previous = -1
+        slot = next((slot for slot in slots if slot > previous), slots[0])
+        write_private_json(cursor, {"slot": slot})
+    return slot
+
+
+def run_round(args: list[str]) -> None:
+    if args[:1] in (["-h"], ["--help"]):
+        print(f"""usage: ai-round [CLAUDE_ARGS...]
+
+Start Claude in the current terminal. Rotate through configured accounts
+with at least {ROUND_MIN_REMAINING}% remaining in both the 5-hour and 7-day windows.
+
+Run ai-round --resume to resume a session.
+Use ai-round -- --help to get help from Claude.""")
+        return
+    if args[:1] == ["--"]:
+        args = args[1:]
+
+    eligible: list[AccountUsage] = []
+    for item in usage_candidates():
+        if item.unavailable or any(value is None or value < ROUND_MIN_REMAINING
+                                   for value in item.remaining):
+            continue
+        if not any(item.identity.matches(account.identity) for account in eligible):
+            eligible.append(item)
+    if not eligible:
+        raise SystemExit(f"ai-round: no account has at least {ROUND_MIN_REMAINING}% remaining "
+                         "in both windows. Start a numbered account to refresh its usage reading.")
+    try:
+        slot = reserve_round_slot([item.slot for item in eligible])
+    except OSError as error:
+        raise SystemExit(f"ai-round: could not save rotation: {error}") from None
+    print(f"Starting ai{slot}", file=sys.stderr, flush=True)
+    run([str(slot), *args])
+
+
 def observed_account() -> tuple[int, str] | None:
     if any(os.environ.get(name) for name in OVERRIDING_VARS):
         return None
@@ -565,7 +617,7 @@ def remove(args: list[str]) -> None:
 def main() -> None:
     shortcut = SHORTCUTS.get(Path(sys.argv[0]).name, ())
     args = [*shortcut, *sys.argv[1:]]
-    commands = {"run": run, "add": add, "label": label_metadata, "status": status,
+    commands = {"run": run, "round": run_round, "add": add, "label": label_metadata, "status": status,
                 "remove": remove, "observe": observe, "usage-snapshot": usage_snapshot}
     if args == ["list"]:
         list_slots()

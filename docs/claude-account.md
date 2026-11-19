@@ -18,6 +18,7 @@ After `herdr tab create`, use the returned root pane ID in
 | `aip` | `ai "read prompt.md and execute"`. |
 | `ai-status` | All account nicknames, usernames, credential states, and available usage. |
 | `ai-best` | Choose an account by its remaining allowance and start Claude in this terminal. |
+| `ai-round` | Rotate through accounts with at least 20% remaining in both usage windows. |
 | `herdr-new-tab-ai-best` | Run `ai-best` in a new tab in the current Herdr workspace. |
 | `herdr-new-workspace-ai-best` | Run `ai-best` in a new Herdr workspace. |
 
@@ -51,6 +52,20 @@ It treats missing or expired observations as unknown. Configured accounts
 with unknown usage are eligible after candidates with two known percentages.
 Once Claude reports a window below 10%, its status line shows
 `Low allowance (<10%)`.
+
+Run `ai-round` to spread launches across accounts. It starts Claude in the
+current terminal. Use `ai-round --resume` to pass an option to Claude.
+
+`ai-round` uses the same usage readings as `ai-best`. Both the five-hour and
+weekly windows must have a known remaining allowance of at least 20%.
+Eligible slots that share a username or token get one turn. The command
+chooses the next eligible slot number and wraps to the lowest. If no account
+qualifies, it exits without starting Claude. Start a numbered account directly
+so Claude's status line can record its allowance.
+
+Concurrent launches share the last selected slot in `round-robin.json` in the
+account state directory. A file lock protects the selection and update. Each
+launch releases the lock before starting Claude.
 
 ## Add an account
 

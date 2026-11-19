@@ -1,5 +1,7 @@
 """Exercise claude-account slots and the ai/aiN shortcuts without a real Claude login."""
 
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 import json
 import hashlib
 import http.client
@@ -235,7 +237,7 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(self.account("run", "10").returncode, 0)
         self.assertEqual(self.calls()[0]["token"], TOKEN)
 
-    def prepare_best(self, slots):
+    def prepare_accounts(self, slots):
         self.env.update(HOME=str(self.root), HERDR_ENV="0")
         for slot in slots:
             result = self.account("add", str(slot), "--paste", stdin=f"{TOKEN}-{slot}\n")
@@ -269,7 +271,7 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(invalid.returncode, 2, invalid.stderr)
 
     def test_best_ranks_both_windows_and_execs_claude_in_place(self):
-        self.prepare_best((1, 2, 3, 7))
+        self.prepare_accounts((1, 2, 3, 7))
         self.observe(2, 99, 20)
         self.observe(3, 70, 80)
         self.observe(7, 98, 98, reset=int(time.time()) - 1)
@@ -290,7 +292,7 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(self.calls()[0]["args"][-2:], ["--resume", "a prompt"])
 
     def test_best_does_not_reuse_observations_after_token_replacement(self):
-        self.prepare_best((2, 3))
+        self.prepare_accounts((2, 3))
         self.observe(2, 95, 95)
         self.observe(3, 50, 50)
         result = self.account("add", "2", "--paste", stdin="replacement-token\n")
@@ -300,7 +302,7 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(self.calls()[0]["token"], f"{TOKEN}-3")
 
     def test_partial_observation_keeps_the_other_windows_known_limit(self):
-        self.prepare_best((2,))
+        self.prepare_accounts((2,))
         self.observe(2, 90, 9)
         sample = json.loads(self.usage_input(95, 0))
         del sample["rate_limits"]["seven_day"]
@@ -315,15 +317,57 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(self.calls(), [])
 
     def test_best_uses_unknown_account_after_skipping_low_account(self):
-        self.prepare_best((2, 3))
+        self.prepare_accounts((2, 3))
         self.observe(2, 95, 9)
         result = self.account(command="ai-best")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Starting ai3 with unknown allowance", result.stderr)
         self.assertEqual(self.calls()[0]["token"], f"{TOKEN}-3")
 
+    def test_round_rotates_distinct_accounts_with_two_known_windows_at_threshold(self):
+        self.prepare_accounts((1, 2, 3, 4, 5, 6, 10))
+        self.observe(1, 19, 90)
+        self.observe(2, 20, 90)
+        self.observe(3, 90, 19)
+        self.observe(4, 100, 100, reset=int(time.time()) - 1)
+        self.observe(5, 80, 80)
+        self.observe(10, 90, 20)
+        for slot in (2, 5):
+            result = self.account("label", str(slot), "--username", "person@example.test")
+            self.assertEqual(result.returncode, 0, result.stderr)
+        for slot, args in ((2, ("--resume", "a prompt")), (10, ("--", "--resume")), (2, ())):
+            result = self.account(*args, command="ai-round")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+            self.assertEqual(result.stderr, f"Starting ai{slot}\n")
+        calls = self.calls()
+        self.assertEqual([call["token"] for call in calls],
+                         [f"{TOKEN}-{slot}" for slot in (2, 10, 2)])
+        self.assertEqual(calls[0]["args"][-2:], ["--resume", "a prompt"])
+        self.assertEqual(calls[1]["args"][-1], "--resume")
+
+    def test_round_exits_without_launch_when_no_account_qualifies(self):
+        self.prepare_accounts((2,))
+        self.observe(2, 19, 100)
+        result = self.account(command="ai-round")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("at least 20%", result.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_round_distributes_concurrent_launches_evenly(self):
+        slots = (1, 3, 5)
+        self.env["CLAUDE_ACCOUNTS_DIR"] = str(self.root / "custom-accounts")
+        self.prepare_accounts(slots)
+        for slot in slots:
+            self.observe(slot, 90, 90)
+        with ThreadPoolExecutor(max_workers=12) as workers:
+            for result in workers.map(lambda _: self.account(command="ai-round"), range(12)):
+                self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(Counter(call["token"] for call in self.calls()),
+                         {f"{TOKEN}-{slot}": 4 for slot in slots})
+
     def test_statusline_warns_when_either_window_is_below_ten_percent(self):
-        self.prepare_best((2,))
+        self.prepare_accounts((2,))
         for five_hour, weekly, warned in ((9.9, 70, True), (70, 9.9, True), (10, 10, False)):
             with self.subTest(five_hour=five_hour, weekly=weekly):
                 result = subprocess.run(
