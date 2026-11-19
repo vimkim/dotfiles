@@ -344,6 +344,30 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(result.stdout.splitlines()[1].split()[-2:], ["unavailable", "79%"])
         self.assertEqual(self.calls(), [])
 
+    def test_numbered_session_records_usage_without_exposing_oauth_token_to_observer(self):
+        self.prepare_accounts((2,))
+        with (self.bin / "claude").open("a") as stub:
+            stub.write(f"""
+import subprocess
+os.environ.pop("CLAUDE_CODE_OAUTH_TOKEN")
+if os.environ.get("STUB_REPLACE_TOKEN"):
+    subprocess.run(["claude-account", "add", "2", "--paste"],
+                   input="replacement-token\\n", text=True, stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL, check=True)
+subprocess.run(["claude-account", "observe"], input={self.usage_input(78, 65)!r},
+               text=True, check=True)
+""")
+        launched = self.account(command="ai2")
+        self.assertEqual(launched.returncode, 0, launched.stderr)
+        status = self.account("status", "2")
+        self.assertEqual(status.stdout.splitlines()[1].split()[-2:], ["78%", "65%"])
+
+        self.env["STUB_REPLACE_TOKEN"] = "1"
+        launched = self.account(command="ai2")
+        self.assertEqual(launched.returncode, 0, launched.stderr)
+        status = self.account("status", "2")
+        self.assertEqual(status.stdout.splitlines()[1].split()[-2:], ["unavailable", "unavailable"])
+
     def test_round_rotates_distinct_accounts_and_admits_unknown_windows(self):
         self.prepare_accounts((1, 2, 3, 4, 5, 6, 10))
         self.observe(1, 19, 90)

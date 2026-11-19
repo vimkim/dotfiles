@@ -145,6 +145,11 @@ window from the local cache. The report shows each current reading with its
 source, reset time, and observation time. A missing or expired reading appears
 as unavailable. The report makes no usage requests with setup-tokens.
 
+To populate the cache, start a fresh numbered session, such as `ai2`, and
+send a message. The status line records the windows Claude supplies after a
+response. The saved setup-token is sufficient for this path. Check the cached
+values with `claude-account status 2`.
+
 A token's estimated expiration date is separate from subscription usage
 remaining. The report keeps all rows when a usage lookup fails. Its exit
 status does not indicate whether authentication succeeded.

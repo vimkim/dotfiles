@@ -18,6 +18,7 @@ import urllib.request
 
 TOKEN_VAR = "CLAUDE_CODE_OAUTH_TOKEN"
 SLOT_VAR = "CLAUDE_ACCOUNT_SLOT"
+FINGERPRINT_VAR = "CLAUDE_ACCOUNT_FINGERPRINT"
 OVERRIDING_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
 TOKEN_DAYS = 365
 WINDOWS = ("five_hour", "seven_day")
@@ -86,7 +87,7 @@ def valid_token(token) -> bool:
 
 def clean_env() -> dict:
     env = dict(os.environ)
-    for name in (TOKEN_VAR, *OVERRIDING_VARS):
+    for name in (TOKEN_VAR, FINGERPRINT_VAR, *OVERRIDING_VARS):
         env.pop(name, None)
     if env.get("CLAUDE_CONFIG_DIR") == "":
         env.pop("CLAUDE_CONFIG_DIR")
@@ -104,6 +105,7 @@ def slot_env(slot: int) -> dict:
     if problem or not valid_token(account.get("token")):
         fail(f"slot {slot} has an unreadable or invalid token file")
     env[TOKEN_VAR] = account["token"]
+    env[FINGERPRINT_VAR] = fingerprint(account["token"])
     return env
 
 
@@ -594,9 +596,23 @@ def observed_account() -> tuple[int, str] | None:
     if any(os.environ.get(name) for name in OVERRIDING_VARS):
         return None
     token = os.environ.get(TOKEN_VAR)
+    stamped = os.environ.get(SLOT_VAR)
+    if token is None:
+        credential = os.environ.get(FINGERPRINT_VAR)
+        if not credential:
+            return None
+        try:
+            slot = int(stamped or "")
+        except ValueError:
+            return None
+        if slot <= 0 or str(slot) != stamped:
+            return None
+        account = load_account(slot)
+        if account["state"] == "configured" and fingerprint(account["token"]) == credential:
+            return slot, credential
+        return None
     if not valid_token(token):
         return None
-    stamped = os.environ.get(SLOT_VAR)
     slots = [slot for slot in account_slots() if slot > 0]
     slots.sort(key=lambda slot: str(slot) != stamped)
     for slot in slots:
