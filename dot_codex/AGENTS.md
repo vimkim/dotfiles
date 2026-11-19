@@ -9,10 +9,11 @@
 
 - When reporting a Herdr location, include the workspace name, tab name, and full target ID, for example `CBRD-28035, tab sa-rollback-issue (w2GX:t2), pane w2GX:p2`. Read the names and IDs from the live API.
 
-- Default to bypass mode when starting or resuming Codex or Claude through Herdr, unless the user requests another mode. Pass native options after `--` in `herdr agent start`:
-  - Codex: `--profile local --dangerously-bypass-approvals-and-sandbox`.
-  - Claude: `--settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/local-settings.json" --dangerously-skip-permissions`.
-- Use the same options for direct `codex` or `claude` launches through pane commands. Verify the running agent's permission mode before submitting work; shell aliases and Herdr session restore do not guarantee these options.
+- When asked to use `ai-round`, run `herdr pane run <pane-id> ai-round` in the target workspace. The launcher supplies Claude's settings path and bypass flag.
+- For direct `codex` and `claude` launches through Herdr, default to bypass mode unless the user requests another mode. Pass native options after `--` with `herdr agent start`, or directly to the executable with `herdr pane run`.
+  - Codex uses `--profile local --dangerously-bypass-approvals-and-sandbox`.
+  - Claude uses `--settings <absolute-path> --dangerously-skip-permissions`. Resolve the absolute path to `local-settings.json` in `CLAUDE_CONFIG_DIR` when set and nonempty, or in `~/.claude` otherwise. Pass the resolved path as one argument.
+- Verify the running agent's permission mode before submitting work, including after shell alias launches and session restores.
 
 ## Next-step requests
 
