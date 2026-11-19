@@ -103,14 +103,15 @@ fi
 IFS=$'\x1f' read -r MODEL CTX_PCT IN_TOK CTX_SIZE FH_PCT FH_RESET WK_PCT WK_RESET USAGE_JSON <<EOF
 $(printf '%s' "$input" | "$JQ" -r '
   def num: if type=="number" then floor else "" end;
+  def used: if type=="number" and . >= 0 and . <= 100 then ceil else "" end;
   def usage: if type=="object" then {used_percentage,resets_at} else null end;
   [ (.model.display_name // "?"),
     (.context_window.used_percentage      // "" | num),
     (.context_window.total_input_tokens   // "" | num),
     (.context_window.context_window_size  // "" | num),
-    (.rate_limits.five_hour.used_percentage // "" | num),
+    (.rate_limits.five_hour.used_percentage | used),
     (.rate_limits.five_hour.resets_at       // ""),
-    (.rate_limits.seven_day.used_percentage // "" | num),
+    (.rate_limits.seven_day.used_percentage | used),
     (.rate_limits.seven_day.resets_at       // ""),
     ({rate_limits: {five_hour: (.rate_limits.five_hour | usage),
                     seven_day: (.rate_limits.seven_day | usage)}} | tojson)
@@ -118,18 +119,11 @@ $(printf '%s' "$input" | "$JQ" -r '
 EOF
 
 if [ -n "$FH_PCT" ] || [ -n "$WK_PCT" ]; then
-  record_usage() {
-    local account_helper
+  (
     account_helper="$(command -v claude-account || true)"
     account_helper="${account_helper:-$HOME/.config/my-scripts/bin/claude-account}"
     printf '%s\n' "$USAGE_JSON" | "$account_helper" observe
-  }
-  retry="${CLAUDE_ACCOUNT_RETRY:-}"
-  if [[ "$retry" =~ ^[0-9a-f]{32}$ && -f "${CLAUDE_ACCOUNTS_DIR:-}/retry/$retry.json" ]]; then
-    record_usage </dev/null >/dev/null 2>&1
-  else
-    record_usage </dev/null >/dev/null 2>&1 &
-  fi
+  ) </dev/null >/dev/null 2>&1 &
 fi
 
 # --- most recent user prompt (rendered on a second status line) ---
@@ -224,7 +218,13 @@ if [ -n "$WK_PCT" ]; then
   out+=" ${SEP} ${seg}"
 fi
 
+if [ "${FH_PCT:-0}" -gt 90 ] || [ "${WK_PCT:-0}" -gt 90 ]; then
+  out+=" ${SEP} ${RED}Low allowance (<10%)${R}"
+fi
+
 printf '%s' "$out"
 
 # --- second line: what you last asked ---
-[ -n "$PROMPT" ] && printf '\n%s' "${DIM}❯${R} ${PROMPT}"
+if [ -n "$PROMPT" ]; then
+  printf '\n%s' "${DIM}❯${R} ${PROMPT}"
+fi

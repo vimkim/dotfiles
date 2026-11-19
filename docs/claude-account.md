@@ -17,7 +17,9 @@ After `herdr tab create`, use the returned root pane ID in
 | `ai1` through `ai9` | The token saved for slot N with `claude-account add N`. |
 | `aip` | `ai "read prompt.md and execute"`. |
 | `ai-status` | All account nicknames, usernames, credential states, and available usage. |
-| `ai-best` | Choose an account by its remaining usage and open it in a new Herdr tab. |
+| `ai-best` | Choose an account by its remaining allowance and start Claude in this terminal. |
+| `herdr-new-tab-ai-best` | Run `ai-best` in a new tab in the current Herdr workspace. |
+| `herdr-new-workspace-ai-best` | Run `ai-best` in a new Herdr workspace. |
 
 `ai` and the numbered shortcuts run `claude-account run N`. The launcher starts
 Claude with these options.
@@ -29,28 +31,26 @@ claude --settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/local-settings.json" \
 
 Arguments pass through unchanged, so `ai2 -c` and `ai3 --resume` work.
 
-## Choose an account in Herdr
+## Choose an account
 
-Run `ai-best` from a Herdr pane. It opens a tab in your current workspace and
-working directory. It checks slot 0 directly and reads the last usage
-percentages reported by Claude's status line for each saved setup-token.
-These observations come from ordinary sessions. The picker sends no model
-requests.
+Run `ai-best` in any shell to choose an account and start Claude in place.
+Use `ai-best -- --resume` to pass an option to Claude.
+Use `ai-best --help` for examples and `ai-best --version` for the installed
+picker version.
 
-The score is the lower of the five-hour and weekly remaining percentages.
-If the scores tie, the picker prefers more five-hour allowance, then more
-weekly allowance, then the lower slot number. The picker shows when it last
-saw the selected account's usage. It treats a missing or expired observation
-as unknown. A configured account with unknown usage can be picked when
-the known candidates are below the cutoff.
+Run either Herdr launcher from a Herdr pane. The new pane starts in your
+current working directory, and focus stays in your current pane.
 
-If the new session's first usable observation shows less than 10% in either
-window, the picker can open one alternative tab in the background. The
-original tab remains open with its conversation. Known accounts below 10%
-and slots identified as the same account are skipped when choosing the
-alternative. Claude's status line needs an API response before it can report
-usage, so an idle or blocked session without a reading may require you to
-pick another slot manually.
+The picker checks slot 0 directly and reads the latest status-line
+observations for saved tokens. It scores each account by the lower of its
+five-hour and weekly remaining percentages. Ties favor more five-hour
+allowance, then more weekly allowance, then the lower slot number.
+
+The picker warns and skips an account if either known window is below 10%.
+It treats missing or expired observations as unknown. Configured accounts
+with unknown usage are eligible after candidates with two known percentages.
+Once Claude reports a window below 10%, its status line shows
+`Low allowance (<10%)`.
 
 ## Add an account
 
@@ -258,8 +258,9 @@ For slots 10 and higher, use `claude-account run` with the slot number, such as
 
 Chezmoi manages the executable source at
 `private_dot_config/my-scripts/bin/executable_claude-account` and deploys it to
-`~/.config/my-scripts/bin/claude-account`. The shortcuts are symbolic links to
-`claude-account` in the same directory.
+`~/.config/my-scripts/bin/claude-account`. The `ai`, numbered `aiN`, `aip`, and
+`ai-status` shortcuts are symbolic links to `claude-account` in the same
+directory. `ai-best` has its own executable in that directory.
 
 Run the focused checks:
 

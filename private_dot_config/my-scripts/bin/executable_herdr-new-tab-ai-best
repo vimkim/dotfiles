@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+
+def herdr(*args: str) -> str:
+    return subprocess.check_output(["herdr", *args], text=True, stdin=subprocess.DEVNULL,
+                                   timeout=5)
+
+
+def main() -> None:
+    new_workspace = Path(sys.argv[0]).name == "herdr-new-workspace-ai-best"
+    kind = "workspace" if new_workspace else "tab"
+    argparse.ArgumentParser(description=f"Open a Herdr {kind} and start ai-best there.").parse_args()
+
+    if os.environ.get("HERDR_ENV") != "1":
+        sys.exit("Run this command inside Herdr.")
+    args = [kind, "create", "--cwd", os.getcwd(), "--label", "ai-best", "--no-focus"]
+    if not new_workspace:
+        workspace = os.environ.get("HERDR_WORKSPACE_ID") or os.environ.get("HERDR_ACTIVE_WORKSPACE_ID")
+        if not workspace:
+            sys.exit("Could not determine the current Herdr workspace.")
+        args.extend(["--workspace", workspace])
+    for name in ("CLAUDE_ACCOUNTS_DIR", "CLAUDE_CONFIG_DIR", "XDG_STATE_HOME"):
+        value = os.environ.get(name)
+        if value:
+            args.extend(["--env", f"{name}={Path(value).absolute()}"])
+
+    try:
+        reply = herdr(*args)
+        pane = json.loads(reply)["result"]["root_pane"]["pane_id"]
+        if not isinstance(pane, str) or not pane:
+            raise ValueError("missing pane ID")
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
+        sys.exit(f"Could not confirm the new Herdr {kind}. Check for 'ai-best' before retrying.")
+
+    try:
+        herdr("pane", "run", pane, "ai-best")
+    except (OSError, subprocess.SubprocessError):
+        sys.exit(f"Herdr created the 'ai-best' {kind}, but queuing failed. Check the pane and run ai-best there.")
+    print(f"Queued ai-best in the new Herdr {kind}.")
+
+
+if __name__ == "__main__":
+    main()

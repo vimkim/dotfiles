@@ -8,20 +8,20 @@ import importlib.util
 import io
 import os
 from pathlib import Path
-import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
-from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 import urllib.error
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "private_dot_config/my-scripts/bin/executable_claude-account"
+BIN = ROOT / "private_dot_config/my-scripts/bin"
+SCRIPT = BIN / "executable_claude-account"
+STATUSLINE = ROOT / "dot_claude/executable_statusline.sh"
 TOKEN = "sk-ant-oat01-test-secret"
 # Records how it was called so tests can see argv and the token Claude would receive.
 STUB = f"""#!{sys.executable}
@@ -46,8 +46,10 @@ class ClaudeAccountTest(unittest.TestCase):
         self.config = self.root / "config dir"
         (self.bin / "claude").write_text(STUB)
         (self.bin / "claude").chmod(0o755)
-        shutil.copyfile(SCRIPT, self.bin / "claude-account")
-        (self.bin / "claude-account").chmod(0o755)
+        for name in ("claude-account", "ai-best", "herdr-new-tab-ai-best"):
+            shutil.copyfile(BIN / f"executable_{name}", self.bin / name)
+            (self.bin / name).chmod(0o755)
+        (self.bin / "herdr-new-workspace-ai-best").symlink_to("herdr-new-tab-ai-best")
         for source in SCRIPT.parent.glob("symlink_ai*"):
             (self.bin / source.name.removeprefix("symlink_")).symlink_to(source.read_text().strip())
         self.env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}",
@@ -234,26 +236,10 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(self.calls()[0]["token"], TOKEN)
 
     def prepare_best(self, slots):
-        self.env.update(HOME=str(self.root), HERDR_ENV="1", HERDR_WORKSPACE_ID="test-workspace")
-        self.herdr_log = self.root / "herdr.jsonl"
-        self.env["HERDR_LOG"] = str(self.herdr_log)
-        herdr = self.bin / "herdr"
-        herdr.write_text(f"""#!{sys.executable}
-import json, os, sys
-args = sys.argv[1:]
-with open(os.environ["HERDR_LOG"], "a") as handle:
-    handle.write(json.dumps(args) + "\\n")
-if args[:2] == ["tab", "create"]:
-    print(json.dumps({{"result": {{"tab": {{"tab_id": "test:t1"}},
-                                  "root_pane": {{"pane_id": "test:p1"}}}}}}))
-""")
-        herdr.chmod(0o755)
+        self.env.update(HOME=str(self.root), HERDR_ENV="0")
         for slot in slots:
             result = self.account("add", str(slot), "--paste", stdin=f"{TOKEN}-{slot}\n")
             self.assertEqual(result.returncode, 0, result.stderr)
-
-    def tab_calls(self):
-        return [json.loads(line) for line in self.herdr_log.read_text().splitlines()]
 
     @staticmethod
     def usage_input(five_hour, weekly, reset=None):
@@ -269,24 +255,39 @@ if args[:2] == ["tab", "create"]:
             result = self.account("observe", stdin=self.usage_input(five_hour, weekly, reset))
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_best_ranks_both_windows_and_keeps_unknown_accounts_as_backups(self):
+    def test_best_help_and_version_without_account_access(self):
+        (self.bin / "claude-account").write_text("#!/bin/sh\nexit 99\n")
+        self.env["HERDR_ENV"] = "0"
+        help_result = self.account("--help", command="ai-best")
+        self.assertEqual(help_result.returncode, 0, help_result.stderr)
+        for value in ("current terminal", "5-hour", "7-day", "10%", "unknown", "herdr-new-tab-ai-best"):
+            self.assertIn(value, help_result.stdout)
+        version = self.account("--version", command="ai-best")
+        self.assertEqual(version.returncode, 0, version.stderr)
+        self.assertRegex(version.stdout, r"^ai-best [0-9]+\.[0-9]+\.[0-9]+\n$")
+        invalid = self.account("--bogus", command="ai-best")
+        self.assertEqual(invalid.returncode, 2, invalid.stderr)
+
+    def test_best_ranks_both_windows_and_execs_claude_in_place(self):
         self.prepare_best((1, 2, 3, 7))
         self.observe(2, 99, 20)
         self.observe(3, 70, 80)
         self.observe(7, 98, 98, reset=int(time.time()) - 1)
-        result = self.account(command="ai-best")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("ai3", result.stdout)
-        self.assertIn("70%", result.stdout)
-        self.assertIn("80%", result.stdout)
-        self.assertNotIn(TOKEN, result.stdout + result.stderr)
-        create, launch = self.tab_calls()
-        self.assertEqual(create[:4], ["tab", "create", "--workspace", "test-workspace"])
-        self.assertIn("--no-focus", create)
-        self.assertEqual(launch[:3], ["pane", "run", "test:p1"])
-        command = shlex.split(launch[-1])
-        self.assertRegex(command[1], r"^CLAUDE_ACCOUNT_RETRY=[0-9a-f]{32}$")
-        self.assertEqual(command[2:], ["claude-account", "run", "3"])
+        with (self.bin / "claude").open("a") as stub:
+            stub.write("print(os.getpid())\nsys.exit(37)\n")
+        command = [str(self.bin / "ai-best"), "--", "--resume", "a prompt"]
+        with subprocess.Popen(command, env=self.env, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True) as process:
+            output, diagnostics = process.communicate(timeout=10)
+            self.assertEqual(process.returncode, 37, diagnostics)
+            self.assertEqual(int(output), process.pid)
+        self.assertIn("Starting ai3", diagnostics)
+        self.assertIn("70%", diagnostics)
+        self.assertIn("80%", diagnostics)
+        self.assertIn("ai7  5h unknown", diagnostics)
+        self.assertNotIn(TOKEN, diagnostics)
+        self.assertEqual(self.calls()[0]["token"], f"{TOKEN}-3")
+        self.assertEqual(self.calls()[0]["args"][-2:], ["--resume", "a prompt"])
 
     def test_best_does_not_reuse_observations_after_token_replacement(self):
         self.prepare_best((2, 3))
@@ -296,7 +297,7 @@ if args[:2] == ["tab", "create"]:
         self.assertEqual(result.returncode, 0, result.stderr)
         result = self.account(command="ai-best")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue(self.tab_calls()[-1][-1].endswith("claude-account run 3"))
+        self.assertEqual(self.calls()[0]["token"], f"{TOKEN}-3")
 
     def test_partial_observation_keeps_the_other_windows_known_limit(self):
         self.prepare_best((2,))
@@ -308,52 +309,57 @@ if args[:2] == ["tab", "create"]:
         self.assertEqual(observed.returncode, 0, observed.stderr)
 
         result = self.account(command="ai-best")
-        self.assertEqual(result.returncode, 1, result.stdout)
-        self.assertIn("7d 9%", result.stdout)
-        self.assertFalse(self.herdr_log.exists())
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("7d 9% left · statusline", result.stderr)
+        self.assertIn("warning: below 10%", result.stderr)
+        self.assertEqual(self.calls(), [])
 
-    def test_low_observation_opens_one_alternative_under_concurrent_status_updates(self):
-        self.prepare_best((2, 3, 4))
-        for slot in (2, 4):
-            labeled = self.account("label", str(slot), "--username", "same@example.test")
-            self.assertEqual(labeled.returncode, 0, labeled.stderr)
-        self.observe(2, 90, 90)
-        self.observe(3, 80, 80)
-        self.observe(4, 85, 85)
+    def test_best_uses_unknown_account_after_skipping_low_account(self):
+        self.prepare_best((2, 3))
+        self.observe(2, 95, 9)
         result = self.account(command="ai-best")
         self.assertEqual(result.returncode, 0, result.stderr)
-        create, launch = self.tab_calls()
-        command = shlex.split(launch[-1])
-        self.assertEqual(command[2:], ["claude-account", "run", "2"])
+        self.assertIn("Starting ai3 with unknown allowance", result.stderr)
+        self.assertEqual(self.calls()[0]["token"], f"{TOKEN}-3")
 
-        with (self.bin / "claude").open("a") as stub:
-            fixture = self.usage_input(90, 9)
-            stub.write(f"""
-import subprocess
-subprocess.run(["claude-account", "observe"], input={fixture!r}, text=True, check=True)
+    def test_statusline_warns_when_either_window_is_below_ten_percent(self):
+        self.prepare_best((2,))
+        for five_hour, weekly, warned in ((9.9, 70, True), (70, 9.9, True), (10, 10, False)):
+            with self.subTest(five_hour=five_hour, weekly=weekly):
+                result = subprocess.run(
+                    ["bash", STATUSLINE], cwd=self.root, env=self.env, text=True,
+                    input=self.usage_input(five_hour, weekly), capture_output=True, timeout=10,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual("Low allowance (<10%)" in result.stdout, warned)
+
+    def test_herdr_wrappers_create_layout_and_queue_ai_best_in_returned_pane(self):
+        self.env.update(HERDR_ENV="1", HERDR_WORKSPACE_ID="test-workspace")
+        herdr = self.bin / "herdr"
+        log = self.root / "herdr.jsonl"
+        herdr.write_text(f"""#!{sys.executable}
+import json, sys
+args = sys.argv[1:]
+with open({str(log)!r}, "a") as handle:
+    handle.write(json.dumps(args) + "\\n")
+if args[1] == "create":
+    print(json.dumps({{"result": {{"root_pane": {{"pane_id": "returned:p8"}}}}}}))
 """)
-        tab_env = {key: value for key, value in
-                   (create[index + 1].split("=", 1)
-                    for index, arg in enumerate(create) if arg == "--env")}
-        self.assertNotIn("CLAUDE_ACCOUNT_RETRY", tab_env)
-        env = {**self.env, **tab_env, "HERDR_PANE_ID": "test:p1"}
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            results = list(executor.map(
-                lambda _: subprocess.run(command, env=env, input="", capture_output=True, text=True, timeout=10),
-                range(4)))
-        for outcome in results:
-            self.assertEqual(outcome.returncode, 0, outcome.stderr)
-        deadline = time.monotonic() + 5
-        while len(self.tab_calls()) < 5 and time.monotonic() < deadline:
-            time.sleep(0.025)
-        first_tab, first_launch, fallback_tab, fallback_launch = [
-            args for args in self.tab_calls() if args[0] in ("tab", "pane")
-        ]
-        self.assertEqual((first_tab, first_launch), (create, launch))
-        self.assertIn("--no-focus", fallback_tab)
-        self.assertEqual(fallback_launch, [
-            "pane", "run", "test:p1", "env CLAUDE_ACCOUNT_RETRY= claude-account run 3"
-        ])
+        herdr.chmod(0o755)
+        for kind in ("tab", "workspace"):
+            with self.subTest(kind=kind):
+                log.write_text("")
+                result = self.account(command=f"herdr-new-{kind}-ai-best")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                create, run = [json.loads(line) for line in log.read_text().splitlines()]
+                self.assertEqual(create[:4], [kind, "create", "--cwd", os.getcwd()])
+                self.assertIn("--no-focus", create)
+                self.assertIn(f"CLAUDE_CONFIG_DIR={self.config}", create)
+                if kind == "tab":
+                    self.assertEqual(create[create.index("--workspace") + 1], "test-workspace")
+                else:
+                    self.assertNotIn("--workspace", create)
+                self.assertEqual(run, ["pane", "run", "returned:p8", "ai-best"])
 
 
 class UsageTest(unittest.TestCase):
