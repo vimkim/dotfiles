@@ -1,4 +1,4 @@
-"""Exercise claude-account slots and the ai/aiN shortcuts without a real Claude login."""
+"""Exercise claude-account slots and shortcuts without a real Claude login."""
 
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -74,13 +74,13 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn(TOKEN, result.stdout + result.stderr)
 
-    def test_slot_zero_uses_stored_login_and_drops_inherited_credentials(self):
+    def test_login_drops_inherited_credentials(self):
         self.env["CLAUDE_CODE_OAUTH_TOKEN"] = "inherited-from-ai2"
         self.env["ANTHROPIC_API_KEY"] = "inherited-api"
         self.env["ANTHROPIC_AUTH_TOKEN"] = "inherited-auth"
         self.accounts.mkdir(parents=True)
         (self.accounts / "0.json").write_text(json.dumps({"token": TOKEN}))
-        result = self.account("run", "0", "-c", "two words")
+        result = self.account("run", "login", "-c", "two words")
         self.assertEqual(result.returncode, 0, result.stderr)
         settings = str(self.config / "local-settings.json")
         self.assertEqual(self.calls(), [{"name": "claude", "token": None, "api": None, "auth": None, "args": [
@@ -91,13 +91,13 @@ class ClaudeAccountTest(unittest.TestCase):
         self.env["HOME"] = str(self.root / "home")
         with (self.bin / "claude").open("a") as stub:
             stub.write('assert "CLAUDE_CONFIG_DIR" not in os.environ\n')
-        self.assertEqual(self.account("run", "0").returncode, 0)
+        self.assertEqual(self.account("run").returncode, 0)
         self.assertEqual(self.calls()[0]["args"][1],
                          str(self.root / "home/.claude/local-settings.json"))
 
     def test_added_slot_passes_its_token_and_stays_private(self):
         self.add_slot(2, "--label", "personal")
-        stored = self.accounts / "2.json"
+        stored = self.accounts / "3.json"
         self.assertEqual(stored.stat().st_mode & 0o777, 0o600)
         self.assertEqual(self.accounts.stat().st_mode & 0o777, 0o700)
         self.assertEqual(json.loads(stored.read_text())["token"], TOKEN)
@@ -121,23 +121,23 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(self.calls(), [{"name": "claude", "args": ["setup-token"], "token": None, "api": None, "auth": None}])
 
     def test_rejects_bad_slots_and_tokens(self):
-        for args in (("add", "0", "--paste"), ("remove", "0"), ("add", "x", "--paste"), ("add", "2", "--bogus")):
+        for args in (("add", "login", "--paste"), ("remove", "login"), ("add", "x", "--paste"), ("add", "2", "--bogus")):
             with self.subTest(args=args):
                 self.assertEqual(self.account(*args).returncode, 2)
         self.assertEqual(self.account("add", "2", "--paste", stdin="two words\n").returncode, 1)
-        self.assertFalse((self.accounts / "2.json").exists())
+        self.assertFalse((self.accounts / "3.json").exists())
 
     def test_list_shows_slots_without_tokens_and_remove_deletes(self):
-        self.add_slot(2, "--label", "personal")
+        self.add_slot(0, "--label", "personal")
         listing = self.account("list")
         self.assertEqual(listing.returncode, 0, listing.stderr)
-        self.assertIn("ai/ai0  /login", listing.stdout)
+        self.assertIn("ai-login  /login", listing.stdout)
         self.assertIn("ai1  not configured", listing.stdout)
-        self.assertIn("ai2  token", listing.stdout)
+        self.assertIn("ai0  token", listing.stdout)
         self.assertIn("personal", listing.stdout)
         self.assertNotIn(TOKEN, listing.stdout)
-        self.assertEqual(self.account("remove", "2").returncode, 0)
-        self.assertEqual(self.account("run", "2").returncode, 1)
+        self.assertEqual(self.account("remove", "0").returncode, 0)
+        self.assertEqual(self.account("run", "0").returncode, 1)
 
     def test_status_reports_token_without_running_claude(self):
         self.add_slot(2, "--username", "team@example.test")
@@ -152,12 +152,12 @@ class ClaudeAccountTest(unittest.TestCase):
         self.add_slot(2, "--label", "team\nname", "--username", "team@example.test")
         (self.accounts / "1.json").write_text("{broken")
         (self.accounts / "0.json").write_text(json.dumps({"token": TOKEN}))
-        (self.accounts / "4.json").write_text(json.dumps({"token": TOKEN, "added": "bad"}))
+        (self.accounts / "5.json").write_text(json.dumps({"token": TOKEN, "added": "bad"}))
         paths = list(self.accounts.iterdir())
         before = {p: hashlib.sha256(p.read_bytes()).digest() for p in paths}
         result = self.account("status", "--all")
         self.assertEqual(result.returncode, 0, result.stderr)
-        for value in ("ai/ai0", "ai1", "ai2", "ai4", "unreadable or invalid", "team\\u000aname"):
+        for value in ("ai-login", "ai0", "ai1", "ai2", "ai4", "unreadable or invalid", "team\\u000aname"):
             self.assertIn(value, result.stdout)
         self.assertNotIn(TOKEN, result.stdout + result.stderr)
         self.assertEqual(before, {p: hashlib.sha256(p.read_bytes()).digest() for p in paths})
@@ -166,7 +166,7 @@ class ClaudeAccountTest(unittest.TestCase):
 
     def test_label_preserves_existing_data_and_private_mode(self):
         self.add_slot(2, "--label", "team")
-        path = self.accounts / "2.json"
+        path = self.accounts / "3.json"
         existing = json.loads(path.read_text())
         existing["extra"] = {"keep": True}
         path.write_text(json.dumps(existing))
@@ -174,16 +174,16 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(path.read_text()), {**existing, "username": "team@example.test"})
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-        self.assertEqual(self.account("label", "0", "--label", "x").returncode, 2)
+        self.assertEqual(self.account("label", "login", "--label", "x").returncode, 2)
         self.assertEqual(self.account("status", "2", "--all").returncode, 2)
         self.assertEqual(self.account("list", "extra").returncode, 2)
 
     def test_missing_and_malformed_slot_one_never_launch(self):
         self.assertEqual(self.account("run", "1").returncode, 1)
         self.accounts.mkdir(parents=True)
-        (self.accounts / "1.json").write_text("not json")
+        (self.accounts / "2.json").write_text("not json")
         self.assertEqual(self.account("run", "1").returncode, 1)
-        (self.accounts / "1.json").write_text(json.dumps({"token": "bad\x00token"}))
+        (self.accounts / "2.json").write_text(json.dumps({"token": "bad\x00token"}))
         self.assertEqual(self.account("run", "1").returncode, 1)
         self.assertEqual(self.calls(), [])
 
@@ -206,11 +206,11 @@ class ClaudeAccountTest(unittest.TestCase):
     def test_executable_shortcuts_forward_arguments_and_select_account(self):
         self.env["CLAUDE_CODE_OAUTH_TOKEN"] = "inherited"
         self.accounts.mkdir(parents=True)
-        for slot in range(1, 10):
+        for slot in range(1, 11):
             (self.accounts / f"{slot}.json").write_text(json.dumps({"token": f"{TOKEN}-{slot}"}))
         settings = ["--settings", str(self.config / "local-settings.json"), "--dangerously-skip-permissions"]
         args = ["123", "two words", "", "--resume"]
-        for name, slot in [("ai", 0), *((f"ai{slot}", slot) for slot in range(10))]:
+        for name, slot in [("ai", 0), ("ai-login", 0), *((f"ai{slot - 1}", slot) for slot in range(1, 11))]:
             with self.subTest(name=name):
                 result = self.account(*args, command=name)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -300,6 +300,33 @@ class ClaudeAccountTest(unittest.TestCase):
         result = self.account(command="ai-best")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls()[0]["token"], f"{TOKEN}-3")
+
+    def test_best_uses_legacy_slot_observations_for_ai0_and_login(self):
+        self.accounts.mkdir(parents=True)
+        (self.accounts / "1.json").write_text(json.dumps({"token": TOKEN}))
+        credential = hashlib.sha256(TOKEN.encode()).hexdigest()
+        with mock.patch.dict(self.env, {"CLAUDE_ACCOUNT_SLOT": "1", "CLAUDE_ACCOUNT_FINGERPRINT": credential}):
+            self.env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
+            observed = self.account("observe", stdin=self.usage_input(78, 65))
+        self.assertEqual(observed.returncode, 0, observed.stderr)
+        result = self.account("status", "0")
+        self.assertRegex(result.stdout, r"(?m)^ai0\s+.*78%\s+65%$")
+
+        self.config.mkdir()
+        (self.config / ".credentials.json").write_text(json.dumps({"claudeAiOauth": {
+            "accessToken": TOKEN + "-login", "scopes": ["user:inference"],
+        }}))
+        (self.config / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": "same@example.test"}}))
+        result = self.account(command="ai-best")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Starting ai0\n", result.stderr)
+        self.assertEqual(self.calls()[-1]["token"], TOKEN)
+
+        self.assertEqual(self.account("label", "0", "--username", "same@example.test").returncode, 0)
+        result = self.account(command="ai-best")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Starting ai-login\n", result.stderr)
+        self.assertIsNone(self.calls()[-1]["token"])
 
     def test_partial_observation_keeps_the_other_windows_known_limit(self):
         self.prepare_accounts((2,))
@@ -395,15 +422,15 @@ subprocess.run(["claude-account", "observe"], input={self.usage_input(78, 65)!r}
         self.assertEqual(calls[3]["args"][-1], "--resume")
 
     def test_round_starts_with_no_saved_usage(self):
-        self.prepare_accounts((1, 3))
-        result = self.account("add", "2", "--paste", stdin=f"{TOKEN}-1\n")
+        self.prepare_accounts((0, 2))
+        result = self.account("add", "1", "--paste", stdin=f"{TOKEN}-0\n")
         self.assertEqual(result.returncode, 0, result.stderr)
-        for slot in (1, 3, 1):
+        for slot in (0, 2, 0):
             result = self.account(command="ai-round")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(f"Starting ai{slot} with unknown allowance", result.stderr)
         self.assertEqual([call["token"] for call in self.calls()],
-                         [f"{TOKEN}-{slot}" for slot in (1, 3, 1)])
+                         [f"{TOKEN}-{slot}" for slot in (0, 2, 0)])
 
     def test_round_exits_without_launch_when_no_account_qualifies(self):
         self.prepare_accounts((2,))
@@ -575,7 +602,7 @@ class UsageTest(unittest.TestCase):
         with mock.patch.object(self.module, "fetch_usage", side_effect=AssertionError("network")):
             with mock.patch.object(self.module, "run") as launch:
                 self.module.run_round([])
-        launch.assert_called_once_with(["1"])
+        launch.assert_called_once_with(["0"])
 
     def test_login_identity_follows_native_config_metadata_paths(self):
         default = self.root / ".claude"

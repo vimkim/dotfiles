@@ -112,11 +112,12 @@ class RenewalTest(unittest.TestCase):
     def test_setup_token_is_estimated_and_uses_the_slot_renewal_command(self):
         directory = self.home / "tokens"
         directory.mkdir()
-        (directory / "2.json").write_text(json.dumps({"token": SECRET, "label": "work",
+        (directory / "1.json").write_text(json.dumps({"token": SECRET, "label": "work",
                                                       "added": "2025-11-10"}))
         message, = renewal.token_notices(directory, NOW)
+        self.assertIn("ai0 (work)", message)
         self.assertIn("estimated expiry 2026-11-10", message)
-        self.assertIn("claude-account add 2", message)
+        self.assertIn("claude-account add 0", message)
         self.assertNotIn(SECRET, message)
 
     def test_refresh_aggregates_accounts_and_writes_no_secrets(self):

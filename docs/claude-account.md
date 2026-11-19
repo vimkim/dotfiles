@@ -13,17 +13,17 @@ After `herdr tab create`, use the returned root pane ID in
 
 | Command | Account |
 | --- | --- |
-| `ai`, `ai0` | Slot 0: the login stored by `/login` (full features). |
-| `ai1` through `ai9` | The token saved for slot N with `claude-account add N`. |
+| `ai-login`, `ai` | The login stored by `/login` with full features. |
+| `ai0` through `ai9` | The token saved for slot N with `claude-account add N`. |
 | `aip` | `ai "read prompt.md and execute"`. |
 | `ai-status` | All account nicknames, usernames, credential states, and available usage. |
-| `ai-best` | Choose an account by its remaining allowance and start Claude in this terminal. |
-| `ai-round` | Rotate through saved numbered accounts and skip any with a current reading below 20%. |
+| `ai-best` | Compare `ai-login` and saved numbered accounts from `ai0` up by remaining allowance. |
+| `ai-round` | Rotate through saved numbered accounts from `ai0` up. Skip any with a current reading below 20%. |
 | `herdr-new-tab-ai-best` | Run `ai-best` in a new tab in the current Herdr workspace. |
 | `herdr-new-workspace-ai-best` | Run `ai-best` in a new Herdr workspace. |
 
-`ai` and the numbered shortcuts run `claude-account run N`. The launcher starts
-Claude with these options.
+`ai-login` and `ai` run `claude-account run login`. The numbered shortcuts run
+`claude-account run N`. The launcher starts Claude with these options.
 
 ```sh
 claude --settings "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/local-settings.json" \
@@ -42,10 +42,11 @@ picker version.
 Run either Herdr launcher from a Herdr pane. The new pane starts in your
 current working directory, and focus stays in your current pane.
 
-The picker checks slot 0 directly and reads the latest status-line
+The picker checks `ai-login` directly and reads the latest status-line
 observations for saved tokens. It scores each account by the lower of its
 five-hour and weekly remaining percentages. Ties favor more five-hour
-allowance, then more weekly allowance, then the lower slot number.
+allowance, then more weekly allowance. If both allowances tie, `ai-login`
+comes first, followed by numbered accounts in ascending order.
 
 The picker warns and skips an account if either known window is below 10%.
 It treats missing or expired observations as unknown. Configured accounts
@@ -56,7 +57,7 @@ Once Claude reports a window below 10%, its status line shows
 Run `ai-round` to spread launches across accounts. It starts Claude in the
 current terminal. Use `ai-round --resume` to pass an option to Claude.
 
-`ai-round` reads the local usage cache for saved slots from `ai1` up.
+`ai-round` reads the local usage cache for saved slots from `ai0` up.
 It skips a slot if either current window shows less than 20% remaining.
 Missing or expired readings count as unknown, and slots with unknown readings
 get a turn if neither known window is below 20%. The launcher reports unknown
@@ -74,14 +75,14 @@ launch releases the lock before starting Claude.
 ## Add an account
 
 ```sh
-claude-account add 1 --label personal --username you@example.com
+claude-account add 0 --label personal --username you@example.com
 ```
 
 1. The command runs `claude setup-token` and prints a sign-in URL.
-2. Open the URL in a browser signed in to the account for slot 1. A private
+2. Open the URL in a browser signed in to the account for `ai0`. A private
    window avoids picking up the account that is already signed in.
 3. Paste the printed token at the hidden prompt.
-4. Start the account with `ai1`.
+4. Start the account with `ai0`.
 
 `--paste` skips `claude setup-token` and only reads a token you already have.
 Without a terminal, the token is read from the first line of stdin.
@@ -95,11 +96,11 @@ the setup-token cannot verify that identity.
 
 ```sh
 claude-account list        # local slots, nicknames, and estimated token lifetimes
-claude-account status     # stored /login account and available usage
+claude-account status login # stored /login account and available usage
 claude-account status 2   # the saved team account
 claude-account status --all
 claude-account label 2 --username team@example.com
-claude-account label 2 --label team-common
+claude-account label 2 --label team
 claude-account remove 2    # delete slot 2's token file
 claude-account run 2 -c    # what `ai2 -c` runs
 ```
@@ -108,19 +109,19 @@ claude-account run 2 -c    # what `ai2 -c` runs
 `claude-account add N` again to replace it.
 
 `label` updates only the supplied nickname or username. It preserves the token,
-the original `added` date, and other account metadata. Slot 0 is reserved for
-`/login`; `add`, `label`, and `remove` accept positive slots only. A `0.json`
-file cannot override the login.
+the original `added` date, and other account metadata. `add`, `label`, and
+`remove` accept numbered slots starting at 0. Manage the login with Claude's
+`/login` command.
 
 ## Read the account report
 
-`ai-status` reports slots 0, 1, and 2, plus other saved numbered slots. A missing
-or unreadable account stays visible without hiding the other rows. Each row
+`ai-status` reports `ai-login`, `ai0`, `ai1`, and `ai2`, plus other saved numbered
+slots. A missing or unreadable account stays visible. Each row
 shows a nickname, a username and its source, the credential state, and any
 available five-hour and weekly allowance remaining.
 
-Slot 0 uses the nickname `/login`. Its username comes from the selected Claude
-configuration's login metadata and is marked as cached. Positive slots use their
+`ai-login` uses the nickname `/login`. Its username comes from the selected Claude
+configuration's login metadata and is marked as cached. Numbered slots use their
 saved `label` as the nickname and their optional `username` as user-provided
 identity. Missing identity appears as unknown. The report does not copy the
 shared login identity onto token accounts.
@@ -204,9 +205,9 @@ with `/login` asks for a new browser sign-in every time. Claude Code ranks
 `CLAUDE_CODE_OAUTH_TOKEN` above the stored login, so `claude-account` sets that
 variable for the launched process only:
 
-- Slot 0 always uses the stored `/login`.
-- Every positive slot requires its own saved token and passes that token.
-- A missing positive slot fails before starting Claude.
+- `ai-login` uses the stored `/login`.
+- Every numbered slot requires its own saved token and passes that token.
+- A missing numbered slot fails before starting Claude.
 - The launcher removes inherited `CLAUDE_CODE_OAUTH_TOKEN`,
   `ANTHROPIC_AUTH_TOKEN`, and `ANTHROPIC_API_KEY` before selecting credentials.
   Token setup uses the same environment cleanup.
@@ -219,9 +220,9 @@ Claude's `/status` if account selection changes unexpectedly.
 ## Limits
 
 - `claude setup-token` tokens can only make model requests. Remote Control and
-  claude.ai connectors do not work in `ai1` and higher. Locally configured MCP
+  claude.ai connectors require `ai-login`. Locally configured MCP
   servers still work. The official docs ask for `claude auth login` before
-  `--cloud` and `--teleport`, so use `ai` or `ai0` for those.
+  `--cloud` and `--teleport`, so use `ai-login` or `ai` for those.
 - Tokens last about one year.
 - `remove` deletes the local file only. It does not revoke the token; see
   [If a token leaks](#if-a-token-leaks).
@@ -235,9 +236,11 @@ Claude's `/status` if account selection changes unexpectedly.
 
 ## Secrets and chezmoi
 
-Tokens are stored as `$XDG_STATE_HOME/claude-accounts/N.json`, which defaults
-to `~/.local/state/claude-accounts/N.json`. Each file has mode 0600 and the
-directory has mode 0700. Set `CLAUDE_ACCOUNTS_DIR` to use another directory.
+The token directory is `$XDG_STATE_HOME/claude-accounts`, which defaults to
+`~/.local/state/claude-accounts`. The file number is one higher than the command
+number, so `ai0` uses `1.json`. Keeping the file numbers preserves existing
+tokens and usage readings. Each file has mode 0600 and the directory has mode
+0700. Set `CLAUDE_ACCOUNTS_DIR` to use another directory.
 
 The token directory is outside the chezmoi source. `.chezmoiignore` also lists
 it, so `chezmoi add` prints `warning: ignoring .local/state/claude-accounts/...`
@@ -285,8 +288,8 @@ For slots 10 and higher, use `claude-account run` with the slot number, such as
 
 Chezmoi manages the executable source at
 `private_dot_config/my-scripts/bin/executable_claude-account` and deploys it to
-`~/.config/my-scripts/bin/claude-account`. The `ai`, numbered `aiN`, `aip`, and
-`ai-status` shortcuts are symbolic links to `claude-account` in the same
+`~/.config/my-scripts/bin/claude-account`. The `ai`, `ai-login`, numbered `aiN`,
+`aip`, `ai-status`, and `ai-round` shortcuts link to `claude-account` in the same
 directory. `ai-best` has its own executable in that directory.
 
 Run the focused checks:

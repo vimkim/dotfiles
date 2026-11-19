@@ -24,18 +24,19 @@ TOKEN_DAYS = 365
 WINDOWS = ("five_hour", "seven_day")
 ROUND_MIN_REMAINING = 20
 SHORTCUTS = {
-    "ai": ("run", "0"),
+    "ai": ("run", "login"),
+    "ai-login": ("run", "login"),
     **{f"ai{slot}": ("run", str(slot)) for slot in range(10)},
-    "aip": ("run", "0", "read prompt.md and execute"),
+    "aip": ("run", "login", "read prompt.md and execute"),
     "ai-status": ("status", "--all"),
     "ai-round": ("round",),
 }
-USAGE = """usage: claude-account run [SLOT] [CLAUDE_ARGS...]
+USAGE = """usage: claude-account run [login | SLOT] [CLAUDE_ARGS...]
        claude-account round [CLAUDE_ARGS...]
        claude-account add SLOT [--label TEXT] [--username TEXT] [--paste]
        claude-account label SLOT [--label TEXT] [--username TEXT]
        claude-account list
-       claude-account status [SLOT | --all]
+       claude-account status [login | SLOT | --all]
        claude-account remove SLOT"""
 
 
@@ -59,10 +60,19 @@ def config_dir() -> Path:
     return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
 
 
-def parse_slot(text: str, *, positive_only: bool = False) -> int:
-    if not text.isascii() or not text.isdigit() or (positive_only and int(text) == 0):
+def parse_slot(text: str) -> int:
+    if not text.isascii() or not text.isdigit():
         fail(f"invalid slot {safe(text)!r}", 2)
-    return int(text)
+    # Keep stored slot IDs stable for token files, running sessions, and usage caches.
+    return int(text) + 1
+
+
+def slot_selector(slot: int) -> str:
+    return "login" if slot == 0 else str(slot - 1)
+
+
+def account_name(slot: int) -> str:
+    return "ai-login" if slot == 0 else f"ai{slot_selector(slot)}"
 
 
 def safe(value: str) -> str:
@@ -101,9 +111,9 @@ def slot_env(slot: int) -> dict:
         return env
     account, problem = read_json(slot_file(slot))
     if problem == "missing":
-        fail(f"slot {slot} has no token; run: claude-account add {slot}")
+        fail(f"{account_name(slot)} has no token. Run: claude-account add {slot_selector(slot)}")
     if problem or not valid_token(account.get("token")):
-        fail(f"slot {slot} has an unreadable or invalid token file")
+        fail(f"{account_name(slot)} has an unreadable or invalid token file")
     env[TOKEN_VAR] = account["token"]
     env[FINGERPRINT_VAR] = fingerprint(account["token"])
     return env
@@ -111,8 +121,10 @@ def slot_env(slot: int) -> dict:
 
 def run(args: list[str]) -> None:
     slot = 0
-    if args and args[0].isdigit():
-        slot = parse_slot(args.pop(0))
+    if args and (args[0] == "login" or args[0].isdigit()):
+        selector = args.pop(0)
+        if selector != "login":
+            slot = parse_slot(selector)
     command = ["claude", "--settings", str(config_dir() / "local-settings.json"),
                "--dangerously-skip-permissions", *args]
     try:
@@ -170,10 +182,10 @@ def metadata_options(args: list[str], *, allow_paste: bool = False) -> tuple[dic
 def add(args: list[str]) -> None:
     if not args:
         fail(USAGE, 2)
-    slot = parse_slot(args.pop(0), positive_only=True)
+    slot = parse_slot(args.pop(0))
     metadata, paste = metadata_options(args, allow_paste=True)
     if not paste:
-        print(f"Sign in as the slot {slot} account in the browser (a private window helps).",
+        print(f"Sign in as the {account_name(slot)} account in the browser (a private window helps).",
               file=sys.stderr)
         env = clean_env()
         env["BROWSER"] = "true"
@@ -182,28 +194,28 @@ def add(args: list[str]) -> None:
     account = {"token": read_token(), "label": metadata.pop("label", ""),
                "added": datetime.date.today().isoformat(), **metadata}
     write_slot(slot, account)
-    shortcut = f"ai{slot}"
-    launch = shortcut if shortcut in SHORTCUTS else f"claude-account run {slot}"
-    print(f"Saved slot {slot}. Launch it with: {launch}")
+    name = account_name(slot)
+    launch = name if name in SHORTCUTS else f"claude-account run {slot_selector(slot)}"
+    print(f"Saved {name}. Launch it with: {launch}")
 
 
 def label_metadata(args: list[str]) -> None:
     if not args:
         fail(USAGE, 2)
-    slot = parse_slot(args.pop(0), positive_only=True)
+    slot = parse_slot(args.pop(0))
     metadata, _ = metadata_options(args)
     if not metadata:
         fail(USAGE, 2)
     account, problem = read_json(slot_file(slot))
     if problem or not valid_token(account.get("token")):
-        fail(f"slot {slot} has no usable token file")
+        fail(f"{account_name(slot)} has no usable token file")
     account.update(metadata)
     write_slot(slot, account)
-    print(f"Updated slot {slot} metadata.")
+    print(f"Updated {account_name(slot)} metadata.")
 
 
 def account_slots() -> list[int]:
-    slots = {0, 1, 2}
+    slots = {0, 1, 2, 3}
     try:
         for path in accounts_dir().iterdir():
             stem = path.stem
@@ -215,7 +227,7 @@ def account_slots() -> list[int]:
 
 
 def load_account(slot: int) -> dict:
-    account = {"slot": slot, "label": "/login" if slot == 0 else f"slot {slot}",
+    account = {"slot": slot, "label": "/login" if slot == 0 else f"slot {slot_selector(slot)}",
                "username": None, "identity_source": "unknown", "token": None,
                "state": "missing", "scopes": None, "added": None}
     if slot == 0:
@@ -256,12 +268,13 @@ def list_slots() -> None:
     today = datetime.date.today()
     for slot in account_slots():
         account = load_account(slot)
+        name = account_name(slot)
         if slot == 0:
-            print("ai/ai0  /login")
+            print(f"{name}  /login")
         elif account["state"] == "missing":
-            print(f"ai{slot}  not configured")
+            print(f"{name}  not configured")
         elif account["state"] != "configured":
-            print(f"ai{slot}  {account['state']}")
+            print(f"{name}  {account['state']}")
         else:
             try:
                 expires = datetime.date.fromisoformat(account["added"]) + datetime.timedelta(days=TOKEN_DAYS)
@@ -269,7 +282,7 @@ def list_slots() -> None:
                 estimate = f"added {safe(account['added'])}, ~{left} days left" + ("  RENEW SOON" if left < 30 else "")
             except (TypeError, ValueError, OverflowError):
                 estimate = "renewal estimate unavailable"
-            print(f"ai{slot}  token, {estimate}  {safe(account['label'])}")
+            print(f"{name}  token, {estimate}  {safe(account['label'])}")
 
 
 def utc_now() -> str:
@@ -367,7 +380,7 @@ def render_reports(reports: list[dict]) -> str:
     rows = []
     details = []
     for report in reports:
-        name = "ai/ai0" if report["slot"] == 0 else f"ai{report['slot']}"
+        name = account_name(report["slot"])
         username = safe(report["username"]) if report["username"] else "unknown"
         usage = report["usage"]
         windows = [usage["five_hour"], usage["seven_day"]]
@@ -392,7 +405,7 @@ def render_reports(reports: list[dict]) -> str:
 
 
 def status(args: list[str]) -> None:
-    if not args:
+    if not args or args == ["login"]:
         slots = [0]
     elif args == ["--all"]:
         slots = account_slots()
@@ -510,7 +523,7 @@ def usage_candidates() -> list[AccountUsage]:
     unavailable = None
     if account["state"] != "configured" or login_usage["rejected"]:
         unavailable = login_usage["reason"] or account["state"]
-    login_candidate = AccountUsage(0, Identity.from_account(account), tuple(live), "live ai0", live_at, unavailable)
+    login_candidate = AccountUsage(0, Identity.from_account(account), tuple(live), "live ai-login", live_at, unavailable)
     candidates = [login_candidate, *numbered_usage_candidates(now)]
     if login_candidate.unavailable:
         return candidates
@@ -522,7 +535,7 @@ def usage_candidates() -> list[AccountUsage]:
                          for primary, cached in zip(login_candidate.remaining, alias.remaining))
         if combined != login_candidate.remaining:
             dates = (date for date in (login_candidate.observed_at, alias.observed_at) if date is not None)
-            source = "live ai0 + statusline" if live_at is not None else "statusline"
+            source = "live ai-login + statusline" if live_at is not None else "statusline"
             login_candidate = replace(login_candidate, remaining=combined, source=source,
                                       observed_at=min(dates, default=None))
     candidates[0] = login_candidate
@@ -537,7 +550,8 @@ def usage_snapshot(args: list[str]) -> None:
     if args:
         fail(USAGE, 2)
     print(json.dumps([
-        {"slot": item.slot, "remaining": item.remaining, "source": item.source,
+        {"name": account_name(item.slot), "selector": slot_selector(item.slot),
+         "remaining": item.remaining, "source": item.source,
          "observed_at": item.observed_at, "unavailable": item.unavailable}
         for item in usage_candidates()
     ]))
@@ -564,7 +578,7 @@ def run_round(args: list[str]) -> None:
     if args[:1] in (["-h"], ["--help"]):
         print(f"""usage: ai-round [CLAUDE_ARGS...]
 
-Start Claude in the current terminal. Rotate through configured slots ai1 and up.
+Start Claude in the current terminal. Rotate through configured slots ai0 and up.
 Skip a slot if a current status line reading shows less than {ROUND_MIN_REMAINING}% remaining
 in either the 5-hour or 7-day window. Slots with unknown allowance get a turn.
 
@@ -588,8 +602,8 @@ Use ai-round -- --help to get help from Claude.""")
     except OSError as error:
         raise SystemExit(f"ai-round: could not save rotation: {error}") from None
     note = " with unknown allowance" if None in eligible[slot].remaining else ""
-    print(f"Starting ai{slot}{note}", file=sys.stderr, flush=True)
-    run([str(slot), *args])
+    print(f"Starting {account_name(slot)}{note}", file=sys.stderr, flush=True)
+    run([slot_selector(slot), *args])
 
 
 def observed_account() -> tuple[int, str] | None:
@@ -648,12 +662,12 @@ def observe(args: list[str]) -> None:
 def remove(args: list[str]) -> None:
     if len(args) != 1:
         fail(USAGE, 2)
-    slot = parse_slot(args[0], positive_only=True)
+    slot = parse_slot(args[0])
     try:
         slot_file(slot).unlink()
     except FileNotFoundError:
-        fail(f"slot {slot} has no token")
-    print(f"Removed slot {slot}. This does not revoke the token; delete it at "
+        fail(f"{account_name(slot)} has no token")
+    print(f"Removed the local token for {account_name(slot)}. To revoke it, use "
           "claude.ai Settings > Claude Code.")
 
 

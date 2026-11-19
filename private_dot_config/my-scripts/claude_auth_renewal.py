@@ -77,19 +77,21 @@ def login_notice(config, home, now):
 def token_notices(directory, now):
     today = dt.datetime.fromtimestamp(now, dt.timezone.utc).date()
     for path in sorted(directory.glob("*.json")):
-        if not path.stem.isdigit():
+        stem = path.stem
+        if not stem.isascii() or not stem.isdigit() or stem.startswith("0"):
             continue
-        command = f"claude-account add {int(path.stem)}"
+        slot = int(stem) - 1
+        command = f"claude-account add {slot}"
         try:
             account = read_json(path)
-            label = text(account.get("label") or f"slot {path.stem}")
+            label = text(account.get("label") or f"slot {slot}")
             # Pasted tokens may predate `added`; this is an estimate, not a server expiry.
             expires = dt.date.fromisoformat(account["added"]) + dt.timedelta(days=365)
             if (expires - today).days > 30:
                 continue
-            yield f"Claude: ai{int(path.stem)} ({label}): setup-token estimated expiry {expires} UTC; renew with {command}"
+            yield f"Claude: ai{slot} ({label}): setup-token estimated expiry {expires} UTC; renew with {command}"
         except (OSError, ValueError, KeyError, TypeError):
-            yield f"Claude: ai{int(path.stem)}: token expiry unknown; check claude-account list; renew with {command}"
+            yield f"Claude: ai{slot}: token expiry unknown; check claude-account list; renew with {command}"
 
 
 def refresh(force=False):

@@ -376,17 +376,17 @@ chezmoi workflow. Keep the deployed inventory unchanged until deployment.
 
 ### Claude accounts that share one config directory
 
-`ai` and `ai0` use the login stored by `/login`. `ai1` through `ai9` use saved
+`ai-login` and `ai` use the login stored by `/login`. `ai0` through `ai9` use saved
 subscription tokens. All accounts share `~/.claude`. The shortcuts are on `PATH`
 and work as commands for new Herdr tabs. Add your personal token with
-`claude-account add 1 --label personal --username you@example.com`.
+`claude-account add 0 --label personal --username you@example.com`.
 The command runs `claude setup-token` and saves the token outside the chezmoi
 source in `~/.local/state/claude-accounts`. Run setup in a normal shell.
 `ai-status` shows every account's nickname, username, credential state, and
 available usage, including cached readings for saved tokens.
-`ai-best` uses the latest available usage to choose an account and starts
-Claude in the current terminal. `ai-round` rotates through saved numbered
-accounts, skipping any with a current reading below 20%. In Herdr, use
+`ai-best` compares `ai-login` and saved numbered accounts by available usage and
+starts Claude in the current terminal. `ai-round` rotates through saved accounts
+from `ai0` up, skipping any with a current reading below 20%. In Herdr, use
 `herdr-new-tab-ai-best` or `herdr-new-workspace-ai-best` to run `ai-best` in a
 new tab or workspace.
 Token sessions lose Remote Control and claude.ai connectors. See
