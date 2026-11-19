@@ -14,12 +14,27 @@ fi
 timestamp="$(date '+%Y-%m-%dT%H:%M:%S%z' 2>/dev/null || date)"
 printf '%s\t%s\n' "$timestamp" "$target" >> "$log_file" 2>/dev/null || true
 
+# Copy the URL to the local clipboard with OSC 52, like `clip` over SSH.
+# The controlling terminal reaches the user's terminal even when the caller
+# (for example Herdr's Ctrl-click opener) has redirected stdio.
+copied=
+if [ "$#" -gt 0 ]; then
+    encoded=$(printf '%s' "$target" | base64 2>/dev/null | tr -d '\n')
+    if [ -n "$encoded" ] \
+        && { printf '\033]52;c;%s\a' "$encoded" > /dev/tty; } 2>/dev/null; then
+        copied=1
+    fi
+fi
+
 {
     printf 'Blocked browser open'
     if [ "$#" -gt 0 ]; then
         printf ': %s' "$target"
     fi
     printf '\n'
+    if [ -n "$copied" ]; then
+        printf 'Copied URL to clipboard (OSC 52)\n'
+    fi
     printf 'Logged at %s\n' "$log_file"
 } >&2
 
