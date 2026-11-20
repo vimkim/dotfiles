@@ -1,10 +1,13 @@
 {
   "altScreenMode": "always",
   "effort": "high",
-  "model": "Gemini 4 Neon (High)",
+  "model": "Orchestrator (Neon)",
   "statusLine": {
-    "command": "~/.gemini/antigravity-cli/statusline.sh",
-    "type": "command"
+    "type": "command",
+    "command": "~/.gemini/antigravity-cli/statusline.sh"
   },
-  "toolPermission": "always-proceed"
+  "toolPermission": "always-proceed",
+  "trustedWorkspaces": [
+    "/home/vimkim/.local/share/chezmoi"
+  ]
 }
