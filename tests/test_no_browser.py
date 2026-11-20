@@ -19,8 +19,14 @@ URL = "https://example.com/a?b=c&d=e"
 class NoBrowserTest(unittest.TestCase):
     def setUp(self) -> None:
         self.cache = tempfile.TemporaryDirectory()
+        bin_dir = Path(self.cache.name) / "bin"
+        bin_dir.mkdir()
+        self.herdr_args = Path(self.cache.name) / "herdr-args"
+        fake_herdr = bin_dir / "herdr"
+        fake_herdr.write_text(f"#!/bin/sh\nprintf '%s\\n' \"$@\" > '{self.herdr_args}'\n")
+        fake_herdr.chmod(0o755)
         self.env = {
-            "PATH": "/usr/bin:/bin",
+            "PATH": f"{bin_dir}:/usr/bin:/bin",
             "HOME": self.cache.name,
             "XDG_CACHE_HOME": self.cache.name,
         }
@@ -54,6 +60,20 @@ class NoBrowserTest(unittest.TestCase):
         self.assertEqual(os.waitstatus_to_exitcode(status), 0)
         encoded = base64.b64encode(URL.encode()).decode()
         self.assertIn(f"\x1b]52;c;{encoded}\x07".encode(), output)
+        self.assertEqual(
+            self.herdr_args.read_text().splitlines(),
+            [
+                "notification",
+                "show",
+                "📋 Copied link",
+                "--body",
+                URL,
+                "--position",
+                "bottom-right",
+                "--sound",
+                "none",
+            ],
+        )
 
     def test_succeeds_without_controlling_terminal(self) -> None:
         result = subprocess.run(
@@ -66,6 +86,7 @@ class NoBrowserTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertNotIn("Copied URL", result.stderr)
+        self.assertFalse(self.herdr_args.exists(), "no toast without a copy")
         self.assertIn(URL, (Path(self.cache.name) / "no-browser.log").read_text())
 
 

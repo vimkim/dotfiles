@@ -26,6 +26,13 @@ if [ "$#" -gt 0 ]; then
     fi
 fi
 
+# Confirm the copy with a Herdr toast. Without a reachable Herdr server the
+# copy and log still happen; the toast is skipped within two seconds.
+if [ -n "$copied" ] && command -v herdr >/dev/null 2>&1; then
+    timeout 2 herdr notification show "📋 Copied link" --body "$target" \
+        --position bottom-right --sound none >/dev/null 2>&1 || true
+fi
+
 {
     printf 'Blocked browser open'
     if [ "$#" -gt 0 ]; then
