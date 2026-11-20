@@ -13,8 +13,20 @@
 # carapace as external completer — covers ~1000 CLIs incl. git branches.
 # Must be a let-bound name, not an inline closure literal — nushell drops
 # inline closures stored in $env.config across the config-load boundary.
-let carapace_completer = {|spans: list<string>|
-  carapace $spans.0 nushell ...$spans | from json
+# Nushell >= 0.116 passes a `place` record (with `$place.command`); older
+# versions pass a positional `list<string>`. Naming the parameter `place`
+# avoids the positional-input deprecation warning while keeping fallback.
+let carapace_completer = {|place|
+  let spans = if ($place | describe | str starts-with "record") {
+    $place.command
+  } else {
+    $place
+  }
+  if ($spans | is-empty) {
+    null
+  } else {
+    carapace $spans.0 nushell ...$spans | from json
+  }
 }
 $env.config.completions = {
   case_sensitive: false
