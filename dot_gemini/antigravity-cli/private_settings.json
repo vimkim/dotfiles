@@ -1,5 +1,5 @@
 {
   "effort": "high",
-  "model": "gemini-4-neon",
+  "model": "Gemini 4 Neon (High)",
   "toolPermission": "always-proceed"
 }
