@@ -1,2 +1,41 @@
 #!/bin/sh
+
+usage() {
+    cat <<'EOF'
+usage: ay [AGY_ARGS...]
+
+Exec wrapper that runs Antigravity CLI with permission prompts bypassed:
+  exec agy --dangerously-skip-permissions "$@"
+
+Options:
+  -h, --help     Show this help message and exit
+  --version      Show wrapper info and the underlying agy version
+
+Use "ay -- --help" or "ay -- --version" to pass those flags through to agy.
+EOF
+}
+
+print_version() {
+    if agy_ver=$(agy --version 2>/dev/null) && [ -n "$agy_ver" ]; then
+        agy_ver=$(printf '%s\n' "$agy_ver" | sed 1q)
+        printf 'ay: exec wrapper for agy --dangerously-skip-permissions (agy %s)\n' "$agy_ver"
+    else
+        printf 'ay: exec wrapper for agy --dangerously-skip-permissions (agy version unavailable)\n'
+    fi
+}
+
+case "${1:-}" in
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    --version)
+        print_version
+        exit 0
+        ;;
+    --)
+        shift
+        ;;
+esac
+
 exec agy --dangerously-skip-permissions "$@"

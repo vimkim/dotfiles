@@ -17,6 +17,12 @@ import json
 import os
 import sys
 
+if sys.argv[1:] == ["--version"]:
+    if os.environ.get("AY_FAIL_VERSION") == "1":
+        sys.exit(1)
+    print("9.9.9")
+    sys.exit(0)
+
 if os.isatty(0):
     with open(os.environ["AY_LOG"], "w", encoding="utf-8") as handle:
         json.dump(
@@ -53,6 +59,22 @@ class AyWrapperTest(unittest.TestCase):
             "AY_LOG": str(self.log),
         }
 
+    def run_ay(
+        self,
+        *args: str,
+        env: dict[str, str] | None = None,
+        stdin: str = "",
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [str(SCRIPT), *args],
+            input=stdin,
+            env=self.env if env is None else env,
+            text=True,
+            capture_output=True,
+            timeout=4,
+            check=False,
+        )
+
     def test_script_is_executable(self) -> None:
         self.assertTrue(os.access(SCRIPT, os.X_OK))
 
@@ -78,15 +100,7 @@ class AyWrapperTest(unittest.TestCase):
 
     def test_prepends_bypass_flag_and_preserves_args_stdin_and_exit_status(self) -> None:
         args = ["-p", "two words", "", "한글", "--", "--flag"]
-        result = subprocess.run(
-            [str(SCRIPT), *args],
-            input="piped input",
-            env=self.env,
-            text=True,
-            capture_output=True,
-            timeout=4,
-            check=False,
-        )
+        result = self.run_ay(*args, stdin="piped input")
         self.assertEqual(result.returncode, 7, result.stderr)
         self.assertEqual(result.stderr, "")
         self.assertEqual(
@@ -94,6 +108,68 @@ class AyWrapperTest(unittest.TestCase):
             {
                 "args": ["--dangerously-skip-permissions", *args],
                 "input": "piped input",
+            },
+        )
+
+    def test_help_describes_wrapper_without_running_agy(self) -> None:
+        for flag in ("--help", "-h"):
+            with self.subTest(flag=flag):
+                result = self.run_ay(flag)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr, "")
+                self.assertIn("usage: ay [AGY_ARGS...]", result.stdout)
+                self.assertIn("Antigravity CLI", result.stdout)
+                self.assertIn('exec agy --dangerously-skip-permissions "$@"', result.stdout)
+                self.assertIn("ay -- --help", result.stdout)
+                self.assertFalse(result.stdout.lstrip().startswith("{"))
+
+    def test_version_describes_wrapper_and_agy_version(self) -> None:
+        result = self.run_ay("--version")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(
+            result.stdout,
+            "ay: exec wrapper for agy --dangerously-skip-permissions (agy 9.9.9)\n",
+        )
+
+    def test_version_handles_failing_or_missing_agy(self) -> None:
+        expected = (
+            "ay: exec wrapper for agy --dangerously-skip-permissions "
+            "(agy version unavailable)\n"
+        )
+        for label, extra_env in (
+            ("failing", {**self.env, "AY_FAIL_VERSION": "1"}),
+            ("missing", {**self.env, "PATH": "/usr/bin:/bin"}),
+        ):
+            with self.subTest(case=label):
+                result = self.run_ay("--version", env=extra_env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr, "")
+                self.assertEqual(result.stdout, expected)
+
+    def test_double_dash_passes_help_and_version_to_agy(self) -> None:
+        for flag in ("--help", "--version"):
+            with self.subTest(flag=flag):
+                result = self.run_ay("--", flag)
+                self.assertEqual(result.returncode, 7, result.stderr)
+                self.assertEqual(result.stderr, "")
+                self.assertEqual(
+                    json.loads(result.stdout),
+                    {
+                        "args": ["--dangerously-skip-permissions", flag],
+                        "input": "",
+                    },
+                )
+
+    def test_subcommand_help_passes_through_to_agy(self) -> None:
+        result = self.run_ay("models", "--help")
+        self.assertEqual(result.returncode, 7, result.stderr)
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(
+            json.loads(result.stdout),
+            {
+                "args": ["--dangerously-skip-permissions", "models", "--help"],
+                "input": "",
             },
         )
 
