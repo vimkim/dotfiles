@@ -122,7 +122,7 @@ class Bootstrap(unittest.TestCase):
         self.assertTrue(self.log.exists())
         self.assertIn('warning: Alt+C and Alt+Shift+C', result.stderr)
         self.assertIn('herdr was not found on PATH', result.stderr)
-        self.assertIn('Herdr 0.9.3 (protocol 22)', result.stderr)
+        self.assertIn('Herdr 0.9.3 or 0.9.5 (protocol 22)', result.stderr)
 
     def test_incompatible_herdr_warns_without_blocking_installation(self):
         for version_result, report in (('0', 'herdr 0.9.4'), ('1', 'version check failed')):
@@ -133,10 +133,12 @@ class Bootstrap(unittest.TestCase):
                 self.assertTrue(self.log.exists())
                 self.assertIn('warning:', result.stderr)
                 self.assertIn(report, result.stderr)
-                self.assertIn('Herdr 0.9.3 server (protocol 22)', result.stderr)
-        result = self.run_bootstrap()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertNotIn('warning:', result.stderr)
+                self.assertIn('Herdr 0.9.3 or 0.9.5 server (protocol 22)', result.stderr)
+        for supported in ('herdr 0.9.3', 'herdr 0.9.5'):
+            with self.subTest(supported=supported):
+                result = self.run_bootstrap(HERDR_VERSION=supported)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn('warning:', result.stderr)
 
     def test_unusable_installed_python_remains_retryable(self):
         result = self.run_bootstrap(RUNTIME_RESULT='1')

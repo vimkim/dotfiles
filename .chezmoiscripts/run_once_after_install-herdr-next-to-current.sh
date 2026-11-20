@@ -40,10 +40,10 @@ runtime_python="$tool_root/herdr-next-to-current/bin/python"
 # Herdr is optional on machines that only use the other dotfiles. Its absence
 # must not undo a successful tool install or prevent the other dotfiles applying.
 if ! command -v herdr >/dev/null; then
-    printf '%s\n' 'herdr-next-to-current: warning: Alt+C and Alt+Shift+C need Herdr 0.9.3 (protocol 22); herdr was not found on PATH. Install compatible Herdr before using these shortcuts.' >&2
+    printf '%s\n' 'herdr-next-to-current: warning: Alt+C and Alt+Shift+C need Herdr 0.9.3 or 0.9.5 (protocol 22); herdr was not found on PATH. Install compatible Herdr before using these shortcuts.' >&2
 else
     herdr_version="$(herdr --version 2>/dev/null)" || herdr_version='version check failed'
-    if [ "$herdr_version" != 'herdr 0.9.3' ]; then
-        printf 'herdr-next-to-current: warning: Alt+C and Alt+Shift+C need a Herdr 0.9.3 server (protocol 22); installed command reports "%s". Use compatible Herdr before using these shortcuts.\n' "$herdr_version" >&2
+    if [ "$herdr_version" != 'herdr 0.9.3' ] && [ "$herdr_version" != 'herdr 0.9.5' ]; then
+        printf 'herdr-next-to-current: warning: Alt+C and Alt+Shift+C need a Herdr 0.9.3 or 0.9.5 server (protocol 22); installed command reports "%s". Use compatible Herdr before using these shortcuts.\n' "$herdr_version" >&2
     fi
 fi

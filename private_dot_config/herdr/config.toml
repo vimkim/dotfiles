@@ -89,6 +89,11 @@ sidebar_min_width = 48
 sidebar_max_width = 72
 status_indicators = "symbols"
 
+# Herdr's default delivery is "off": the client drops every popup, including
+# `herdr notification show`, while the server still reports it as shown.
+[ui.toast]
+delivery = "herdr"
+
 [ui.sidebar.agents]
 row_gap = 0
 rows = [
