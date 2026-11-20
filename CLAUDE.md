@@ -17,7 +17,7 @@ explicit requests.
 ## Guidance sources
 
 - Keep root `CLAUDE.md` identical to this file; both are repository-only guidance.
-- Global guidance lives in `dot_codex/AGENTS.md`, deployed to `$HOME/.codex/AGENTS.md` and `$HOME/.claude/CLAUDE.md`. Edit only that source; `dot_claude/CLAUDE.md.tmpl` includes it.
+- Global guidance lives in `dot_codex/AGENTS.md`, deployed to `$HOME/.codex/AGENTS.md`, `$HOME/.claude/CLAUDE.md`, and `$HOME/.gemini/AGENTS.md`. Edit only that source; `dot_claude/CLAUDE.md.tmpl` and `dot_gemini/AGENTS.md.tmpl` include it.
 
 ## Context
 
