@@ -1,5 +1,10 @@
 {
+  "altScreenMode": "always",
   "effort": "high",
   "model": "Gemini 4 Neon (High)",
+  "statusLine": {
+    "command": "~/.gemini/antigravity-cli/statusline.sh",
+    "type": "command"
+  },
   "toolPermission": "always-proceed"
 }
