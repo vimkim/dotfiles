@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""Merge shared Antigravity CLI settings while preserving machine-local state."""
+
+import json
+import sys
+
+SHARED_SETTINGS = {
+    "altScreenMode": "always",
+    "effort": "high",
+    "model": "Orchestrator (Neon)",
+    "statusLine": {
+        "type": "command",
+        "command": "~/.gemini/antigravity-cli/statusline.sh",
+    },
+    "toolPermission": "always-proceed",
+}
+
+
+def strict_equal(actual: object, expected: object) -> bool:
+    if type(actual) is not type(expected):
+        return False
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict)
+        return actual.keys() == expected.keys() and all(
+            strict_equal(actual[k], expected[k]) for k in expected
+        )
+    if isinstance(expected, list):
+        assert isinstance(actual, list)
+        return len(actual) == len(expected) and all(
+            strict_equal(a, b) for a, b in zip(actual, expected)
+        )
+    return actual == expected
+
+
+def main() -> int:
+    raw = sys.stdin.read()
+    if raw.strip() == "":
+        sys.stdout.write(json.dumps(SHARED_SETTINGS, indent=2, ensure_ascii=False) + "\n")
+        return 0
+
+    try:
+        existing = json.loads(raw.lstrip("\ufeff"))
+    except json.JSONDecodeError as exc:
+        print(f"modify_private_settings.json: invalid existing JSON: {exc}", file=sys.stderr)
+        return 1
+
+    if not isinstance(existing, dict):
+        print("modify_private_settings.json: expected JSON object at top level", file=sys.stderr)
+        return 1
+
+    # Preserve exact formatting and local keys (e.g., trustedWorkspaces, gcp) when shared values already match.
+    if all(k in existing and strict_equal(existing[k], v) for k, v in SHARED_SETTINGS.items()):
+        sys.stdout.write(raw)
+        return 0
+
+    existing.update(SHARED_SETTINGS)
+    # Sort only top-level keys so nested dicts like statusLine keep their key order.
+    merged = {k: existing[k] for k in sorted(existing)}
+    sys.stdout.write(json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

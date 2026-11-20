@@ -1,9 +1,8 @@
 # Shared and local agent configuration
 
-This repository is public. Claude Code and Codex settings are split into a
-shared file that chezmoi manages and publishes, and local files that stay on
-each machine because they hold company paths, internal tool rules, or
-machine state.
+This repository is public. Claude Code, Codex, and Antigravity CLI settings
+keep shared defaults in chezmoi while preserving machine-local state (company
+paths, internal tool rules, workspace trust, and UI state) on each machine.
 
 ## Where each setting lives
 
@@ -11,22 +10,29 @@ machine state.
 | --- | --- | --- |
 | Claude | `~/.claude/settings.json` | `~/.claude/local-settings.json`, `~/.claude.json`, each repository's `.claude/settings.local.json` |
 | Codex | `~/.codex/config.toml`, `~/.codex/hooks.json` | `~/.codex/local.config.toml`, `~/.codex/rules/default.rules` |
+| Antigravity CLI | `~/.gemini/antigravity-cli/settings.json` (`modify_` script) | `trustedWorkspaces`, `gcp`, and other local keys inside `~/.gemini/antigravity-cli/settings.json` |
 
-Chezmoi creates the two local files empty when they are missing
-(`create_` sources) and never changes them afterwards.
+For Claude and Codex, chezmoi creates the two local files empty when they are
+missing (`create_` sources) and never changes them afterwards.
 
 Put company paths and internal tool rules only in local files: Claude
 permission rules for internal CLIs, `autoMode` rules that name internal
 services, `claudeMdExcludes` for company checkouts, and Codex project trust.
 
+For `~/.gemini/antigravity-cli/settings.json`
+(`dot_gemini/antigravity-cli/modify_private_settings.json`), chezmoi runs a
+`modify_` script instead of managing a static file. The script keeps all
+unmanaged local keys on disk (`trustedWorkspaces`, `gcp`, etc.) untouched while
+ensuring shared keys match the repository.
+
 ## Where the tools write
 
-| Action | Claude writes to | Codex writes to |
-| --- | --- | --- |
-| Trust a folder | `~/.claude.json` | `local.config.toml` (the active profile) |
-| Allow a command permanently | `.claude/settings.local.json` at the repository root | `~/.codex/rules/default.rules` |
-| Approve a hook | Not required | `local.config.toml` (`[hooks.state]`) |
-| `/model`, `/config`, and similar | `~/.claude/settings.json` (shared) | `local.config.toml` |
+| Action | Claude writes to | Codex writes to | Antigravity CLI writes to |
+| --- | --- | --- | --- |
+| Trust a folder | `~/.claude.json` | `local.config.toml` (the active profile) | `settings.json` (`trustedWorkspaces`) |
+| Allow a command permanently | `.claude/settings.local.json` at the repository root | `~/.codex/rules/default.rules` | `settings.json` (`permissions`) |
+| Approve a hook | Not required | `local.config.toml` (`[hooks.state]`) | Not required |
+| `/model`, `/config`, and similar | `~/.claude/settings.json` (shared) | `local.config.toml` | `~/.gemini/antigravity-cli/settings.json` |
 
 Codex writes trust, hook approvals, and UI preferences to the active user
 config layer, which is the `--profile` file when one is selected
@@ -34,7 +40,15 @@ config layer, which is the `--profile` file when one is selected
 Codex 0.167.0). Running plain `codex` without `--profile local` writes them to
 the shared `config.toml` instead; the apply helper then skips that file until
 the change is moved. A preference changed inside Codex therefore lands in the
-local file; copy it to the shared file to publish it.
+local file; copy it to the shared file to publish it. Shared preferences
+changed inside Antigravity CLI should be copied into
+`dot_gemini/antigravity-cli/modify_private_settings.json` to publish them.
+
+When a shared key changes in `modify_private_settings.json` after `agy` has
+edited local keys on disk, `chezmoi-apply-unmodified` safely skips that file
+because its destination changed since chezmoi's last write. Run
+`chezmoi apply -- ~/.gemini/antigravity-cli/settings.json` to merge the shared
+key update while preserving all local keys on disk.
 
 Claude combines `permissions.allow` from `settings.json` and the
 `--settings` file (verified on 2026-11-09 with a rule in each file and a

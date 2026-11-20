@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 STATUSLINE = ROOT / "dot_gemini/antigravity-cli/executable_statusline.sh"
-SETTINGS = ROOT / "dot_gemini/antigravity-cli/private_settings.json"
+MODIFY_SETTINGS = ROOT / "dot_gemini/antigravity-cli/modify_private_settings.json"
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
@@ -33,7 +33,15 @@ def run_statusline(payload: dict, *, cwd: Path, env_extra: dict | None = None) -
 
 class AgyStatuslineTest(unittest.TestCase):
     def test_settings_json_enables_altscreen_and_statusline(self):
-        data = json.loads(SETTINGS.read_text(encoding="utf-8"))
+        result = subprocess.run(
+            [str(MODIFY_SETTINGS)],
+            input="",
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
         self.assertEqual(data["altScreenMode"], "always")
         self.assertEqual(
             data["statusLine"],
@@ -42,6 +50,7 @@ class AgyStatuslineTest(unittest.TestCase):
                 "type": "command",
             },
         )
+        self.assertNotIn("trustedWorkspaces", data)
 
     def test_renders_model_pwd_branch_pr_context_quota_and_tasks(self):
         with tempfile.TemporaryDirectory() as tmp:
