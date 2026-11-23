@@ -84,6 +84,7 @@ height = "80%"
 confirm_close = true
 prompt_new_tab_name = false
 host_cursor = "native"
+sidebar_max_width = 48
 
 # Herdr's default delivery is "off": the client drops every popup, including
 # `herdr notification show`, while the server still reports it as shown.
