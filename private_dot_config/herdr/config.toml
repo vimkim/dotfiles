@@ -11,6 +11,7 @@ prefix = "ctrl+a"
 
 # Workspaces follow sidebar order.
 workspace_picker = "alt+w"
+goto = ["alt+g", "prefix+g"]
 previous_workspace = ["alt+p", "alt+up"]
 next_workspace = ["alt+n", "alt+down"]
 new_workspace = []
