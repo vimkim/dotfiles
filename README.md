@@ -479,8 +479,8 @@ The display-environment, XKB layout, and `dead_hamza` packaging diagnosis is
 recorded in [WezTerm on Fedora KDE through Herdr](docs/wezterm-fedora.md),
 including verification and rollback commands.
 
-Herdr's tab agent markers, workspace tab inventory, and updater controls are
-documented in [Herdr tab agent indicators](docs/herdr-tab-status.md).
+For Herdr's tab agent markers and updater controls, see
+[Herdr tab agent indicators](docs/herdr-tab-status.md).
 
 Alt+C creates a Space immediately below the current one; Alt+Shift+C opens the
 numbered Space reorder popup. Both use

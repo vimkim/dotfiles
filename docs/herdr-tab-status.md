@@ -1,24 +1,12 @@
 # Herdr tab agent indicators
 
-The managed `herdr-tab-status` updater adds agent state to tab names and publishes
-a tab inventory under every workspace in the expanded sidebar. It uses Herdr's
-existing socket API and runs with Python's standard library on Linux.
+The managed `herdr-tab-status` updater adds agent state to tab names. It uses
+Herdr's socket API and runs with Python's standard library on Linux.
 
 Example tab labels:
 
 ```text
 1 [t1 ▶ Codex 12m]     2 review [t2 ! Claude 3m]     3 logs [t3 — shell]
-```
-
-Example workspace entry:
-
-```text
-● dotfiles · working
-main · * ↑2
-4 tabs · 6 panes · 3 agents
-1 ▶ Codex 12m · 2 ! Claude 3m
-3 ✓ Codex <1m
-4 — shell
 ```
 
 ## State and naming
@@ -48,8 +36,8 @@ names display only the current position. For example, moving `1 [t1 ▶ Codex 12
 after `2 review [t2 ! Claude 3m]` produces `1 review [t2 ! Claude 3m]` and
 `2 [t1 ▶ Codex 12m]`. The position changes when tabs move. The ID stays with
 the tab.
-The sidebar uses the same positions. With the managed bindings, `Alt+Shift+1…9`
-focuses tabs by these numbers. `Alt+1…9` focuses workspaces.
+With the managed bindings, `Alt+Shift+1…9` focuses tabs by these numbers.
+`Alt+1…9` focuses workspaces.
 
 The updater preserves original names in its journal and restores them on `stop`.
 User renames observed during updates become the new original name.
@@ -59,13 +47,12 @@ are treated as generated numeric names for display, including manual numeric nam
 The API does not offer conditional renames. A manual rename between a snapshot
 and its rename request can race the updater.
 
-Sidebar summaries normally include agent types. If there are too many for the
+The managed sidebar uses Herdr's built-in Spaces and Agents layouts. The updater
+publishes tab summaries and pane IDs that custom sidebar layouts can display.
+
+Tab summaries normally include agent types. If there are too many for the
 13 available summary rows, they switch to compact markers such as `1▶12m 2!3m 3—`.
 If those also exceed the rows, the final line points to the tab bar for the rest.
-Missing summary rows disappear. The agent panel also shows state, workspace,
-tab/pane names, and the terminal activity title. Its first row includes the full
-pane ID, for example `▶ w1:p2 · Codex · working`. This ID can target commands such
-as `herdr agent read w1:p2` and `herdr agent prompt w1:p2 "Review the diff"`.
 
 The updater publishes each live pane's current ID as `$pane_id` metadata. A pane
 moved to another workspace receives its new workspace-qualified ID on the next
@@ -90,8 +77,8 @@ The displayed tab label includes any active status suffix.
 
 ## Time in the current state
 
-Agent tabs show elapsed time beside their status in both the tab bar and workspace
-summary. Durations use `<1m`, minutes (`8m`), hours and minutes (`1h02m`), then days
+Agent tabs show elapsed time beside their status in the tab bar. Durations use
+`<1m`, minutes (`8m`), hours and minutes (`1h02m`), then days
 and hours (`1d03h`). Ordinary terminal tabs keep their shell marker without a timer.
 
 Timing starts when the updater first observes a tab's aggregate agent state. A
