@@ -43,8 +43,10 @@ class AgyModifySettingsTest(unittest.TestCase):
         res = run_script("")
         self.assertEqual(res.returncode, 0, res.stderr)
         data = json.loads(res.stdout)
+        self.assertEqual(data["agentMode"], "")
         self.assertEqual(data["altScreenMode"], "always")
         self.assertEqual(data["effort"], "high")
+        self.assertIs(data["enableTerminalSandbox"], False)
         self.assertEqual(data["model"], "Orchestrator (Neon)")
         self.assertEqual(data["toolPermission"], "always-proceed")
         self.assertEqual(
@@ -59,8 +61,10 @@ class AgyModifySettingsTest(unittest.TestCase):
             "{\n"
             '  "trustedWorkspaces": ["/tmp/proj-a", "/tmp/proj-b"],\n'
             '  "gcp": {"project": "my-proj", "location": "global"},\n'
+            '  "agentMode": "",\n'
             '  "altScreenMode": "always",\n'
             '  "effort": "high",\n'
+            '  "enableTerminalSandbox": false,\n'
             '  "model": "Orchestrator (Neon)",\n'
             '  "statusLine": {\n'
             '    "type": "command",\n'
@@ -85,7 +89,9 @@ class AgyModifySettingsTest(unittest.TestCase):
         res = run_script(existing)
         self.assertEqual(res.returncode, 0, res.stderr)
         merged = json.loads(res.stdout)
+        self.assertEqual(merged["agentMode"], "")
         self.assertEqual(merged["effort"], "high")
+        self.assertIs(merged["enableTerminalSandbox"], False)
         self.assertEqual(merged["model"], "Orchestrator (Neon)")
         self.assertEqual(merged["trustedWorkspaces"], ["/tmp/ws1"])
         self.assertEqual(merged["gcp"], {"project": "p1", "location": "us"})

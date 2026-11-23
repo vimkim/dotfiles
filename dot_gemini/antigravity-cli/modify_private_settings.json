@@ -5,8 +5,10 @@ import json
 import sys
 
 SHARED_SETTINGS = {
+    "agentMode": "",
     "altScreenMode": "always",
     "effort": "high",
+    "enableTerminalSandbox": False,
     "model": "Orchestrator (Neon)",
     "statusLine": {
         "type": "command",
