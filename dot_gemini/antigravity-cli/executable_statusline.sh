@@ -4,7 +4,7 @@
 #
 # Shows: model (+ execution mode + bypass indicator), current directory + git
 # branch (+ GitHub PR number), context window usage/size, quota/rate-limit
-# remaining + reset time (excluding unused 3p-5h), and active
+# remaining + reset time (excluding unused 3p-5h and 3p-7d), and active
 # subagent/background task counts when nonzero.
 #
 # Kept fast/non-blocking: single jq pass over stdin, cheap read-only git
@@ -139,7 +139,7 @@ jq_out="$(printf '%s' "$input" | "$JQ" -r '
       | map(select(
           (.value | type) == "object"
           and ((.value.disabled // false) | not)
-          and ((.key | short_bucket) != "3p-5h")
+          and (((.key | short_bucket) | test("^3p-(5h|7d)$")) | not)
         ))
       | sort_by([((.value.reset_in_seconds // 999999999) | if type == "number" then . else 999999999 end), .key])
       | .[]

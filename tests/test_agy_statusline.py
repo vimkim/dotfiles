@@ -110,6 +110,10 @@ class AgyStatuslineTest(unittest.TestCase):
                         "remaining_fraction": 0.05,
                         "reset_in_seconds": 7200,
                     },
+                    "3p-weekly": {
+                        "remaining_fraction": 0.03,
+                        "reset_in_seconds": 400000,
+                    },
                     "disabled-bucket": {
                         "remaining_fraction": 0.0,
                         "disabled": True,
@@ -142,6 +146,7 @@ class AgyStatuslineTest(unittest.TestCase):
             self.assertLess(idx_5h, idx_7d)
             self.assertNotIn("disabled-bucket", plain)
             self.assertNotIn("3p-5h", plain)
+            self.assertNotIn("3p-7d", plain)
             self.assertIn("1ag 2bg", plain)
             self.assertNotIn("Low quota", plain)
             self.assertNotIn("[bypass]", plain)
