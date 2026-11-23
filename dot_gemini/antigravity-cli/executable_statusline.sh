@@ -2,9 +2,10 @@
 # Antigravity CLI (agy) status line — built from agy's session JSON payload on
 # stdin (schema: https://antigravity.google/docs/cli/statusline).
 #
-# Shows: model (+ execution mode), current directory + git branch (+ GitHub PR
-# number), context window usage/size, quota/rate-limit remaining + reset time,
-# and active subagent/background task counts when nonzero.
+# Shows: model (+ execution mode + bypass indicator), current directory + git
+# branch (+ GitHub PR number), context window usage/size, quota/rate-limit
+# remaining + reset time (excluding unused 3p-5h), and active
+# subagent/background task counts when nonzero.
 #
 # Kept fast/non-blocking: single jq pass over stdin, cheap read-only git
 # metadata calls with --no-optional-locks, and cached background `gh pr view`.
@@ -135,7 +136,11 @@ jq_out="$(printf '%s' "$input" | "$JQ" -r '
     (
       (.quota // {})
       | to_entries
-      | map(select((.value | type) == "object" and ((.value.disabled // false) | not)))
+      | map(select(
+          (.value | type) == "object"
+          and ((.value.disabled // false) | not)
+          and ((.key | short_bucket) != "3p-5h")
+        ))
       | sort_by([((.value.reset_in_seconds // 999999999) | if type == "number" then . else 999999999 end), .key])
       | .[]
       | if (.value.remaining_fraction | type) == "number" then
@@ -210,6 +215,57 @@ dur_short() {
   fi
 }
 
+# Detect whether the invoking `agy` process was launched with
+# `--dangerously-skip-permissions`. `agy` runs statusLine directly or via
+# `sh -c`, so inspect only the parent (and grandparent if parent is a shell).
+detect_bypass() {
+  local pid=$PPID depth=0 cmd_base arg ppid stat_line stat_rest ps_line ps_args
+  local -a args=()
+  while [ "$depth" -lt 2 ] && [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null; do
+    args=()
+    ppid=""
+    if [ -r "/proc/$pid/cmdline" ] && [ -r "/proc/$pid/stat" ]; then
+      while IFS= read -r -d '' arg || [ -n "$arg" ]; do
+        args+=("$arg")
+      done < "/proc/$pid/cmdline"
+      IFS= read -r stat_line < "/proc/$pid/stat" || true
+      stat_rest="${stat_line##*) }"
+      read -r _ ppid _ <<< "$stat_rest"
+    elif command -v ps >/dev/null 2>&1; then
+      ps_line="$(ps -o ppid=,args= -p "$pid" 2>/dev/null || true)"
+      read -r ppid ps_args <<< "$ps_line"
+      if [ -n "$ps_args" ]; then
+        read -r -a args <<< "$ps_args"
+      fi
+    else
+      break
+    fi
+
+    [ "${#args[@]}" -gt 0 ] || break
+    cmd_base="${args[0]##*/}"
+    cmd_base="${cmd_base#-}"
+    if [ "$cmd_base" = "agy" ]; then
+      for arg in "${args[@]:1}"; do
+        if [ "$arg" = "--dangerously-skip-permissions" ]; then
+          printf '1'
+          return 0
+        fi
+      done
+      return 0
+    fi
+
+    case "$cmd_base" in
+      sh|bash|dash|zsh)
+        pid="$ppid"
+        depth=$((depth + 1))
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+}
+
 # --- model (+ effort if not already in display_name, + cycle_mode) ---
 model_disp="$MODEL"
 if [ -n "$EFFORT" ]; then
@@ -229,6 +285,11 @@ case "$MODE" in
   "")           : ;;
   *)            out+=" ${DIM}[${MODE}]${R}" ;;
 esac
+
+BYPASS="$(detect_bypass)"
+if [ "${BYPASS:-0}" = "1" ]; then
+  out+=" ${RED}[bypass]${R}"
+fi
 
 # --- directory + git branch (+ PR number) ---
 dir_seg="${CYA}${dir_display}${R}"
