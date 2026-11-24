@@ -1,0 +1,906 @@
+#!/usr/bin/env python3
+"""Choose automatically between `ay` (Antigravity CLI) and `ai-round` (Claude) and exec it."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import json
+import math
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import time
+from typing import Any, Mapping, Sequence
+
+VERSION = "1.0.0"
+SCHEMA_VERSION = 1
+
+EXIT_OK = 0
+EXIT_DOMAIN = 1
+EXIT_USAGE = 2
+EXIT_CONFIG = 78
+
+DEFAULT_BACKEND = "auto"
+DEFAULT_PREFER = "ay"
+DEFAULT_MIN_REMAINING = 20
+AI_ROUND_FLOOR = 20
+MAX_AGY_CACHE_AGE_SECONDS = 7 * 86400
+
+VALID_BACKENDS = ("auto", "ay", "ai-round")
+VALID_PREFERS = ("ay", "ai-round")
+
+
+@dataclass(frozen=True)
+class CliError(Exception):
+    """Structured error rendered according to output mode."""
+
+    code: str
+    message: str
+    fix: str
+    exit_code: int = EXIT_DOMAIN
+    transient: bool = False
+    details: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True)
+class BackendCandidate:
+    """Evaluated backend availability and remaining quota."""
+
+    name: str
+    executable: str | None
+    available: bool
+    eligible: bool
+    remaining: tuple[float | None, float | None]
+    detail: str | None = None
+    source: str | None = None
+    observed_at: float | None = None
+    unavailable: str | None = None
+    eligible_slots: int | None = None
+
+    @property
+    def low(self) -> bool:
+        return self.unavailable is not None and (
+            self.unavailable.startswith("below ") or "qualifies at " in self.unavailable
+        )
+
+    def priority(self, prefer: str) -> tuple[int, float, float, float, int]:
+        five_h, seven_d = self.remaining
+        tie = 0 if self.name == prefer else 1
+        if five_h is not None and seven_d is not None:
+            return (0, -min(five_h, seven_d), -five_h, -seven_d, tie)
+        known = five_h if five_h is not None else seven_d
+        if known is not None:
+            return (1, -known, 0.0, 0.0, tie)
+        return (2, 0.0, 0.0, 0.0, tie)
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "name": self.name,
+            "executable": self.executable,
+            "available": self.available,
+            "eligible": self.eligible,
+            "remaining": {"5h": self.remaining[0], "7d": self.remaining[1]},
+            "detail": self.detail,
+            "source": self.source,
+            "observed_at": self.observed_at,
+            "unavailable": self.unavailable,
+        }
+        if self.eligible_slots is not None:
+            payload["eligible_slots"] = self.eligible_slots
+        return payload
+
+
+@dataclass(frozen=True)
+class SelectionPlan:
+    """Pure selection result before launching or printing."""
+
+    mode: str
+    prefer: str
+    min_remaining: int
+    selected: BackendCandidate
+    reason: str
+    candidates: tuple[BackendCandidate, ...]
+    forwarded_args: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "prefer": self.prefer,
+            "min_remaining": self.min_remaining,
+            "selected": {
+                "name": self.selected.name,
+                "executable": self.selected.executable,
+                "detail": self.selected.detail,
+                "reason": self.reason,
+                "forwarded_args": list(self.forwarded_args),
+            },
+            "candidates": [candidate.to_dict() for candidate in self.candidates],
+        }
+
+
+@dataclass(frozen=True)
+class ParsedCli:
+    """Parsed CLI options and forwarded backend arguments."""
+
+    action: str  # "run" | "inspect" | "help" | "version"
+    output_format: str  # "human" | "json" | "plain"
+    use_color: bool
+    quiet: bool
+    backend: str
+    prefer: str
+    min_remaining: int
+    forwarded_args: tuple[str, ...]
+
+
+def _is_finite_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value))
+
+
+def _resolve_color(
+    *,
+    output_format: str,
+    no_color_flag: bool,
+    env: Mapping[str, str],
+    stream_isatty: bool,
+) -> bool:
+    if output_format in {"json", "plain"} or no_color_flag:
+        return False
+    force_color = env.get("FORCE_COLOR")
+    if force_color is not None:
+        return force_color in {"", "1", "2", "3", "true"}
+    if env.get("NO_COLOR") or "NODE_DISABLE_COLORS" in env:
+        return False
+    if env.get("TERM") == "dumb":
+        return False
+    return stream_isatty
+
+
+def _parse_int_range(raw: str, *, name: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise CliError(
+            "INVALID_USAGE",
+            f"Invalid integer for {name}: {raw!r}.",
+            f"Pass an integer between 0 and 100 for {name}.",
+            exit_code=EXIT_USAGE,
+        ) from exc
+    if not 0 <= value <= 100:
+        raise CliError(
+            "INVALID_USAGE",
+            f"{name} must be between 0 and 100 (got {value}).",
+            f"Pass a percentage between 0 and 100 for {name}.",
+            exit_code=EXIT_USAGE,
+        )
+    return value
+
+
+def _split_flag_value(
+    argv: Sequence[str],
+    index: int,
+    flag: str,
+) -> tuple[str, int]:
+    token = argv[index]
+    if "=" in token:
+        _, value = token.split("=", 1)
+        return value, index + 1
+    if index + 1 >= len(argv):
+        raise CliError(
+            "INVALID_USAGE",
+            f"Option {flag} requires a value.",
+            f"Provide a value after {flag} or run `ai-agent --help`.",
+            exit_code=EXIT_USAGE,
+        )
+    return argv[index + 1], index + 2
+
+
+def parse_cli(
+    argv: Sequence[str],
+    env: Mapping[str, str],
+    *,
+    stdout_isatty: bool,
+    stderr_isatty: bool,
+) -> ParsedCli:
+    """Parse ai-agent flags before `--` and preserve trailing backend args verbatim."""
+    raw_backend = env.get("AI_AGENT_BACKEND", DEFAULT_BACKEND).strip() or DEFAULT_BACKEND
+    raw_prefer = env.get("AI_AGENT_PREFER", DEFAULT_PREFER).strip() or DEFAULT_PREFER
+    raw_min = env.get("AI_AGENT_MIN_REMAINING", str(DEFAULT_MIN_REMAINING)).strip()
+    if not raw_min:
+        raw_min = str(DEFAULT_MIN_REMAINING)
+
+    output_format = "human"
+    no_color_flag = False
+    quiet = False
+    dry_run = False
+    status_only = False
+    action = "run"
+    forwarded: tuple[str, ...] = ()
+
+    backend = raw_backend
+    prefer = raw_prefer
+    min_raw = raw_min
+
+    i = 0
+    while i < len(argv):
+        token = argv[i]
+        if token == "--":
+            forwarded = tuple(argv[i + 1 :])
+            break
+        if token in {"-h", "--help"}:
+            action = "help"
+            i += 1
+            continue
+        if token == "--version":
+            action = "version"
+            i += 1
+            continue
+        if token in {"-n", "--dry-run"}:
+            dry_run = True
+            i += 1
+            continue
+        if token == "--status":
+            status_only = True
+            i += 1
+            continue
+        if token == "--json":
+            output_format = "json"
+            i += 1
+            continue
+        if token == "--plain":
+            if output_format == "json":
+                raise CliError(
+                    "INVALID_USAGE",
+                    "Cannot combine --json and --plain.",
+                    "Use either --json or --plain.",
+                    exit_code=EXIT_USAGE,
+                )
+            output_format = "plain"
+            i += 1
+            continue
+        if token == "--no-color":
+            no_color_flag = True
+            i += 1
+            continue
+        if token in {"-q", "--quiet"}:
+            quiet = True
+            i += 1
+            continue
+        if token == "--backend" or token.startswith("--backend="):
+            backend, i = _split_flag_value(argv, i, "--backend")
+            continue
+        if token == "--prefer" or token.startswith("--prefer="):
+            prefer, i = _split_flag_value(argv, i, "--prefer")
+            continue
+        if token == "--min-remaining" or token.startswith("--min-remaining="):
+            min_raw, i = _split_flag_value(argv, i, "--min-remaining")
+            continue
+
+        hint = (
+            f"Unknown ai-agent option {token!r}. Prefix backend options with `--`, "
+            f"e.g. `ai-agent -- {token}`."
+            if token.startswith("-")
+            else f"Unexpected positional argument {token!r}. Prefix backend arguments with `--`, "
+            f"e.g. `ai-agent -- {token}`."
+        )
+        raise CliError(
+            "INVALID_USAGE",
+            hint,
+            "Run `ai-agent --help` to see supported options.",
+            exit_code=EXIT_USAGE,
+        )
+
+    if action in {"help", "version"}:
+        return ParsedCli(
+            action=action,
+            output_format=output_format,
+            use_color=False,
+            quiet=quiet,
+            backend=DEFAULT_BACKEND,
+            prefer=DEFAULT_PREFER,
+            min_remaining=DEFAULT_MIN_REMAINING,
+            forwarded_args=forwarded,
+        )
+
+    if backend not in VALID_BACKENDS:
+        raise CliError(
+            "INVALID_USAGE",
+            f"Invalid backend {backend!r}; expected one of {', '.join(VALID_BACKENDS)}.",
+            "Pass --backend auto, --backend ay, or --backend ai-round.",
+            exit_code=EXIT_USAGE,
+        )
+    if prefer not in VALID_PREFERS:
+        raise CliError(
+            "INVALID_USAGE",
+            f"Invalid --prefer value {prefer!r}; expected one of {', '.join(VALID_PREFERS)}.",
+            "Pass --prefer ay or --prefer ai-round.",
+            exit_code=EXIT_USAGE,
+        )
+    min_remaining = _parse_int_range(min_raw, name="--min-remaining")
+
+    inspect_only = dry_run or status_only
+    if output_format in {"json", "plain"} and not inspect_only:
+        raise CliError(
+            "INVALID_USAGE",
+            f"--{output_format} requires --dry-run or --status because launching replaces this process.",
+            f"Run `ai-agent --dry-run --{output_format}` or `ai-agent --status --{output_format}`.",
+            exit_code=EXIT_USAGE,
+        )
+
+    final_action = "inspect" if inspect_only else "run"
+    stream_tty = stdout_isatty if inspect_only else stderr_isatty
+    use_color = _resolve_color(
+        output_format=output_format,
+        no_color_flag=no_color_flag,
+        env=env,
+        stream_isatty=stream_tty,
+    )
+    return ParsedCli(
+        action=final_action,
+        output_format=output_format,
+        use_color=use_color,
+        quiet=quiet,
+        backend=backend,
+        prefer=prefer,
+        min_remaining=min_remaining,
+        forwarded_args=forwarded,
+    )
+
+
+def _resolve_executable(
+    env_key: str,
+    binary_name: str,
+    fallback: Path,
+    env: Mapping[str, str],
+) -> str | None:
+    override = env.get(env_key, "").strip()
+    if override:
+        cand = Path(override).expanduser()
+        return str(cand) if os.access(cand, os.X_OK) and cand.is_file() else None
+    found = shutil.which(binary_name, path=env.get("PATH"))
+    if found and os.access(found, os.X_OK):
+        return found
+    if fallback.is_file() and os.access(fallback, os.X_OK):
+        return str(fallback)
+    return None
+
+
+def _default_agy_quota_path(env: Mapping[str, str]) -> Path:
+    override = env.get("AI_AGENT_AGY_QUOTA_FILE", "").strip()
+    if override:
+        return Path(override).expanduser()
+    state_home = env.get("XDG_STATE_HOME", "").strip()
+    base = Path(state_home).expanduser() if state_home else Path.home() / ".local/state"
+    return base / "agy-statusline" / "quota.json"
+
+
+def _pick_bucket(buckets: Mapping[str, float], *, preferred: str, suffix: str) -> float | None:
+    if preferred in buckets:
+        return buckets[preferred]
+    for key in sorted(buckets):
+        if key == suffix or key.endswith(f"-{suffix}"):
+            return buckets[key]
+    return None
+
+
+def evaluate_ay(
+    *,
+    executable: str | None,
+    quota_path: Path,
+    min_remaining: int,
+    now: float,
+) -> BackendCandidate:
+    """Evaluate Antigravity CLI (`ay`) availability and cached statusline quota."""
+    if executable is None:
+        return BackendCandidate(
+            name="ay",
+            executable=None,
+            available=False,
+            eligible=False,
+            remaining=(None, None),
+            unavailable="ay executable not found",
+        )
+
+    five_h: float | None = None
+    seven_d: float | None = None
+    observed_at: float | None = None
+    source = "quota cache missing"
+
+    if quota_path.is_file():
+        try:
+            payload = json.loads(quota_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeError):
+            payload = None
+            source = "quota cache unreadable"
+        if isinstance(payload, dict):
+            raw_obs = payload.get("observed_at")
+            buckets = payload.get("buckets")
+            if _is_finite_number(raw_obs) and isinstance(buckets, dict):
+                obs = float(raw_obs)
+                age = now - obs
+                if age > MAX_AGY_CACHE_AGE_SECONDS:
+                    source = "quota cache stale"
+                else:
+                    observed_at = obs
+                    source = "agy-statusline cache"
+                    active_buckets: dict[str, float] = {}
+                    for key, info in buckets.items():
+                        if not isinstance(key, str) or not isinstance(info, dict):
+                            continue
+                        pct = info.get("remaining_pct")
+                        if not _is_finite_number(pct):
+                            continue
+                        reset = info.get("reset_in_seconds")
+                        if _is_finite_number(reset) and obs + float(reset) <= now:
+                            continue
+                        active_buckets[key] = max(0.0, min(100.0, float(pct)))
+
+                    five_h = _pick_bucket(active_buckets, preferred="gemini-5h", suffix="5h")
+                    seven_d = _pick_bucket(active_buckets, preferred="gemini-7d", suffix="7d")
+                    if five_h is None and seven_d is None and buckets:
+                        source = "agy-statusline cache (reset)"
+            else:
+                source = "quota cache invalid"
+
+    remaining = (five_h, seven_d)
+    low = any(v is not None and v < min_remaining for v in remaining)
+    unavailable = f"below {min_remaining}% minimum" if low else None
+    return BackendCandidate(
+        name="ay",
+        executable=executable,
+        available=True,
+        eligible=not low,
+        remaining=remaining,
+        detail="Antigravity CLI",
+        source=source,
+        observed_at=observed_at,
+        unavailable=unavailable,
+    )
+
+
+def _claude_account_priority(
+    remaining: tuple[float | None, float | None],
+) -> tuple[int, float, float, float]:
+    five_h, seven_d = remaining
+    if five_h is None or seven_d is None:
+        return (1, 0.0, 0.0, 0.0)
+    return (0, -min(five_h, seven_d), -five_h, -seven_d)
+
+
+def evaluate_ai_round(
+    *,
+    executable: str | None,
+    claude_account_bin: str | None,
+    min_remaining: int,
+) -> BackendCandidate:
+    """Evaluate `ai-round` (Claude numbered-slot rotation) availability and quota."""
+    if executable is None:
+        return BackendCandidate(
+            name="ai-round",
+            executable=None,
+            available=False,
+            eligible=False,
+            remaining=(None, None),
+            unavailable="ai-round executable not found",
+        )
+    if claude_account_bin is None:
+        return BackendCandidate(
+            name="ai-round",
+            executable=executable,
+            available=True,
+            eligible=False,
+            remaining=(None, None),
+            unavailable="claude-account helper not found",
+        )
+
+    try:
+        proc = subprocess.run(
+            [claude_account_bin, "usage-snapshot"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=10.0,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return BackendCandidate(
+            name="ai-round",
+            executable=executable,
+            available=True,
+            eligible=False,
+            remaining=(None, None),
+            unavailable=f"usage-snapshot failed: {exc}",
+        )
+
+    if proc.returncode != 0:
+        return BackendCandidate(
+            name="ai-round",
+            executable=executable,
+            available=True,
+            eligible=False,
+            remaining=(None, None),
+            unavailable=f"usage-snapshot exited {proc.returncode}",
+        )
+
+    try:
+        snapshot = json.loads(proc.stdout)
+    except ValueError:
+        return BackendCandidate(
+            name="ai-round",
+            executable=executable,
+            available=True,
+            eligible=False,
+            remaining=(None, None),
+            unavailable="invalid usage-snapshot JSON",
+        )
+
+    if not isinstance(snapshot, list):
+        return BackendCandidate(
+            name="ai-round",
+            executable=executable,
+            available=True,
+            eligible=False,
+            remaining=(None, None),
+            unavailable="invalid usage-snapshot payload",
+        )
+
+    # `ai-round` only rotates numbered slots (`ai0`+), skipping `ai-login` and anything < 20%.
+    round_min = max(min_remaining, AI_ROUND_FLOOR)
+    eligible_count = 0
+    best_entry: tuple[tuple[int, float, float, float], dict[str, Any], tuple[float | None, float | None]] | None = None
+    for item in snapshot:
+        if not isinstance(item, dict) or item.get("selector") == "login" or item.get("unavailable"):
+            continue
+        raw_rem = item.get("remaining")
+        if not isinstance(raw_rem, list) or len(raw_rem) != 2:
+            continue
+        five_h = float(raw_rem[0]) if _is_finite_number(raw_rem[0]) else None
+        seven_d = float(raw_rem[1]) if _is_finite_number(raw_rem[1]) else None
+        rem = (five_h, seven_d)
+        if any(v is not None and v < round_min for v in rem):
+            continue
+        eligible_count += 1
+        prio = _claude_account_priority(rem)
+        if best_entry is None or prio < best_entry[0]:
+            best_entry = (prio, item, rem)
+
+    if best_entry is None:
+        return BackendCandidate(
+            name="ai-round",
+            executable=executable,
+            available=True,
+            eligible=False,
+            remaining=(None, None),
+            unavailable=f"no numbered Claude slot qualifies at {round_min}% minimum",
+            eligible_slots=0,
+        )
+
+    _, item, rem = best_entry
+    slot_name = str(item.get("name")) if item.get("name") else "claude"
+    detail = f"{slot_name} ({eligible_count} slots)" if eligible_count > 1 else slot_name
+    raw_obs = item.get("observed_at")
+    return BackendCandidate(
+        name="ai-round",
+        executable=executable,
+        available=True,
+        eligible=True,
+        remaining=rem,
+        detail=detail,
+        source=str(item.get("source")) if item.get("source") else None,
+        observed_at=float(raw_obs) if _is_finite_number(raw_obs) else None,
+        unavailable=None,
+        eligible_slots=eligible_count,
+    )
+
+
+def select_backend(
+    parsed: ParsedCli,
+    env: Mapping[str, str],
+    *,
+    now: float | None = None,
+) -> SelectionPlan:
+    """Resolve binary paths, inspect quotas, and pick `ay` or `ai-round`."""
+    current_time = time.time() if now is None else now
+    ay_bin = _resolve_executable(
+        "AI_AGENT_AY_BIN",
+        "ay",
+        Path.home() / ".local/bin/ay",
+        env,
+    )
+    ai_round_bin = _resolve_executable(
+        "AI_AGENT_AI_ROUND_BIN",
+        "ai-round",
+        Path.home() / ".config/my-scripts/bin/ai-round",
+        env,
+    )
+    sibling_claude_account = (
+        Path(ai_round_bin).resolve().with_name("claude-account")
+        if ai_round_bin
+        else Path.home() / ".config/my-scripts/bin/claude-account"
+    )
+    claude_account_bin = _resolve_executable(
+        "AI_AGENT_CLAUDE_ACCOUNT_BIN",
+        "claude-account",
+        sibling_claude_account,
+        env,
+    )
+
+    ay_cand = evaluate_ay(
+        executable=ay_bin,
+        quota_path=_default_agy_quota_path(env),
+        min_remaining=parsed.min_remaining,
+        now=current_time,
+    )
+    claude_cand = evaluate_ai_round(
+        executable=ai_round_bin,
+        claude_account_bin=claude_account_bin,
+        min_remaining=parsed.min_remaining,
+    )
+    candidates = (ay_cand, claude_cand)
+
+    if parsed.backend != "auto":
+        chosen = ay_cand if parsed.backend == "ay" else claude_cand
+        if not chosen.available:
+            raise CliError(
+                "BACKEND_MISSING",
+                f"Requested backend {parsed.backend!r} executable was not found.",
+                f"Install `{parsed.backend}` on PATH or switch with `--backend auto`.",
+                exit_code=EXIT_CONFIG,
+                details={"candidates": [c.to_dict() for c in candidates]},
+            )
+        return SelectionPlan(
+            mode=parsed.backend,
+            prefer=parsed.prefer,
+            min_remaining=parsed.min_remaining,
+            selected=chosen,
+            reason=f"forced by --backend {parsed.backend}",
+            candidates=candidates,
+            forwarded_args=parsed.forwarded_args,
+        )
+
+    available = [c for c in candidates if c.available]
+    if not available:
+        raise CliError(
+            "BACKEND_MISSING",
+            "Neither `ay` nor `ai-round` executable was found.",
+            "Install `ay` or `ai-round` on PATH (or via chezmoi apply) and retry.",
+            exit_code=EXIT_CONFIG,
+            details={"candidates": [c.to_dict() for c in candidates]},
+        )
+
+    eligible = [c for c in available if c.eligible]
+    if not eligible:
+        raise CliError(
+            "NO_ELIGIBLE_BACKEND",
+            f"No backend qualifies at the {parsed.min_remaining}% minimum remaining threshold.",
+            "Force a backend with `ai-agent --backend ay` / `--backend ai-round`, or lower `--min-remaining 0` for ay.",
+            exit_code=EXIT_DOMAIN,
+            details={"candidates": [c.to_dict() for c in candidates]},
+        )
+
+    selected = min(eligible, key=lambda c: c.priority(parsed.prefer))
+    other = claude_cand if selected.name == "ay" else ay_cand
+    reason = _describe_selection(selected, other, parsed)
+    return SelectionPlan(
+        mode="auto",
+        prefer=parsed.prefer,
+        min_remaining=parsed.min_remaining,
+        selected=selected,
+        reason=reason,
+        candidates=candidates,
+        forwarded_args=parsed.forwarded_args,
+    )
+
+
+def _format_pct(value: float | None) -> str:
+    return f"{value:g}%" if value is not None else "unknown"
+
+
+def _describe_selection(selected: BackendCandidate, other: BackendCandidate, parsed: ParsedCli) -> str:
+    sel_known = [v for v in selected.remaining if v is not None]
+    if not other.available:
+        return f"{other.name} unavailable"
+    if not other.eligible:
+        return f"{other.name} ineligible ({other.unavailable})"
+    other_known = [v for v in other.remaining if v is not None]
+    if sel_known and other_known:
+        if selected.priority(parsed.prefer)[:4] == other.priority(parsed.prefer)[:4]:
+            return f"tied at min {min(sel_known):g}% (preferred {parsed.prefer})"
+        return f"higher remaining quota ({min(sel_known):g}% vs {min(other_known):g}%)"
+    if sel_known and not other_known:
+        return f"known remaining quota ({min(sel_known):g}%)"
+    return f"default preference ({parsed.prefer})"
+
+
+def _format_candidate_line(candidate: BackendCandidate, now: float, *, use_color: bool) -> str:
+    dim = "\033[2m" if use_color else ""
+    grn = "\033[32m" if use_color else ""
+    yel = "\033[33m" if use_color else ""
+    red = "\033[31m" if use_color else ""
+    rst = "\033[0m" if use_color else ""
+
+    name_col = f"{candidate.name:<8}"
+    if not candidate.available:
+        return f"{name_col} {red}missing{rst}  {candidate.unavailable or ''}".rstrip()
+    parts = [
+        f"5h {_format_pct(candidate.remaining[0])}",
+        f"7d {_format_pct(candidate.remaining[1])}",
+    ]
+    if candidate.detail and candidate.name == "ai-round":
+        parts.insert(0, candidate.detail)
+    if candidate.source:
+        age = f", {max(0, int(now - candidate.observed_at))}s old" if candidate.observed_at is not None else ""
+        parts.append(f"{candidate.source}{age}")
+    if candidate.unavailable:
+        color = red if candidate.low else yel
+        parts.append(f"{color}{candidate.unavailable}{rst}")
+    else:
+        parts.append(f"{grn}eligible{rst}")
+    return f"{name_col} " + f" {dim}·{rst} ".join(parts)
+
+
+def render_help() -> str:
+    return f"""usage: ai-agent [OPTIONS] [-- BACKEND_ARGS...]
+
+Automatically choose between `ay` (Antigravity CLI) and `ai-round` (Claude)
+using remaining quota, then exec the chosen CLI in this terminal.
+
+Selection policy:
+  - Scores each eligible backend by its lowest known remaining window (5h, 7d).
+  - For `ay`, skips when either window is below --min-remaining (default: {DEFAULT_MIN_REMAINING}%).
+  - For `ai-round`, evaluates numbered slots ai0+ only (ignoring ai-login) at
+    max(--min-remaining, {AI_ROUND_FLOOR}%) to match `ai-round`'s {AI_ROUND_FLOOR}% floor.
+  - Prefers backends with two known windows over partial/unknown caches,
+    breaking ties by --prefer (default: {DEFAULT_PREFER}).
+  - Never selects OpenAI Codex.
+
+Options:
+  -h, --help                 Show this help message and exit
+      --version              Print version ({VERSION}) to stdout and exit
+  -n, --dry-run              Evaluate and print choice without launching
+      --status               Alias for --dry-run
+      --json                 Structured JSON output (requires --dry-run or --status)
+      --plain                Tab-separated output (requires --dry-run or --status)
+      --no-color             Disable ANSI color output
+  -q, --quiet                Suppress stderr selection summary when launching
+      --backend MODE         auto | ay | ai-round (env: AI_AGENT_BACKEND, default: auto)
+      --prefer BACKEND       ay | ai-round tie-breaker (env: AI_AGENT_PREFER, default: ay)
+      --min-remaining PCT    Minimum 5h/7d percentage 0..100 (env: AI_AGENT_MIN_REMAINING, default: {DEFAULT_MIN_REMAINING})
+
+Config precedence: flags > environment variables > built-in defaults.
+
+Exit codes:
+  0   Success (launched backend or completed dry-run/help/version)
+  1   Domain failure (no backend qualifies at threshold)
+  2   Invalid usage (bad flags or missing --dry-run/--status with --json/--plain)
+  78  Configuration error (required backend executable missing)
+
+Examples:
+  ai-agent                               Choose and launch ay or ai-round here.
+  ai-agent --dry-run --json              Inspect quota comparison as JSON.
+  ai-agent --prefer ai-round -- --resume Prefer Claude round-robin on ties and pass --resume.
+"""
+
+
+def render_plain(plan: SelectionPlan) -> str:
+    lines = [
+        "\t".join(
+            [
+                "selected",
+                plan.selected.name,
+                plan.selected.executable or "",
+                plan.reason,
+            ]
+        )
+    ]
+    for cand in plan.candidates:
+        status = "missing" if not cand.available else ("eligible" if cand.eligible else "ineligible")
+        lines.append(
+            "\t".join(
+                [
+                    "candidate",
+                    cand.name,
+                    status,
+                    _format_pct(cand.remaining[0]),
+                    _format_pct(cand.remaining[1]),
+                    cand.detail or cand.unavailable or "",
+                ]
+            )
+        )
+    return "\n".join(lines) + "\n"
+
+
+def render_human(plan: SelectionPlan, now: float, *, use_color: bool, is_inspect: bool) -> str:
+    bold = "\033[1m" if use_color else ""
+    cya = "\033[36m" if use_color else ""
+    rst = "\033[0m" if use_color else ""
+    lines = [_format_candidate_line(c, now, use_color=use_color) for c in plan.candidates]
+    detail = f" ({plan.selected.detail})" if plan.selected.detail and plan.selected.name == "ai-round" else ""
+    if is_inspect:
+        lines.append(f"{bold}Selected:{rst} {cya}{plan.selected.name}{rst}{detail} — {plan.reason}")
+        lines.append(f"Next: run `ai-agent` to launch {plan.selected.name}.")
+    else:
+        lines.append(f"Starting {plan.selected.name}{detail} — {plan.reason}")
+    return "\n".join(lines) + "\n"
+
+
+def _emit_error(err: CliError, *, output_format: str) -> int:
+    if output_format == "json":
+        payload = {
+            "ok": False,
+            "error": {
+                "code": err.code,
+                "message": err.message,
+                "fix": err.fix,
+                "transient": err.transient,
+                **({"details": err.details} if err.details is not None else {}),
+            },
+        }
+        sys.stderr.write(json.dumps(payload) + "\n")
+    else:
+        sys.stderr.write(f"ai-agent: {err.code} — {err.message}\nFix: {err.fix}\n")
+    return err.exit_code
+
+
+def main(argv: Sequence[str] | None = None, env: Mapping[str, str] | None = None) -> int:
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    environ = os.environ if env is None else env
+    pre_format = "json" if "--json" in raw_argv else ("plain" if "--plain" in raw_argv else "human")
+
+    try:
+        parsed = parse_cli(
+            raw_argv,
+            environ,
+            stdout_isatty=sys.stdout.isatty(),
+            stderr_isatty=sys.stderr.isatty(),
+        )
+    except CliError as exc:
+        return _emit_error(exc, output_format=pre_format)
+
+    if parsed.action == "help":
+        sys.stdout.write(render_help())
+        return EXIT_OK
+    if parsed.action == "version":
+        sys.stdout.write(f"ai-agent {VERSION}\n")
+        return EXIT_OK
+
+    now = time.time()
+    try:
+        plan = select_backend(parsed, environ, now=now)
+    except CliError as exc:
+        return _emit_error(exc, output_format=parsed.output_format)
+
+    if parsed.action == "inspect":
+        if parsed.output_format == "json":
+            sys.stdout.write(
+                json.dumps({"ok": True, "schema_version": SCHEMA_VERSION, "data": plan.to_dict()}) + "\n"
+            )
+        elif parsed.output_format == "plain":
+            sys.stdout.write(render_plain(plan))
+        else:
+            sys.stdout.write(render_human(plan, now, use_color=parsed.use_color, is_inspect=True))
+        return EXIT_OK
+
+    if not parsed.quiet:
+        sys.stderr.write(render_human(plan, now, use_color=parsed.use_color, is_inspect=False))
+        sys.stderr.flush()
+
+    assert plan.selected.executable is not None
+    try:
+        os.execv(plan.selected.executable, [plan.selected.executable, *plan.forwarded_args])
+    except OSError as exc:
+        return _emit_error(
+            CliError(
+                "EXEC_FAILED",
+                f"Could not execute {plan.selected.executable}: {exc}.",
+                f"Verify permissions on {plan.selected.executable} and retry.",
+                exit_code=EXIT_CONFIG,
+            ),
+            output_format=parsed.output_format,
+        )
+    return EXIT_OK
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

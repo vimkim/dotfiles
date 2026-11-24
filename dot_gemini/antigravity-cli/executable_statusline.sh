@@ -320,6 +320,7 @@ fi
 
 # --- quota / rate limits (shown as % remaining; colored by % used) ---
 low_quota=0
+quota_json_entries=""
 for qline in "${QUOTA_LINES[@]}"; do
   IFS=$'\x1f' read -r q_label q_kind q_val q_reset <<< "$qline"
   [ -z "$q_label" ] && continue
@@ -328,6 +329,11 @@ for qline in "${QUOTA_LINES[@]}"; do
     c="$(pct_color "$used_pct")"
     seg="${c}${q_label} ${q_val}%${R}"
     [ "$q_val" -lt 10 ] && low_quota=1
+    safe_label="${q_label//[^a-zA-Z0-9._-]/}"
+    if [ -n "$safe_label" ]; then
+      [ -n "$quota_json_entries" ] && quota_json_entries+=","
+      quota_json_entries+="\"${safe_label}\":{\"remaining_pct\":${q_val},\"reset_in_seconds\":${q_reset:-null}}"
+    fi
   else
     seg="${CYA}${q_label} ${q_val}${R}"
   fi
@@ -336,6 +342,17 @@ for qline in "${QUOTA_LINES[@]}"; do
   fi
   out+=" ${SEP} ${seg}"
 done
+
+if [ -n "$quota_json_entries" ]; then
+  state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/agy-statusline"
+  if [ -d "$state_dir" ] || mkdir -p "$state_dir" 2>/dev/null; then
+    quota_file="$state_dir/quota.json"
+    quota_tmp="$state_dir/.quota.json.tmp.$$"
+    printf '{"observed_at":%s,"buckets":{%s}}\n' "$(date +%s)" "$quota_json_entries" > "$quota_tmp" 2>/dev/null \
+      && mv -f "$quota_tmp" "$quota_file" 2>/dev/null \
+      || rm -f "${quota_tmp:?}" 2>/dev/null || true
+  fi
+fi
 
 if [ "$low_quota" -eq 1 ]; then
   out+=" ${SEP} ${RED}Low quota (<10%)${R}"

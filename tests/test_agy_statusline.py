@@ -270,6 +270,63 @@ class AgyStatuslineTest(unittest.TestCase):
             self.assertIn("[auto]", plain_no_bypass)
             self.assertNotIn("[bypass]", plain_no_bypass)
 
+    def test_caches_fractional_quota_to_xdg_state_without_changing_stdout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            home = tmp_path / "home"
+            work = home / "demo"
+            work.mkdir(parents=True)
+            state_home = tmp_path / "state"
+
+            payload = {
+                "cwd": str(work),
+                "model": {"id": "gemini-4-neon", "display_name": "Gemini 4 Neon"},
+                "quota": {
+                    "gemini-five-hour": {
+                        "remaining_fraction": 0.62,
+                        "reset_in_seconds": 7200,
+                    },
+                    "gemini-weekly": {
+                        "remaining_fraction": 0.84,
+                        "reset_in_seconds": 400000,
+                    },
+                    "3p-five-hour": {
+                        "remaining_fraction": 0.05,
+                        "reset_in_seconds": 1200,
+                    },
+                    "ai-credits": {
+                        "remaining_amount": 42,
+                    },
+                },
+            }
+
+            result = run_statusline(
+                payload,
+                cwd=work,
+                env_extra={
+                    "HOME": str(home),
+                    "XDG_CACHE_HOME": str(tmp_path / "cache"),
+                    "XDG_STATE_HOME": str(state_home),
+                },
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stderr, "")
+            plain = strip_ansi(result.stdout)
+            self.assertIn("gemini-5h 62%", plain)
+            self.assertIn("gemini-7d 84%", plain)
+
+            quota_file = state_home / "agy-statusline" / "quota.json"
+            self.assertTrue(quota_file.is_file())
+            cached = json.loads(quota_file.read_text(encoding="utf-8"))
+            self.assertIsInstance(cached["observed_at"], int)
+            self.assertEqual(
+                cached["buckets"],
+                {
+                    "gemini-5h": {"remaining_pct": 62, "reset_in_seconds": 7200},
+                    "gemini-7d": {"remaining_pct": 84, "reset_in_seconds": 400000},
+                },
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
