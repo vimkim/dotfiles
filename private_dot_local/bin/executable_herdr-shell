@@ -36,11 +36,22 @@ if [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_SOCKET_PATH:-}" ] \
     herdr-tab-status start >/dev/null 2>&1 || :
 fi
 
-for shell_name in nu zsh bash; do
-    if shell_path=$(command -v "$shell_name" 2>/dev/null); then
+herdr_requested_shell=${HERDR_SHELL:-}
+unset HERDR_SHELL
+
+if [ -n "$herdr_requested_shell" ]; then
+    if shell_path=$(command -v "$herdr_requested_shell" 2>/dev/null) \
+        && [ -x "$shell_path" ]; then
+        exec "$shell_path" "$@"
+    fi
+fi
+
+for shell_name in bash zsh nu; do
+    if shell_path=$(command -v "$shell_name" 2>/dev/null) \
+        && [ -x "$shell_path" ]; then
         exec "$shell_path" "$@"
     fi
 done
 
-printf '%s\n' 'herdr-shell: none of nu, zsh, or bash was found on PATH' >&2
+printf '%s\n' 'herdr-shell: none of bash, zsh, or nu was found on PATH' >&2
 exit 127

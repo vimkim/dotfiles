@@ -48,17 +48,20 @@ class HerdrShellTest(unittest.TestCase):
                 {systemctl_body}
                 """,
             )
-            self.write_executable(
-                fixture_directory / "nu",
-                """
-                #!/bin/sh
-                printf 'DISPLAY=%s\n' "${DISPLAY-<unset>}"
-                printf 'WAYLAND_DISPLAY=%s\n' "${WAYLAND_DISPLAY-<unset>}"
-                printf 'XAUTHORITY=%s\n' "${XAUTHORITY-<unset>}"
-                printf 'XDG_RUNTIME_DIR=%s\n' "${XDG_RUNTIME_DIR-<unset>}"
-                printf 'XDG_SESSION_TYPE=%s\n' "${XDG_SESSION_TYPE-<unset>}"
-                """,
-            )
+            for shell_name in ("bash", "zsh", "nu"):
+                self.write_executable(
+                    fixture_directory / shell_name,
+                    f"""
+                    #!/bin/sh
+                    printf 'LAUNCHED_SHELL={shell_name}\\n'
+                    printf 'HERDR_SHELL=%s\\n' "${{HERDR_SHELL-<unset>}}"
+                    printf 'DISPLAY=%s\\n' "${{DISPLAY-<unset>}}"
+                    printf 'WAYLAND_DISPLAY=%s\\n' "${{WAYLAND_DISPLAY-<unset>}}"
+                    printf 'XAUTHORITY=%s\\n' "${{XAUTHORITY-<unset>}}"
+                    printf 'XDG_RUNTIME_DIR=%s\\n' "${{XDG_RUNTIME_DIR-<unset>}}"
+                    printf 'XDG_SESSION_TYPE=%s\\n' "${{XDG_SESSION_TYPE-<unset>}}"
+                    """,
+                )
             self.write_executable(
                 fixture_directory / "herdr-tab-status",
                 f"""
@@ -74,6 +77,7 @@ class HerdrShellTest(unittest.TestCase):
                 "HERDR_STATUS_TEST_LOG": str(fixture_directory / "reporter-calls"),
             }
             environment.update(inherited_environment or {})
+            self.fixture_directory = fixture_directory
             result = subprocess.run(
                 ["/bin/sh", HERDR_SHELL],
                 capture_output=True,
@@ -87,11 +91,15 @@ class HerdrShellTest(unittest.TestCase):
             )
             return result
 
+    def parse_output(self, result: subprocess.CompletedProcess[str]) -> dict[str, str]:
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return dict(line.split("=", 1) for line in result.stdout.splitlines())
+
     def parse_environment(
         self, result: subprocess.CompletedProcess[str]
     ) -> dict[str, str]:
-        self.assertEqual(result.returncode, 0, result.stderr)
-        return dict(line.split("=", 1) for line in result.stdout.splitlines())
+        parsed = self.parse_output(result)
+        return {name: parsed[name] for name in GRAPHICAL_ENVIRONMENT}
 
     def test_imports_missing_graphical_environment_from_user_manager(self) -> None:
         result = self.run_shell()
@@ -119,7 +127,7 @@ class HerdrShellTest(unittest.TestCase):
             {name: "<unset>" for name in GRAPHICAL_ENVIRONMENT},
         )
 
-    def test_starts_status_reporter_inside_herdr_before_nushell(self) -> None:
+    def test_starts_status_reporter_inside_herdr_before_shell(self) -> None:
         result = self.run_shell(
             {"HERDR_ENV": "1", "HERDR_SOCKET_PATH": "/tmp/example-herdr.sock"}
         )
@@ -138,6 +146,36 @@ class HerdrShellTest(unittest.TestCase):
         result = self.run_shell({"HERDR_ENV": "1"})
         self.parse_environment(result)
         self.assertEqual(self.reporter_calls, [])
+
+    def test_defaults_to_bash_even_when_zsh_and_nu_exist(self) -> None:
+        parsed = self.parse_output(self.run_shell())
+        self.assertEqual(parsed["LAUNCHED_SHELL"], "bash")
+        self.assertEqual(parsed["HERDR_SHELL"], "<unset>")
+
+    def test_herdr_shell_override_launches_requested_shell_and_unsets_var(self) -> None:
+        parsed = self.parse_output(self.run_shell({"HERDR_SHELL": "nu"}))
+        self.assertEqual(parsed["LAUNCHED_SHELL"], "nu")
+        self.assertEqual(parsed["HERDR_SHELL"], "<unset>")
+
+    def test_herdr_shell_override_accepts_absolute_path(self) -> None:
+        with tempfile.TemporaryDirectory() as extra_dir:
+            custom_nu = Path(extra_dir) / "nu"
+            custom_nu.write_text(
+                "#!/bin/sh\n"
+                "printf 'LAUNCHED_SHELL=custom-nu\\n'\n"
+                "printf 'HERDR_SHELL=%s\\n' \"${HERDR_SHELL-<unset>}\"\n"
+            )
+            custom_nu.chmod(0o755)
+            parsed = self.parse_output(self.run_shell({"HERDR_SHELL": str(custom_nu)}))
+            self.assertEqual(parsed["LAUNCHED_SHELL"], "custom-nu")
+            self.assertEqual(parsed["HERDR_SHELL"], "<unset>")
+
+    def test_unresolvable_herdr_shell_falls_back_to_bash_and_unsets_var(self) -> None:
+        parsed = self.parse_output(
+            self.run_shell({"HERDR_SHELL": "nonexistent-shell-xyz"})
+        )
+        self.assertEqual(parsed["LAUNCHED_SHELL"], "bash")
+        self.assertEqual(parsed["HERDR_SHELL"], "<unset>")
 
 
 if __name__ == "__main__":

@@ -36,7 +36,8 @@ focus_pane_down = "alt+j"
 focus_pane_up = "alt+k"
 focus_pane_right = "alt+l"
 close_pane = "prefix+x"
-split_vertical = "alt+v"
+split_vertical = []
+split_horizontal = []
 zoom = "alt+f"
 
 [[keys.command]]
@@ -63,14 +64,26 @@ height = "50%"
 [[keys.command]]
 key = "alt+t"
 type = "shell"
-command = '"$HOME/.local/bin/herdr-next-to-current" tab --quiet'
+command = '"$HOME/.local/bin/herdr-next-to-current" tab --env HERDR_SHELL=nu --quiet'
 description = "new tab after current"
 
 [[keys.command]]
 key = "alt+c"
 type = "shell"
-command = '"$HOME/.local/bin/herdr-next-to-current" workspace --quiet'
+command = '"$HOME/.local/bin/herdr-next-to-current" workspace --env HERDR_SHELL=nu --quiet'
 description = "new Space below current"
+
+[[keys.command]]
+key = "alt+v"
+type = "shell"
+command = '"${HERDR_BIN_PATH:-herdr}" pane split --pane "$HERDR_ACTIVE_PANE_ID" --direction right --env HERDR_SHELL=nu --focus'
+description = "split pane vertically (nu)"
+
+[[keys.command]]
+key = "prefix+minus"
+type = "shell"
+command = '"${HERDR_BIN_PATH:-herdr}" pane split --pane "$HERDR_ACTIVE_PANE_ID" --direction down --env HERDR_SHELL=nu --focus'
+description = "split pane horizontally (nu)"
 
 [[keys.command]]
 key = "alt+shift+c"
