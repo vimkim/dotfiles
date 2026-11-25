@@ -23,9 +23,15 @@ OVERRIDING_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
 TOKEN_DAYS = 365
 WINDOWS = ("five_hour", "seven_day")
 ROUND_MIN_REMAINING = 20
-# ai-login and ai0 hold the owner's own account and start only by name. Automatic pickers
-# (ai-round, ai-best, ai-agent) skip them and any other slot that holds the same account.
-MANUAL_ONLY = ("login", "0")
+# ai-login uses the stored /login credential and starts only by name. Numbered slots
+# (ai0 and up) use setup-tokens, so ai0 is eligible in automatic pickers even if it
+# shares an email with ai-login.
+MANUAL_ONLY = ("login",)
+# Team-shared slots that stay out of automatic pickers until granted a temporary
+# fallback permit (`claude-account permit N`, default 7 days).
+PERMIT_REQUIRED = ("1", "2")
+PERMIT_DEFAULT_DAYS = 7
+PERMIT_MAX_DAYS = 30
 SHORTCUTS = {
     "ai": ("run", "login"),
     "ai-login": ("run", "login"),
@@ -38,6 +44,8 @@ USAGE = """usage: claude-account run [login | SLOT] [CLAUDE_ARGS...]
        claude-account round [CLAUDE_ARGS...]
        claude-account add SLOT [--label TEXT] [--username TEXT] [--paste]
        claude-account label SLOT [--label TEXT] [--username TEXT]
+       claude-account permit [SLOT [--days N] [--reason TEXT]]
+       claude-account revoke SLOT
        claude-account list
        claude-account status [login | SLOT | --all]
        claude-account remove SLOT"""
@@ -130,8 +138,17 @@ def run(args: list[str]) -> None:
             slot = parse_slot(selector)
     command = ["claude", "--settings", str(config_dir() / "local-settings.json"),
                "--dangerously-skip-permissions", *args]
+    env = slot_env(slot)
+    selector = slot_selector(slot)
+    if slot != 0 and selector in PERMIT_REQUIRED and active_permit(selector, time.time()) is None:
+        print(
+            f"claude-account: warning: {account_name(slot)} is restricted (no active permit). "
+            f"Use ai0/ai3 first, or run `claude-account permit {selector}` after getting 7-day permission.",
+            file=sys.stderr,
+            flush=True,
+        )
     try:
-        os.execvpe(command[0], command, slot_env(slot))
+        os.execvpe(command[0], command, env)
     except FileNotFoundError:
         fail("claude not found on PATH", 127)
 
@@ -267,8 +284,58 @@ def load_account(slot: int) -> dict:
     return account
 
 
+def permits_file() -> Path:
+    return accounts_dir() / "permits.json"
+
+
+def load_permits(now: float) -> dict[str, dict]:
+    data, _ = read_json(permits_file())
+    if data is None:
+        return {}
+    active = {}
+    for selector, entry in data.items():
+        if selector not in PERMIT_REQUIRED or not isinstance(entry, dict):
+            continue
+        expires_at = entry.get("expires_at")
+        if not epoch(expires_at) or expires_at <= now:
+            continue
+        normalized = {"expires_at": float(expires_at)}
+        granted_at = entry.get("granted_at")
+        if epoch(granted_at):
+            normalized["granted_at"] = float(granted_at)
+        days = entry.get("days")
+        if type(days) is int and days > 0:
+            normalized["days"] = days
+        reason = entry.get("reason")
+        if isinstance(reason, str) and reason.strip():
+            normalized["reason"] = reason
+        active[selector] = normalized
+    return active
+
+
+def active_permit(selector: str, now: float) -> dict | None:
+    return load_permits(now).get(selector)
+
+
+def save_permits(permits: dict[str, dict]) -> None:
+    write_private_json(permits_file(), permits)
+
+
+def slot_policy(slot: int, permits: dict[str, dict]) -> tuple[bool, int | None, str, str | None]:
+    selector = slot_selector(slot)
+    if selector in MANUAL_ONLY:
+        return (False, None, "manual_only", None)
+    if selector in PERMIT_REQUIRED:
+        permit = permits.get(selector)
+        if permit is not None:
+            return (True, 1, "fallback_permitted", format_epoch(permit["expires_at"]))
+        return (False, 1, "permit_required", None)
+    return (True, 0, "primary", None)
+
+
 def list_slots() -> None:
     today = datetime.date.today()
+    permits = load_permits(time.time())
     for slot in account_slots():
         account = load_account(slot)
         name = account_name(slot)
@@ -285,7 +352,15 @@ def list_slots() -> None:
                 estimate = f"added {safe(account['added'])}, ~{left} days left" + ("  RENEW SOON" if left < 30 else "")
             except (TypeError, ValueError, OverflowError):
                 estimate = "renewal estimate unavailable"
-            print(f"{name}  token, {estimate}  {safe(account['label'])}")
+            suffix = ""
+            selector = slot_selector(slot)
+            if selector in PERMIT_REQUIRED:
+                permit = permits.get(selector)
+                if permit is not None:
+                    suffix = f"  [fallback until {format_epoch(permit['expires_at'])}]"
+                else:
+                    suffix = "  [restricted]"
+            print(f"{name}  token, {estimate}  {safe(account['label'])}{suffix}")
 
 
 def utc_now() -> str:
@@ -375,8 +450,19 @@ def account_report(slot: int) -> dict:
                 auth = "rejected by usage endpoint"
     else:
         usage["reason"] = "credential unavailable"
+    selector = slot_selector(slot)
+    permit = active_permit(selector, time.time()) if selector in PERMIT_REQUIRED else None
+    if selector in MANUAL_ONLY:
+        policy = "manual_only"
+    elif selector in PERMIT_REQUIRED:
+        policy = "fallback_permitted" if permit is not None else "permit_required"
+    else:
+        policy = "primary"
     return {"slot": slot, "label": account["label"], "username": account["username"],
-            "identity_source": account["identity_source"], "auth": auth, "usage": usage}
+            "identity_source": account["identity_source"], "auth": auth, "usage": usage,
+            "policy": policy,
+            "permitted_until": format_epoch(permit["expires_at"]) if permit else None,
+            "permit_reason": permit.get("reason") if permit else None}
 
 
 def render_reports(reports: list[dict]) -> str:
@@ -396,9 +482,18 @@ def render_reports(reports: list[dict]) -> str:
                 if "source" in item:
                     detail += f" ({item['source']}, observed {item['observed_at'] or 'unknown'})"
                 resets.append(detail)
+        policy = report.get("policy")
+        policy_note = None
+        if policy == "permit_required":
+            policy_note = f"restricted (permit required: claude-account permit {slot_selector(report['slot'])})"
+        elif policy == "fallback_permitted":
+            policy_note = f"fallback permitted until {report['permitted_until']}"
+            if report.get("permit_reason"):
+                policy_note += f" ({safe(report['permit_reason'])})"
         fields = [*resets, usage["reason"],
                   f"attempted {usage['attempted_at']}" if usage["attempted_at"] else None,
-                  f"fetched {usage['fetched_at']}" if usage["fetched_at"] else None]
+                  f"fetched {usage['fetched_at']}" if usage["fetched_at"] else None,
+                  policy_note]
         details.append(f"{name}: " + "; ".join(field for field in fields if field))
     header = ["ACCOUNT", "NICKNAME", "USERNAME [SOURCE]", "AUTH", "5H LEFT", "WEEK LEFT"]
     widths = [max(len(row[i]) for row in [header, *rows]) for i in range(len(header))]
@@ -549,27 +644,26 @@ def usage_candidates() -> list[AccountUsage]:
     return candidates
 
 
-def manual_identities() -> list[Identity]:
-    return [Identity.from_account(load_account(slot))
-            for slot in account_slots() if slot_selector(slot) in MANUAL_ONLY]
-
-
-def automatic(item: AccountUsage, manual: list[Identity]) -> bool:
-    return (slot_selector(item.slot) not in MANUAL_ONLY
-            and not any(item.identity.matches(identity) for identity in manual))
-
-
 def usage_snapshot(args: list[str]) -> None:
     if args:
         fail(USAGE, 2)
-    manual = manual_identities()
-    print(json.dumps([
-        {"name": account_name(item.slot), "selector": slot_selector(item.slot),
-         "remaining": item.remaining, "source": item.source,
-         "observed_at": item.observed_at, "unavailable": item.unavailable,
-         "automatic": automatic(item, manual)}
-        for item in usage_candidates()
-    ]))
+    permits = load_permits(time.time())
+    rows = []
+    for item in usage_candidates():
+        is_auto, tier, policy, permitted_until = slot_policy(item.slot, permits)
+        rows.append({
+            "name": account_name(item.slot),
+            "selector": slot_selector(item.slot),
+            "remaining": item.remaining,
+            "source": item.source,
+            "observed_at": item.observed_at,
+            "unavailable": item.unavailable,
+            "automatic": is_auto,
+            "tier": tier,
+            "policy": policy,
+            "permitted_until": permitted_until,
+        })
+    print(json.dumps(rows))
 
 
 def reserve_round_slot(slots: list[int]) -> int:
@@ -593,8 +687,10 @@ def run_round(args: list[str]) -> None:
     if args[:1] in (["-h"], ["--help"]):
         print(f"""usage: ai-round [CLAUDE_ARGS...]
 
-Start Claude in the current terminal. Rotate through configured slots ai1 and up.
-Never start ai-login, ai0, or another slot that holds the same account.
+Start Claude in the current terminal. Rotate through unrestricted numbered slots
+(ai0, ai3, etc.) first. Never start ai-login.
+Restricted slots (ai1, ai2) stay out unless granted a 7-day permit with
+`claude-account permit N`, and are used only as fallback when no primary slot qualifies.
 Skip a slot if a current status line reading shows less than {ROUND_MIN_REMAINING}% remaining
 in either the 5-hour or 7-day window. Slots with unknown allowance get a turn.
 
@@ -604,24 +700,43 @@ Use ai-round -- --help to get help from Claude.""")
     if args[:1] == ["--"]:
         args = args[1:]
 
-    eligible: dict[int, AccountUsage] = {}
-    manual = manual_identities()
-    for item in numbered_usage_candidates(time.time()):
-        if not automatic(item, manual):
+    now = time.time()
+    permits = load_permits(now)
+    primary_eligible: dict[int, AccountUsage] = {}
+    fallback_eligible: dict[int, AccountUsage] = {}
+    blocked_restricted: list[str] = []
+    for item in numbered_usage_candidates(now):
+        is_auto, tier, policy, _ = slot_policy(item.slot, permits)
+        if not is_auto:
+            if policy == "permit_required":
+                blocked_restricted.append(account_name(item.slot))
             continue
         if any(value is not None and value < ROUND_MIN_REMAINING for value in item.remaining):
             continue
-        if not any(item.identity.matches(account.identity) for account in eligible.values()):
-            eligible[item.slot] = item
-    if not eligible:
-        raise SystemExit("ai-round: no eligible numbered slot. Configure a slot with claude-account add N "
-                         f"or wait for usage windows below {ROUND_MIN_REMAINING}% to reset.")
+        if tier == 0:
+            if not any(item.identity.matches(account.identity) for account in primary_eligible.values()):
+                primary_eligible[item.slot] = item
+        else:
+            if (not any(item.identity.matches(account.identity) for account in primary_eligible.values())
+                    and not any(item.identity.matches(account.identity) for account in fallback_eligible.values())):
+                fallback_eligible[item.slot] = item
+
+    pool = primary_eligible if primary_eligible else fallback_eligible
+    using_fallback = not primary_eligible and bool(fallback_eligible)
+    if not pool:
+        message = ("ai-round: no eligible numbered slot. Configure a slot with claude-account add N "
+                   f"or wait for usage windows below {ROUND_MIN_REMAINING}% to reset.")
+        if blocked_restricted:
+            message += (f" Restricted slots ({', '.join(blocked_restricted)}) require a permit: "
+                        "claude-account permit N.")
+        raise SystemExit(message)
     try:
-        slot = reserve_round_slot(list(eligible))
+        slot = reserve_round_slot(list(pool))
     except OSError as error:
         raise SystemExit(f"ai-round: could not save rotation: {error}") from None
-    note = " with unknown allowance" if None in eligible[slot].remaining else ""
-    print(f"Starting {account_name(slot)}{note}", file=sys.stderr, flush=True)
+    fallback_note = " (fallback)" if using_fallback else ""
+    unknown_note = " with unknown allowance" if None in pool[slot].remaining else ""
+    print(f"Starting {account_name(slot)}{fallback_note}{unknown_note}", file=sys.stderr, flush=True)
     run([slot_selector(slot), *args])
 
 
@@ -678,6 +793,73 @@ def observe(args: list[str]) -> None:
             write_private_json(observation_file(slot, credential, name), {"observed_at": now, **window})
 
 
+def permit_slot(args: list[str]) -> None:
+    if not args or args == ["--list"]:
+        permits = load_permits(time.time())
+        if not permits:
+            restricted = ", ".join(f"ai{s}" for s in PERMIT_REQUIRED)
+            print(f"No active permits. Restricted slots: {restricted}.")
+            return
+        for selector in sorted(permits, key=int):
+            entry = permits[selector]
+            line = f"ai{selector}  fallback until {format_epoch(entry['expires_at'])}"
+            if "reason" in entry:
+                line += f"  {safe(entry['reason'])}"
+            print(line)
+        return
+    slot = parse_slot(args.pop(0))
+    selector = slot_selector(slot)
+    if selector not in PERMIT_REQUIRED:
+        restricted = ", ".join(f"ai{s}" for s in PERMIT_REQUIRED)
+        fail(f"{account_name(slot)} does not require a permit (restricted slots: {restricted})", 2)
+    days = None
+    reason = None
+    while args:
+        flag = args.pop(0)
+        if flag == "--days" and args and days is None:
+            raw_days = args.pop(0)
+            if not raw_days.isascii() or not raw_days.isdigit() or not 1 <= int(raw_days) <= PERMIT_MAX_DAYS:
+                fail(f"--days must be an integer between 1 and {PERMIT_MAX_DAYS}", 2)
+            days = int(raw_days)
+        elif flag == "--reason" and args and reason is None:
+            value = args.pop(0)
+            if not value.strip():
+                fail("--reason requires nonempty text", 2)
+            reason = value
+        else:
+            fail(USAGE, 2)
+    if days is None:
+        days = PERMIT_DEFAULT_DAYS
+    account, problem = read_json(slot_file(slot))
+    if problem or not valid_token(account.get("token")):
+        fail(f"{account_name(slot)} has no usable token file")
+    now = time.time()
+    expires_at = now + days * 86400
+    permits = load_permits(now)
+    entry = {"granted_at": now, "expires_at": expires_at, "days": days}
+    if reason is not None:
+        entry["reason"] = reason
+    permits[selector] = entry
+    save_permits(permits)
+    unit = "day" if days == 1 else "days"
+    print(f"Permitted {account_name(slot)} as fallback for {days} {unit} (until {format_epoch(expires_at)}).")
+
+
+def revoke_permit(args: list[str]) -> None:
+    if len(args) != 1:
+        fail(USAGE, 2)
+    slot = parse_slot(args[0])
+    selector = slot_selector(slot)
+    if selector not in PERMIT_REQUIRED:
+        fail(f"{account_name(slot)} does not require a permit", 2)
+    permits = load_permits(time.time())
+    if selector not in permits:
+        fail(f"{account_name(slot)} has no active permit")
+    del permits[selector]
+    save_permits(permits)
+    print(f"Revoked permit for {account_name(slot)}.")
+
+
 def remove(args: list[str]) -> None:
     if len(args) != 1:
         fail(USAGE, 2)
@@ -686,6 +868,11 @@ def remove(args: list[str]) -> None:
         slot_file(slot).unlink()
     except FileNotFoundError:
         fail(f"{account_name(slot)} has no token")
+    selector = slot_selector(slot)
+    if selector in PERMIT_REQUIRED:
+        permits = load_permits(time.time())
+        if permits.pop(selector, None) is not None:
+            save_permits(permits)
     print(f"Removed the local token for {account_name(slot)}. To revoke it, use "
           "claude.ai Settings > Claude Code.")
 
@@ -693,7 +880,8 @@ def remove(args: list[str]) -> None:
 def main() -> None:
     shortcut = SHORTCUTS.get(Path(sys.argv[0]).name, ())
     args = [*shortcut, *sys.argv[1:]]
-    commands = {"run": run, "round": run_round, "add": add, "label": label_metadata, "status": status,
+    commands = {"run": run, "round": run_round, "add": add, "label": label_metadata,
+                "permit": permit_slot, "revoke": revoke_permit, "status": status,
                 "remove": remove, "observe": observe, "usage-snapshot": usage_snapshot}
     if args == ["list"]:
         list_slots()

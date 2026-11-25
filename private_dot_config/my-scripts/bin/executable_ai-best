@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 MIN_REMAINING = 10
 
 
@@ -22,16 +22,20 @@ class Candidate:
     observed_at: float | None
     unavailable: str | None
     automatic: bool
+    tier: int | None = 0
+    policy: str = "primary"
+    permitted_until: str | None = None
 
     @property
     def low(self) -> bool:
         return any(value is not None and value < MIN_REMAINING for value in self.remaining)
 
     def priority(self) -> tuple:
+        tier = self.tier if type(self.tier) is int else 0
         five_hour, seven_day = self.remaining
         if five_hour is None or seven_day is None:
-            return (1, 0, 0, 0)
-        return (0, -min(five_hour, seven_day), -five_hour, -seven_day)
+            return (tier, 1, 0, 0, 0)
+        return (tier, 0, -min(five_hour, seven_day), -five_hour, -seven_day)
 
     def describe(self, now: float) -> str:
         fields = [f"{title} {value:g}% left" if value is not None else f"{title} unknown"
@@ -40,8 +44,13 @@ class Candidate:
             fields.append(f"{self.source}, {max(0, int(now - self.observed_at))}s old")
         if self.unavailable:
             fields.append(self.unavailable)
-        if not self.automatic:
+        if self.policy == "permit_required":
+            fields.append(f"restricted (permit required: claude-account permit {self.selector})")
+        elif not self.automatic:
             fields.append("manual only")
+        elif self.policy == "fallback_permitted":
+            suffix = f" until {self.permitted_until}" if self.permitted_until else ""
+            fields.append(f"fallback (permitted{suffix})")
         if self.low:
             fields.append(f"warning: below {MIN_REMAINING}%")
         return f"{self.name}  " + " · ".join(fields)
@@ -55,8 +64,10 @@ def main() -> None:
             "Score each account by the lower of its 5-hour and 7-day remaining percentages. "
             f"Skip accounts with less than {MIN_REMAINING}% in either window. Try configured "
             "accounts with unknown usage after accounts with two known percentages. "
-            "Compare configured slots ai1 and up. Never start ai-login, ai0, or another "
-            "slot that holds the same account; start those by name.\n\n"
+            "Prefer unrestricted numbered slots (ai0, ai3, etc.) first. Restricted slots "
+            "(ai1, ai2) stay out unless granted a 7-day permit (`claude-account permit N`), "
+            "and are used only as fallback when no primary slot qualifies. Never start "
+            "ai-login; start that by name.\n\n"
             "Examples:\n"
             "  ai-best                    Start Claude here.\n"
             "  ai-best -- --resume        Pass --resume to Claude.\n"
@@ -91,8 +102,9 @@ def main() -> None:
     selected = min(eligible, key=Candidate.priority, default=None)
     if selected is None:
         sys.exit(f"ai-best: no configured account qualifies at the {MIN_REMAINING}% minimum")
+    fallback_note = " (fallback)" if selected.policy == "fallback_permitted" or (type(selected.tier) is int and selected.tier > 0) else ""
     note = " with unknown allowance" if None in selected.remaining else ""
-    print(f"Starting {selected.name}{note}", file=sys.stderr, flush=True)
+    print(f"Starting {selected.name}{fallback_note}{note}", file=sys.stderr, flush=True)
     try:
         os.execv(account, [str(account), "run", selected.selector, *args])
     except OSError:

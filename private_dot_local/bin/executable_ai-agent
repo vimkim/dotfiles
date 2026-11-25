@@ -15,7 +15,7 @@ import sys
 import time
 from typing import Any, Mapping, Sequence
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 SCHEMA_VERSION = 1
 
 EXIT_OK = 0
@@ -62,6 +62,7 @@ class BackendCandidate:
     observed_at: float | None = None
     unavailable: str | None = None
     eligible_slots: int | None = None
+    fallback: bool = False
 
     @property
     def low(self) -> bool:
@@ -69,15 +70,16 @@ class BackendCandidate:
             self.unavailable.startswith("below ") or "qualifies at " in self.unavailable
         )
 
-    def priority(self, prefer: str) -> tuple[int, float, float, float, int]:
+    def priority(self, prefer: str) -> tuple[int, int, float, float, float, int]:
+        tier = 1 if self.fallback else 0
         five_h, seven_d = self.remaining
         tie = 0 if self.name == prefer else 1
         if five_h is not None and seven_d is not None:
-            return (0, -min(five_h, seven_d), -five_h, -seven_d, tie)
+            return (tier, 0, -min(five_h, seven_d), -five_h, -seven_d, tie)
         known = five_h if five_h is not None else seven_d
         if known is not None:
-            return (1, -known, 0.0, 0.0, tie)
-        return (2, 0.0, 0.0, 0.0, tie)
+            return (tier, 1, -known, 0.0, 0.0, tie)
+        return (tier, 2, 0.0, 0.0, 0.0, tie)
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -85,6 +87,7 @@ class BackendCandidate:
             "executable": self.executable,
             "available": self.available,
             "eligible": self.eligible,
+            "fallback": self.fallback,
             "remaining": {"5h": self.remaining[0], "7d": self.remaining[1]},
             "detail": self.detail,
             "source": self.source,
@@ -549,11 +552,10 @@ def evaluate_ai_round(
             unavailable="invalid usage-snapshot payload",
         )
 
-    # `ai-round` only rotates slots that claude-account marks automatic (`ai1`+, never the
-    # `ai-login`/`ai0` account) and skips anything < 20%.
+    # `ai-round` evaluates primary slots (`ai0`, `ai3`, etc., never `ai-login`) first,
+    # using permitted fallback slots (`ai1`/`ai2`) only when no primary slot qualifies.
     round_min = max(min_remaining, AI_ROUND_FLOOR)
-    eligible_count = 0
-    best_entry: tuple[tuple[int, float, float, float], dict[str, Any], tuple[float | None, float | None]] | None = None
+    tiers: dict[int, list[tuple[tuple[int, float, float, float], dict[str, Any], tuple[float | None, float | None]]]] = {}
     for item in snapshot:
         if not isinstance(item, dict) or item.get("automatic") is not True or item.get("unavailable"):
             continue
@@ -565,12 +567,11 @@ def evaluate_ai_round(
         rem = (five_h, seven_d)
         if any(v is not None and v < round_min for v in rem):
             continue
-        eligible_count += 1
-        prio = _claude_account_priority(rem)
-        if best_entry is None or prio < best_entry[0]:
-            best_entry = (prio, item, rem)
+        raw_tier = item.get("tier")
+        tier = raw_tier if type(raw_tier) is int else 0
+        tiers.setdefault(tier, []).append((_claude_account_priority(rem), item, rem))
 
-    if best_entry is None:
+    if not tiers:
         return BackendCandidate(
             name="ai-round",
             executable=executable,
@@ -581,9 +582,16 @@ def evaluate_ai_round(
             eligible_slots=0,
         )
 
-    _, item, rem = best_entry
+    active_tier = min(tiers)
+    active_entries = tiers[active_tier]
+    eligible_count = len(active_entries)
+    _, item, rem = min(active_entries, key=lambda entry: entry[0])
+    is_fallback = active_tier > 0
     slot_name = str(item.get("name")) if item.get("name") else "claude"
-    detail = f"{slot_name} ({eligible_count} slots)" if eligible_count > 1 else slot_name
+    if is_fallback:
+        detail = f"{slot_name} (fallback, {eligible_count} slots)" if eligible_count > 1 else f"{slot_name} (fallback)"
+    else:
+        detail = f"{slot_name} ({eligible_count} slots)" if eligible_count > 1 else slot_name
     raw_obs = item.get("observed_at")
     return BackendCandidate(
         name="ai-round",
@@ -596,6 +604,7 @@ def evaluate_ai_round(
         observed_at=float(raw_obs) if _is_finite_number(raw_obs) else None,
         unavailable=None,
         eligible_slots=eligible_count,
+        fallback=is_fallback,
     )
 
 
@@ -732,9 +741,11 @@ def _describe_selection(selected: BackendCandidate, other: BackendCandidate, par
         return f"{other.name} unavailable"
     if not other.eligible:
         return f"{other.name} ineligible ({other.unavailable})"
+    if other.fallback and not selected.fallback:
+        return f"{other.name} is on fallback slots only"
     other_known = [v for v in other.remaining if v is not None]
     if sel_known and other_known:
-        if selected.priority(parsed.prefer)[:4] == other.priority(parsed.prefer)[:4]:
+        if selected.priority(parsed.prefer)[:5] == other.priority(parsed.prefer)[:5]:
             return f"tied at min {min(sel_known):g}% (preferred {parsed.prefer})"
         return f"higher remaining quota ({min(sel_known):g}% vs {min(other_known):g}%)"
     if sel_known and not other_known:
@@ -778,8 +789,10 @@ using remaining quota, then exec the chosen CLI in this terminal.
 Selection policy:
   - Scores each eligible backend by its lowest known remaining window (5h, 7d).
   - For `ay`, skips when either window is below --min-remaining (default: {DEFAULT_MIN_REMAINING}%).
-  - For `ai-round`, evaluates numbered slots ai1+ only (never the ai-login/ai0
-    account) at max(--min-remaining, {AI_ROUND_FLOOR}%) to match `ai-round`'s {AI_ROUND_FLOOR}% floor.
+  - For `ai-round`, evaluates unrestricted numbered slots (ai0, ai3, etc., never
+    ai-login) first at max(--min-remaining, {AI_ROUND_FLOOR}%) to match `ai-round`'s {AI_ROUND_FLOOR}% floor.
+    Restricted slots (ai1, ai2) stay out unless granted a 7-day `claude-account permit`,
+    and are used only as fallback when neither primary slots nor `ay` qualify.
   - Script mode (-p/--print in BACKEND_ARGS) never selects `ay`; it uses
     `ai-round` only, and `--backend ay` with -p fails with exit 2.
   - Prefers backends with two known windows over partial/unknown caches,

@@ -271,8 +271,8 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(invalid.returncode, 2, invalid.stderr)
 
     def test_best_ranks_both_windows_and_execs_claude_in_place(self):
-        self.prepare_accounts((1, 2, 3, 7))
-        self.observe(2, 99, 20)
+        self.prepare_accounts((0, 3, 7))
+        self.observe(0, 99, 20)
         self.observe(3, 70, 80)
         self.observe(7, 98, 98, reset=int(time.time()) - 1)
         with (self.bin / "claude").open("a") as stub:
@@ -292,69 +292,91 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(self.calls()[0]["args"][-2:], ["--resume", "a prompt"])
 
     def test_best_does_not_reuse_observations_after_token_replacement(self):
-        self.prepare_accounts((2, 3))
-        self.observe(2, 95, 95)
+        self.prepare_accounts((0, 3))
+        self.observe(0, 95, 95)
         self.observe(3, 50, 50)
-        result = self.account("add", "2", "--paste", stdin="replacement-token\n")
+        result = self.account("add", "0", "--paste", stdin="replacement-token\n")
         self.assertEqual(result.returncode, 0, result.stderr)
         result = self.account(command="ai-best")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls()[0]["token"], f"{TOKEN}-3")
 
-    def test_best_shows_but_never_starts_the_manual_only_account(self):
-        self.accounts.mkdir(parents=True)
-        (self.accounts / "1.json").write_text(json.dumps({"token": TOKEN}))
-        credential = hashlib.sha256(TOKEN.encode()).hexdigest()
-        with mock.patch.dict(self.env, {"CLAUDE_ACCOUNT_SLOT": "1", "CLAUDE_ACCOUNT_FINGERPRINT": credential}):
-            self.env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
-            observed = self.account("observe", stdin=self.usage_input(78, 65))
-        self.assertEqual(observed.returncode, 0, observed.stderr)
-        result = self.account("status", "0")
-        self.assertRegex(result.stdout, r"(?m)^ai0\s+.*78%\s+65%$")
-
+    def test_best_shows_but_never_starts_ai_login_while_selecting_ai0_with_matching_email(self):
         self.config.mkdir()
         (self.config / ".credentials.json").write_text(json.dumps({"claudeAiOauth": {
             "accessToken": TOKEN + "-login", "scopes": ["user:inference"],
         }}))
         (self.config / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": "same@example.test"}}))
+
         result = self.account(command="ai-best")
         self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertRegex(result.stderr, r"(?m)^ai0  .*78% left.*manual only$")
         self.assertRegex(result.stderr, r"(?m)^ai-login  .*manual only$")
         self.assertNotIn("Starting", result.stderr)
 
-        # A numbered slot that holds the ai-login or ai0 account stays manual-only too.
-        for slot, token in ((1, TOKEN), (2, f"{TOKEN}-2")):
-            result = self.account("add", str(slot), "--paste", stdin=token + "\n")
-            self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.account("label", "2", "--username", "same@example.test").returncode, 0)
-        result = self.account(command="ai-best")
-        self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertRegex(result.stderr, r"(?m)^ai1  .*manual only$")
-        self.assertRegex(result.stderr, r"(?m)^ai2  .*manual only$")
+        # ai0 uses its own setup-token, so it remains automatic even with the same email as ai-login.
+        self.accounts.mkdir(parents=True, exist_ok=True)
+        (self.accounts / "1.json").write_text(json.dumps({"token": TOKEN, "username": "same@example.test"}))
+        credential = hashlib.sha256(TOKEN.encode()).hexdigest()
+        with mock.patch.dict(self.env, {"CLAUDE_ACCOUNT_SLOT": "1", "CLAUDE_ACCOUNT_FINGERPRINT": credential}):
+            self.env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
+            observed = self.account("observe", stdin=self.usage_input(78, 65))
+        self.assertEqual(observed.returncode, 0, observed.stderr)
+        status = self.account("status", "0")
+        self.assertRegex(status.stdout, r"(?m)^ai0\s+.*78%\s+65%$")
 
-        result = self.account("add", "3", "--paste", stdin=f"{TOKEN}-3\n")
-        self.assertEqual(result.returncode, 0, result.stderr)
         result = self.account(command="ai-best")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Starting ai3 with unknown allowance\n", result.stderr)
-        self.assertEqual([call["token"] for call in self.calls()], [f"{TOKEN}-3"])
+        self.assertIn("Starting ai0\n", result.stderr)
+        self.assertRegex(result.stderr, r"(?m)^ai-login  .*manual only$")
+        self.assertEqual([call["token"] for call in self.calls()], [TOKEN])
 
-    def test_best_skips_ai0_even_with_the_most_allowance(self):
-        self.prepare_accounts((0, 1))
-        self.observe(0, 100, 100)
-        self.observe(1, 30, 40)
-        result = self.account(command="ai-best")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Starting ai1\n", result.stderr)
+    def test_best_blocks_restricted_slots_until_permitted_as_fallback(self):
+        self.prepare_accounts((0, 1, 2))
+        self.observe(0, 5, 50)
+        self.observe(1, 95, 95)
+        self.observe(2, 90, 90)
+
+        blocked = self.account(command="ai-best")
+        self.assertEqual(blocked.returncode, 1, blocked.stderr)
+        self.assertRegex(blocked.stderr, r"(?m)^ai1  .*restricted \(permit required: claude-account permit 1\)$")
+        self.assertRegex(blocked.stderr, r"(?m)^ai2  .*restricted \(permit required: claude-account permit 2\)$")
+        self.assertEqual(self.calls(), [])
+
+        permitted = self.account("permit", "1", "--reason", "weekly overflow")
+        self.assertEqual(permitted.returncode, 0, permitted.stderr)
+
+        fallback = self.account(command="ai-best")
+        self.assertEqual(fallback.returncode, 0, fallback.stderr)
+        self.assertIn("Starting ai1 (fallback)\n", fallback.stderr)
+        self.assertRegex(fallback.stderr, r"(?m)^ai1  .*fallback \(permitted until ")
         self.assertEqual([call["token"] for call in self.calls()], [f"{TOKEN}-1"])
 
+        # Primary slots (even with unknown usage) still beat permitted fallback slots.
+        self.prepare_accounts((3,))
+        primary_unknown = self.account(command="ai-best")
+        self.assertEqual(primary_unknown.returncode, 0, primary_unknown.stderr)
+        self.assertIn("Starting ai3 with unknown allowance\n", primary_unknown.stderr)
+        self.assertEqual(self.calls()[-1]["token"], f"{TOKEN}-3")
+
+        self.observe(3, 40, 40)
+        primary_known = self.account(command="ai-best")
+        self.assertEqual(primary_known.returncode, 0, primary_known.stderr)
+        self.assertIn("Starting ai3\n", primary_known.stderr)
+        self.assertEqual(self.calls()[-1]["token"], f"{TOKEN}-3")
+
+        # Once ai3 drops below 10%, ai-best falls back to permitted ai1.
+        self.observe(3, 5, 80)
+        fallback_again = self.account(command="ai-best")
+        self.assertEqual(fallback_again.returncode, 0, fallback_again.stderr)
+        self.assertIn("Starting ai1 (fallback)\n", fallback_again.stderr)
+        self.assertEqual(self.calls()[-1]["token"], f"{TOKEN}-1")
+
     def test_partial_observation_keeps_the_other_windows_known_limit(self):
-        self.prepare_accounts((2,))
-        self.observe(2, 90, 9)
+        self.prepare_accounts((3,))
+        self.observe(3, 90, 9)
         sample = json.loads(self.usage_input(95, 0))
         del sample["rate_limits"]["seven_day"]
-        with mock.patch.dict(self.env, {"CLAUDE_CODE_OAUTH_TOKEN": f"{TOKEN}-2"}):
+        with mock.patch.dict(self.env, {"CLAUDE_CODE_OAUTH_TOKEN": f"{TOKEN}-3"}):
             observed = self.account("observe", stdin=json.dumps(sample))
         self.assertEqual(observed.returncode, 0, observed.stderr)
 
@@ -365,8 +387,8 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(self.calls(), [])
 
     def test_best_uses_unknown_account_after_skipping_low_account(self):
-        self.prepare_accounts((2, 3))
-        self.observe(2, 95, 9)
+        self.prepare_accounts((0, 3))
+        self.observe(0, 95, 9)
         result = self.account(command="ai-best")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Starting ai3 with unknown allowance", result.stderr)
@@ -417,25 +439,25 @@ subprocess.run(["claude-account", "observe"], input={self.usage_input(78, 65)!r}
         self.assertEqual(status.stdout.splitlines()[1].split()[-2:], ["unavailable", "unavailable"])
 
     def test_round_rotates_distinct_accounts_and_admits_unknown_windows(self):
-        self.prepare_accounts((1, 2, 3, 4, 5, 6, 10))
-        self.observe(1, 19, 90)
-        self.observe(2, 20, 90)
+        self.prepare_accounts((0, 3, 4, 5, 6, 7, 10))
+        self.observe(0, 19, 90)
+        self.observe(3, 20, 90)
         sample = json.loads(self.usage_input(90, 19))
         del sample["rate_limits"]["five_hour"]
-        with mock.patch.dict(self.env, {"CLAUDE_CODE_OAUTH_TOKEN": f"{TOKEN}-3"}):
+        with mock.patch.dict(self.env, {"CLAUDE_CODE_OAUTH_TOKEN": f"{TOKEN}-4"}):
             self.assertEqual(self.account("observe", stdin=json.dumps(sample)).returncode, 0)
-        self.observe(4, 100, 100, reset=int(time.time()) - 1)
-        self.observe(5, 80, 80)
+        self.observe(5, 100, 100, reset=int(time.time()) - 1)
+        self.observe(6, 80, 80)
         self.observe(10, 90, 20)
-        for slot in (2, 5):
+        for slot in (3, 6):
             result = self.account("label", str(slot), "--username", "person@example.test")
             self.assertEqual(result.returncode, 0, result.stderr)
-        turns = ((2, ("--resume", "a prompt")), (4, ()), (6, ()), (10, ("--", "--resume")), (2, ()))
+        turns = ((3, ("--resume", "a prompt")), (5, ()), (7, ()), (10, ("--", "--resume")), (3, ()))
         for slot, args in turns:
             result = self.account(*args, command="ai-round")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout, "")
-            note = " with unknown allowance" if slot in (4, 6) else ""
+            note = " with unknown allowance" if slot in (5, 7) else ""
             self.assertEqual(result.stderr, f"Starting ai{slot}{note}\n")
         calls = self.calls()
         self.assertEqual([call["token"] for call in calls], [f"{TOKEN}-{slot}" for slot, _ in turns])
@@ -443,44 +465,143 @@ subprocess.run(["claude-account", "observe"], input={self.usage_input(78, 65)!r}
         self.assertEqual(calls[3]["args"][-1], "--resume")
 
     def test_round_starts_with_no_saved_usage(self):
-        self.prepare_accounts((2, 4))
-        for slot in (2, 4, 2):
+        self.prepare_accounts((0, 3))
+        for slot in (0, 3, 0):
             result = self.account(command="ai-round")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(f"Starting ai{slot} with unknown allowance", result.stderr)
         self.assertEqual([call["token"] for call in self.calls()],
-                         [f"{TOKEN}-{slot}" for slot in (2, 4, 2)])
+                         [f"{TOKEN}-{slot}" for slot in (0, 3, 0)])
 
-    def test_round_never_starts_the_ai0_or_ai_login_account(self):
-        self.prepare_accounts((0, 2, 3))
-        self.observe(0, 100, 100)
-        # ai1 shares ai0's token; ai2 declares the ai-login username.
-        result = self.account("add", "1", "--paste", stdin=f"{TOKEN}-0\n")
-        self.assertEqual(result.returncode, 0, result.stderr)
+    def test_round_includes_ai0_even_with_ai_login_email_and_skips_restricted_slots(self):
+        self.prepare_accounts((0, 1, 2))
+        self.observe(1, 100, 100)
+        self.observe(2, 100, 100)
         self.config.mkdir()
         (self.config / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": "me@example.test"}}))
-        self.assertEqual(self.account("label", "2", "--username", "me@example.test").returncode, 0)
+        self.assertEqual(self.account("label", "0", "--username", "me@example.test").returncode, 0)
         for _ in range(3):
             result = self.account(command="ai-round")
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(result.stderr, "Starting ai3 with unknown allowance\n")
-        self.assertEqual([call["token"] for call in self.calls()], [f"{TOKEN}-3"] * 3)
+            self.assertEqual(result.stderr, "Starting ai0 with unknown allowance\n")
+        self.assertEqual([call["token"] for call in self.calls()], [f"{TOKEN}-0"] * 3)
 
-        self.assertEqual(self.account("remove", "3").returncode, 0)
+        self.observe(0, 10, 10)
         result = self.account(command="ai-round")
         self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("Restricted slots (ai1, ai2) require a permit", result.stderr)
         self.assertEqual(len(self.calls()), 3)
 
+    def test_round_uses_permitted_fallback_slots_only_when_primary_exhausted(self):
+        self.prepare_accounts((0, 1, 2, 3))
+        self.observe(0, 80, 80)
+        self.observe(1, 95, 95)
+        self.observe(2, 95, 95)
+        self.observe(3, 80, 80)
+        self.assertEqual(self.account("permit", "1").returncode, 0)
+        self.assertEqual(self.account("permit", "2").returncode, 0)
+
+        # Primary slots rotate ahead of permitted fallback slots.
+        for slot in (0, 3, 0):
+            res = self.account(command="ai-round")
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertEqual(res.stderr, f"Starting ai{slot}\n")
+
+        # Exhaust primary slots -> rotate across permitted fallback slots.
+        self.observe(0, 10, 80)
+        self.observe(3, 80, 10)
+        for slot in (1, 2, 1):
+            res = self.account(command="ai-round")
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertEqual(res.stderr, f"Starting ai{slot} (fallback)\n")
+
+        self.assertEqual([call["token"] for call in self.calls()],
+                         [f"{TOKEN}-{s}" for s in (0, 3, 0, 1, 2, 1)])
+
+    def test_direct_restricted_slot_warns_without_permit_and_quiets_with_permit(self):
+        self.prepare_accounts((1, 2))
+        for cmd in ("ai1", "ai2"):
+            res = self.account("-c", command=cmd)
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertIn(f"{cmd} is restricted (no active permit)", res.stderr)
+            self.assertIn("Use ai0/ai3 first", res.stderr)
+
+        self.assertEqual(self.account("permit", "1").returncode, 0)
+        res1 = self.account("-c", command="ai1")
+        self.assertEqual(res1.returncode, 0, res1.stderr)
+        self.assertEqual(res1.stderr, "")
+        res2 = self.account("-c", command="ai2")
+        self.assertEqual(res2.returncode, 0, res2.stderr)
+        self.assertIn("ai2 is restricted (no active permit)", res2.stderr)
+        self.assertEqual(len(self.calls()), 4)
+
+    def test_permit_and_revoke_lifecycle_expiry_and_validation(self):
+        self.prepare_accounts((0, 1, 2, 3))
+        listing_before = self.account("list")
+        self.assertRegex(listing_before.stdout, r"(?m)^ai1\s+.*\[restricted\]$")
+        self.assertRegex(listing_before.stdout, r"(?m)^ai2\s+.*\[restricted\]$")
+        self.assertNotIn("[restricted]", [line for line in listing_before.stdout.splitlines() if line.startswith("ai0")][0])
+
+        status_before = self.account("status", "1")
+        self.assertIn("restricted (permit required: claude-account permit 1)", status_before.stdout)
+
+        empty_permits = self.account("permit")
+        self.assertEqual(empty_permits.returncode, 0, empty_permits.stderr)
+        self.assertIn("No active permits", empty_permits.stdout)
+
+        granted = self.account("permit", "1", "--days", "7", "--reason", "team ok")
+        self.assertEqual(granted.returncode, 0, granted.stderr)
+        self.assertIn("Permitted ai1 as fallback for 7 days", granted.stdout)
+        permits_path = self.accounts / "permits.json"
+        self.assertEqual(permits_path.stat().st_mode & 0o777, 0o600)
+
+        active_permits = self.account("permit")
+        self.assertIn("ai1  fallback until", active_permits.stdout)
+        self.assertIn("team ok", active_permits.stdout)
+
+        listing_after = self.account("list")
+        self.assertRegex(listing_after.stdout, r"(?m)^ai1\s+.*\[fallback until ")
+        status_after = self.account("status", "1")
+        self.assertIn("fallback permitted until", status_after.stdout)
+        self.assertIn("team ok", status_after.stdout)
+
+        revoked = self.account("revoke", "1")
+        self.assertEqual(revoked.returncode, 0, revoked.stderr)
+        self.assertIn("Revoked permit for ai1.", revoked.stdout)
+        self.assertIn("No active permits", self.account("permit").stdout)
+        self.assertEqual(self.account("revoke", "1").returncode, 1)
+
+        # Expired and malformed permit files fail closed.
+        permits_path.write_text(json.dumps({
+            "1": {"granted_at": 100.0, "expires_at": time.time() - 10, "days": 7},
+            "2": {"expires_at": True},
+        }))
+        self.assertIn("No active permits", self.account("permit").stdout)
+        permits_path.write_text("{corrupt")
+        self.assertIn("No active permits", self.account("permit").stdout)
+
+        # Validation errors.
+        for bad_args in (("permit", "0"), ("permit", "3"), ("permit", "1", "--days", "0"),
+                         ("permit", "1", "--days", "31"), ("permit", "1", "--reason", "   "),
+                         ("permit", "1", "--bogus"), ("revoke", "0"), ("revoke",)):
+            with self.subTest(bad_args=bad_args):
+                self.assertEqual(self.account(*bad_args).returncode, 2)
+
+        # Removing a restricted slot clears its permit too.
+        self.assertEqual(self.account("permit", "2").returncode, 0)
+        self.assertEqual(self.account("remove", "2").returncode, 0)
+        self.assertIn("No active permits", self.account("permit").stdout)
+
     def test_round_exits_without_launch_when_no_account_qualifies(self):
-        self.prepare_accounts((2,))
-        self.observe(2, 19, 100)
+        self.prepare_accounts((3,))
+        self.observe(3, 19, 100)
         result = self.account(command="ai-round")
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("20%", result.stderr)
         self.assertEqual(self.calls(), [])
 
     def test_round_distributes_concurrent_launches_evenly(self):
-        slots = (1, 3, 5)
+        slots = (0, 3, 5)
         self.env["CLAUDE_ACCOUNTS_DIR"] = str(self.root / "custom-accounts")
         self.prepare_accounts(slots)
         for slot in slots:
@@ -637,11 +758,11 @@ class UsageTest(unittest.TestCase):
         self.assertEqual(reports[2]["auth"], "missing")
 
     def test_round_does_not_fetch_usage_for_the_stored_login(self):
-        (self.accounts / "2.json").write_text(json.dumps({"token": TOKEN + "-2"}))
+        (self.accounts / "1.json").write_text(json.dumps({"token": TOKEN + "-1"}))
         with mock.patch.object(self.module, "fetch_usage", side_effect=AssertionError("network")):
             with mock.patch.object(self.module, "run") as launch:
                 self.module.run_round([])
-        launch.assert_called_once_with(["1"])
+        launch.assert_called_once_with(["0"])
 
     def test_login_identity_follows_native_config_metadata_paths(self):
         default = self.root / ".claude"

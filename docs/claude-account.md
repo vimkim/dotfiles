@@ -17,8 +17,8 @@ After `herdr tab create`, use the returned root pane ID in
 | `ai0` through `ai9` | The token saved for slot N with `claude-account add N`. |
 | `aip` | `ai "read prompt.md and execute"`. |
 | `ai-status` | All account nicknames, usernames, credential states, and available usage. |
-| `ai-best` | Compare saved numbered accounts from `ai1` up by remaining allowance. |
-| `ai-round` | Rotate through saved numbered accounts from `ai1` up. Skip any with a current reading below 20%. |
+| `ai-best` | Compare unrestricted saved accounts (`ai0`, `ai3`, etc.) by remaining allowance; permitted `ai1`/`ai2` only as fallback. |
+| `ai-round` | Rotate through unrestricted saved accounts (`ai0`, `ai3`, etc.); permitted `ai1`/`ai2` only as fallback. Skip any below 20%. |
 | `herdr-new-tab-ai-best` | Run `ai-best` in a new tab in the current Herdr workspace. |
 | `herdr-new-workspace-ai-best` | Run `ai-best` in a new Herdr workspace. |
 
@@ -34,13 +34,36 @@ Arguments pass through unchanged, so `ai2 -c` and `ai3 --resume` work.
 
 ## Choose an account
 
-`ai-login` and `ai0` hold the personal account and start only by name.
-`ai-best`, `ai-round`, and `ai-agent` never choose them. They also skip any
-other numbered slot that holds the same account: a slot with the same saved
-token as `ai0`, or a username equal to the `ai-login` or `ai0` username.
-`claude-account usage-snapshot` marks each row with `automatic`, and the
-pickers start only rows marked `true`. `MANUAL_ONLY` in `claude-account`
-names the reserved shortcuts.
+`ai-login` uses the stored `/login` credential and starts only by name.
+`ai-best`, `ai-round`, and `ai-agent` never choose `ai-login`.
+All numbered slots (`ai0` through `ai9`) authenticate via `claude setup-token`
+(`CLAUDE_CODE_OAUTH_TOKEN`), so `ai0` is part of the primary automatic pool
+even if its declared email matches `ai-login`'s cached login email.
+
+Restricted team slots (`ai1` and `ai2`) are excluded from `ai-best`, `ai-round`,
+and `ai-agent` by default. Running `ai1` or `ai2` directly prints a warning to
+stderr and still launches Claude.
+
+When you have team permission for a week, grant a temporary 7-day fallback
+permit:
+
+```sh
+claude-account permit 1 --reason "weekly team approval"
+claude-account permit          # list active permits
+claude-account revoke 1        # revoke early
+```
+
+`permit` defaults to 7 days (`--days 1..30` supported) and stores expiration
+timestamps in `permits.json` under the account state directory. While permitted:
+
+- Direct `ai1`/`ai2` launches run without the warning.
+- `ai-best`, `ai-round`, and `ai-agent` still prefer primary slots (`ai0`, `ai3`,
+  etc.) first, and use permitted fallback slots only when no primary slot
+  qualifies (and in `ai-agent`, only when `ay` also does not qualify).
+- Once the permit expires, `ai1`/`ai2` automatically revert to restricted.
+
+`claude-account usage-snapshot` marks each row with `automatic`, `tier`,
+`policy`, and `permitted_until`.
 
 Run `ai-best` in any shell to choose an account and start Claude in place.
 Use `ai-best -- --resume` to pass an option to Claude.
@@ -51,21 +74,24 @@ Run either Herdr launcher from a Herdr pane. The new pane starts in your
 current working directory, and focus stays in your current pane.
 
 The picker reads the latest status-line observations for saved tokens. It
-lists `ai-login` and `ai0` as `manual only` for reference. It scores each
-account by the lower of its five-hour and weekly remaining percentages. Ties
-favor more five-hour allowance, then more weekly allowance. If both allowances
-tie, the lower slot number comes first.
+lists `ai-login` as `manual only` and unpermitted `ai1`/`ai2` as `restricted`
+for reference. It scores each eligible account by tier first (primary before
+fallback), then by the lower of its five-hour and weekly remaining percentages.
+Ties favor more five-hour allowance, then more weekly allowance. If both
+allowances tie, the lower slot number comes first.
 
 The picker warns and skips an account if either known window is below 10%.
-It treats missing or expired observations as unknown. Configured accounts
-with unknown usage are eligible after candidates with two known percentages.
-Once Claude reports a window below 10%, its status line shows
-`Low allowance (<10%)`.
+It treats missing or expired observations as unknown. Configured primary
+accounts with unknown usage are eligible after primary accounts with two known
+percentages, and still rank ahead of fallback slots. Once Claude reports a
+window below 10%, its status line shows `Low allowance (<10%)`.
 
 Run `ai-round` to spread launches across accounts. It starts Claude in the
 current terminal. Use `ai-round --resume` to pass an option to Claude.
 
-`ai-round` reads the local usage cache for saved slots from `ai1` up.
+`ai-round` reads the local usage cache for unrestricted numbered slots (`ai0`,
+`ai3`, and up) first. Only when none qualify does it rotate among permitted
+fallback slots (`ai1`, `ai2`), printing `(fallback)`.
 It skips a slot if either current window shows less than 20% remaining.
 Missing or expired readings count as unknown, and slots with unknown readings
 get a turn if neither known window is below 20%. The launcher reports unknown
@@ -90,8 +116,9 @@ claude-account add 0 --label personal --username you@example.com
 2. Open the URL in a browser signed in to the account for `ai0`. A private
    window avoids picking up the account that is already signed in.
 3. Paste the printed token at the hidden prompt.
-4. Start the account with `ai0`. Automatic pickers skip `ai0`; add shared
-   accounts at `ai1` and up.
+4. Start the account with `ai0`. Automatic pickers include `ai0` and `ai3`+;
+   `ai1` and `ai2` stay out unless granted a temporary permit via
+   `claude-account permit N`.
 
 `--paste` skips `claude setup-token` and only reads a token you already have.
 Without a terminal, the token is read from the first line of stdin.
@@ -110,6 +137,9 @@ claude-account status 2   # the saved team account
 claude-account status --all
 claude-account label 2 --username team@example.com
 claude-account label 2 --label team
+claude-account permit 1 --days 7 --reason "team approval"
+claude-account permit       # show active fallback permits
+claude-account revoke 1    # revoke an active fallback permit
 claude-account remove 2    # delete slot 2's token file
 claude-account run 2 -c    # what `ai2 -c` runs
 ```

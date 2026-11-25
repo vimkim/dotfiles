@@ -115,10 +115,19 @@ class AiAgentTest(unittest.TestCase):
         }
         self.quota_file.write_text(json.dumps(payload), encoding="utf-8")
 
-    def _claude_snapshot(self, *accounts: tuple[str, list[float | None], str | None]) -> str:
+    def _claude_snapshot(self, *accounts: tuple) -> str:
         rows = []
-        for name, rem, unavail in accounts:
+        for entry in accounts:
+            name, rem, unavail = entry[:3]
+            opts = entry[3] if len(entry) > 3 else {}
             selector = "login" if name == "ai-login" else name.removeprefix("ai")
+            default_tier = None if selector == "login" else (1 if selector in ("1", "2") else 0)
+            default_auto = selector not in ("login", "1", "2")
+            default_policy = (
+                "manual_only"
+                if selector == "login"
+                else ("permit_required" if selector in ("1", "2") else "primary")
+            )
             rows.append(
                 {
                     "name": name,
@@ -127,7 +136,10 @@ class AiAgentTest(unittest.TestCase):
                     "source": "statusline",
                     "observed_at": float(self.now),
                     "unavailable": unavail,
-                    "automatic": selector not in ("login", "0"),
+                    "automatic": opts.get("automatic", default_auto),
+                    "tier": opts.get("tier", default_tier),
+                    "policy": opts.get("policy", default_policy),
+                    "permitted_until": opts.get("permitted_until"),
                 }
             )
         return json.dumps(rows)
@@ -154,7 +166,7 @@ class AiAgentTest(unittest.TestCase):
 
     def test_selects_higher_remaining_backend(self) -> None:
         self._write_agy_quota(five_h=80, seven_d=90)
-        snap = self._claude_snapshot(("ai3", [100.0, 64.0], None), ("ai1", [90.0, 52.0], None))
+        snap = self._claude_snapshot(("ai3", [100.0, 64.0], None), ("ai0", [90.0, 52.0], None))
         res_ay = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap})
         self.assertEqual(res_ay.returncode, 0, res_ay.stderr)
         data_ay = json.loads(res_ay.stdout)["data"]
@@ -162,22 +174,23 @@ class AiAgentTest(unittest.TestCase):
         self.assertIn("80% vs 64%", data_ay["selected"]["reason"])
 
         self._write_agy_quota(five_h=45, seven_d=70)
-        snap2 = self._claude_snapshot(("ai1", [90.0, 55.0], None), ("ai2", [90.0, 75.0], None))
+        snap2 = self._claude_snapshot(("ai0", [90.0, 55.0], None), ("ai3", [90.0, 75.0], None))
         res_claude = self.run_cli("--status", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap2})
         self.assertEqual(res_claude.returncode, 0, res_claude.stderr)
         data_claude = json.loads(res_claude.stdout)["data"]
         self.assertEqual(data_claude["selected"]["name"], "ai-round")
-        self.assertEqual(data_claude["selected"]["detail"], "ai2 (2 slots)")
+        self.assertEqual(data_claude["selected"]["detail"], "ai3 (2 slots)")
         self.assertIn("75% vs 45%", data_claude["selected"]["reason"])
 
-    def test_ignores_manual_only_accounts_and_enforces_ai_round_20_pct_floor(self) -> None:
-        # Even at 100%, ai-login and ai0 are manual-only; ai-round enforces >= 20% on the rest.
+    def test_ignores_manual_and_restricted_accounts_while_allowing_ai0(self) -> None:
+        # ai-login and unpermitted ai1/ai2 are excluded even at 100%; ai0 is primary; >= 20% floor applies.
         self._write_agy_quota(five_h=30, seven_d=40)
         snap = self._claude_snapshot(
             ("ai-login", [100.0, 100.0], None),
-            ("ai0", [100.0, 100.0], None),
-            ("ai1", [18.0, 90.0], None),
-            ("ai2", [50.0, 15.0], None),
+            ("ai1", [100.0, 100.0], None),
+            ("ai2", [100.0, 100.0], None),
+            ("ai0", [18.0, 90.0], None),
+            ("ai3", [50.0, 15.0], None),
         )
         res = self.run_cli(
             "--dry-run",
@@ -194,9 +207,65 @@ class AiAgentTest(unittest.TestCase):
         self.assertEqual(round_cand["eligible_slots"], 0)
         self.assertIn("20% minimum", round_cand["unavailable"])
 
+        # With ai0 above threshold, ai0 is selected even if ai-login is also present.
+        self._write_agy_quota(five_h=30, seven_d=40)
+        snap_ai0 = self._claude_snapshot(
+            ("ai-login", [100.0, 100.0], None),
+            ("ai0", [80.0, 80.0], None),
+            ("ai1", [100.0, 100.0], None),
+        )
+        res_ai0 = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap_ai0})
+        self.assertEqual(res_ai0.returncode, 0, res_ai0.stderr)
+        data_ai0 = json.loads(res_ai0.stdout)["data"]
+        self.assertEqual(data_ai0["selected"]["name"], "ai-round")
+        self.assertEqual(data_ai0["selected"]["detail"], "ai0")
+
+    def test_permitted_fallback_tier_loses_to_primary_and_ay(self) -> None:
+        # Primary ai0 (50%) + permitted fallback ai1 (95%): ai-round is evaluated on tier 0 (50%), so ay (70%) wins.
+        self._write_agy_quota(five_h=70, seven_d=70)
+        snap_mixed = self._claude_snapshot(
+            ("ai0", [50.0, 50.0], None),
+            ("ai1", [95.0, 95.0], None, {"automatic": True, "tier": 1, "policy": "fallback_permitted"}),
+        )
+        res_mixed = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap_mixed})
+        self.assertEqual(res_mixed.returncode, 0, res_mixed.stderr)
+        data_mixed = json.loads(res_mixed.stdout)["data"]
+        self.assertEqual(data_mixed["selected"]["name"], "ay")
+        round_mixed = next(c for c in data_mixed["candidates"] if c["name"] == "ai-round")
+        self.assertFalse(round_mixed["fallback"])
+        self.assertEqual(round_mixed["detail"], "ai0")
+
+        # When primary slots are exhausted and only permitted ai1 qualifies, ay (40%) beats fallback ai-round (95%).
+        self._write_agy_quota(five_h=40, seven_d=40)
+        snap_fallback = self._claude_snapshot(
+            ("ai0", [10.0, 80.0], None),
+            ("ai1", [95.0, 95.0], None, {"automatic": True, "tier": 1, "policy": "fallback_permitted"}),
+        )
+        res_ay_beats_fb = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap_fallback})
+        self.assertEqual(res_ay_beats_fb.returncode, 0, res_ay_beats_fb.stderr)
+        data_ay_beats_fb = json.loads(res_ay_beats_fb.stdout)["data"]
+        self.assertEqual(data_ay_beats_fb["selected"]["name"], "ay")
+        self.assertIn("fallback", data_ay_beats_fb["selected"]["reason"])
+
+        # When ay is below threshold (5%), fallback ai-round is used.
+        self._write_agy_quota(five_h=5, seven_d=90)
+        res_fb = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap_fallback})
+        self.assertEqual(res_fb.returncode, 0, res_fb.stderr)
+        data_fb = json.loads(res_fb.stdout)["data"]
+        self.assertEqual(data_fb["selected"]["name"], "ai-round")
+        self.assertEqual(data_fb["selected"]["detail"], "ai1 (fallback)")
+        round_fb = next(c for c in data_fb["candidates"] if c["name"] == "ai-round")
+        self.assertTrue(round_fb["fallback"])
+
+        # Script mode (-p) also runs fallback ai-round when ay is unavailable for -p.
+        self._write_agy_quota(five_h=90, seven_d=90)
+        res_script_fb = self.run_cli("--dry-run", "--json", "--", "-p", "hi", env_extra={"CLAUDE_SNAPSHOT_JSON": snap_fallback})
+        self.assertEqual(res_script_fb.returncode, 0, res_script_fb.stderr)
+        self.assertEqual(json.loads(res_script_fb.stdout)["data"]["selected"]["detail"], "ai1 (fallback)")
+
     def test_rows_without_automatic_flag_are_never_selected(self) -> None:
         self._write_agy_quota(five_h=30, seven_d=40)
-        rows = json.loads(self._claude_snapshot(("ai1", [90.0, 90.0], None)))
+        rows = json.loads(self._claude_snapshot(("ai0", [90.0, 90.0], None)))
         del rows[0]["automatic"]
         res = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": json.dumps(rows)})
         self.assertEqual(res.returncode, 0, res.stderr)
@@ -207,13 +276,13 @@ class AiAgentTest(unittest.TestCase):
 
     def test_skips_low_quota_and_errors_when_both_below_threshold(self) -> None:
         self._write_agy_quota(five_h=5, seven_d=90)
-        snap_ok = self._claude_snapshot(("ai1", [50.0, 40.0], None))
+        snap_ok = self._claude_snapshot(("ai0", [50.0, 40.0], None))
         res1 = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap_ok})
         self.assertEqual(res1.returncode, 0, res1.stderr)
         self.assertEqual(json.loads(res1.stdout)["data"]["selected"]["name"], "ai-round")
 
         self._write_agy_quota(five_h=30, seven_d=35)
-        snap_low = self._claude_snapshot(("ai2", [15.0, 90.0], None), ("ai1", [50.0, 19.0], None))
+        snap_low = self._claude_snapshot(("ai3", [15.0, 90.0], None), ("ai0", [50.0, 19.0], None))
         res2 = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap_low})
         self.assertEqual(res2.returncode, 0, res2.stderr)
         self.assertEqual(json.loads(res2.stdout)["data"]["selected"]["name"], "ay")
@@ -234,7 +303,7 @@ class AiAgentTest(unittest.TestCase):
             reset_7d=86400,
             observed_at=self.now - 7200,
         )
-        snap = self._claude_snapshot(("ai1", [100.0, 50.0], None))
+        snap = self._claude_snapshot(("ai0", [100.0, 50.0], None))
         res = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap})
         self.assertEqual(res.returncode, 0, res.stderr)
         data = json.loads(res.stdout)["data"]
@@ -246,7 +315,7 @@ class AiAgentTest(unittest.TestCase):
 
     def test_missing_agy_cache_falls_back_gracefully(self) -> None:
         self.quota_file.unlink(missing_ok=True)
-        snap_ok = self._claude_snapshot(("ai1", [80.0, 60.0], None))
+        snap_ok = self._claude_snapshot(("ai0", [80.0, 60.0], None))
         res1 = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap_ok})
         self.assertEqual(res1.returncode, 0, res1.stderr)
         self.assertEqual(json.loads(res1.stdout)["data"]["selected"]["name"], "ai-round")
@@ -257,7 +326,7 @@ class AiAgentTest(unittest.TestCase):
 
     def test_tie_breaking_uses_prefer_flag_and_env(self) -> None:
         self._write_agy_quota(five_h=80, seven_d=64)
-        snap = self._claude_snapshot(("ai1", [80.0, 64.0], None))
+        snap = self._claude_snapshot(("ai0", [80.0, 64.0], None))
 
         res_default = self.run_cli("--dry-run", "--json", env_extra={"CLAUDE_SNAPSHOT_JSON": snap})
         self.assertEqual(json.loads(res_default.stdout)["data"]["selected"]["name"], "ay")
@@ -280,7 +349,7 @@ class AiAgentTest(unittest.TestCase):
 
     def test_forced_backend_and_missing_binary(self) -> None:
         self._write_agy_quota(five_h=2, seven_d=2)
-        snap = self._claude_snapshot(("ai1", [95.0, 95.0], None))
+        snap = self._claude_snapshot(("ai0", [95.0, 95.0], None))
         res_force = self.run_cli(
             "--dry-run",
             "--json",
@@ -317,7 +386,7 @@ class AiAgentTest(unittest.TestCase):
 
         res_ver = self.run_cli("--version")
         self.assertEqual(res_ver.returncode, 0, res_ver.stderr)
-        self.assertEqual(res_ver.stdout, "ai-agent 1.2.0\n")
+        self.assertEqual(res_ver.stdout, "ai-agent 1.3.0\n")
 
         res_json_no_dry = self.run_cli("--json")
         self.assertEqual(res_json_no_dry.returncode, 2)
@@ -352,10 +421,10 @@ class AiAgentTest(unittest.TestCase):
 
         # Non-TTY launch prints diagnostics to stderr and keeps stdout strictly backend data.
         self._write_agy_quota(five_h=20, seven_d=20)
-        snap = self._claude_snapshot(("ai2", [90.0, 80.0], None))
+        snap = self._claude_snapshot(("ai3", [90.0, 80.0], None))
         res_pipe = self.run_cli("--", "--model", "opus", env_extra={"CLAUDE_SNAPSHOT_JSON": snap})
         self.assertEqual(res_pipe.returncode, 0, res_pipe.stderr)
-        self.assertIn("Starting ai-round (ai2)", res_pipe.stderr)
+        self.assertIn("Starting ai-round (ai3)", res_pipe.stderr)
         self.assertEqual(
             json.loads(res_pipe.stdout),
             {"backend": "ai-round", "args": ["--model", "opus"]},
@@ -365,7 +434,7 @@ class AiAgentTest(unittest.TestCase):
     def test_script_mode_never_selects_ay(self) -> None:
         # ay has more quota, but -p/--print must still run on ai-round.
         self._write_agy_quota(five_h=95, seven_d=95)
-        snap = self._claude_snapshot(("ai1", [40.0, 40.0], None))
+        snap = self._claude_snapshot(("ai0", [40.0, 40.0], None))
         for args in (["-p", "hi"], ["--print", "hi"], ["--print=text"], ["-cp", "hi"],
                      ["--model", "opus", "-p", "hi"]):
             with self.subTest(args=args):
@@ -393,7 +462,7 @@ class AiAgentTest(unittest.TestCase):
 
     def test_script_mode_rejects_forced_ay_and_never_falls_back_to_it(self) -> None:
         self._write_agy_quota(five_h=95, seven_d=95)
-        snap = self._claude_snapshot(("ai1", [40.0, 40.0], None))
+        snap = self._claude_snapshot(("ai0", [40.0, 40.0], None))
         for extra in ({}, {"AI_AGENT_BACKEND": "ay"}):
             args = ("--backend", "ay") if not extra else ()
             with self.subTest(extra=extra):
@@ -404,7 +473,7 @@ class AiAgentTest(unittest.TestCase):
                 self.assertFalse(self.log.exists())
                 self.assertEqual(res.stdout, "")
 
-        low = self._claude_snapshot(("ai1", [10.0, 90.0], None))
+        low = self._claude_snapshot(("ai0", [10.0, 90.0], None))
         res = self.run_cli("--dry-run", "--json", "--", "-p", "hi",
                            env_extra={"CLAUDE_SNAPSHOT_JSON": low})
         self.assertEqual(res.returncode, 1)
