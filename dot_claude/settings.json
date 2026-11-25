@@ -43,7 +43,9 @@
       "Bash(man *)",
       "Bash(md5sum *)",
       "Bash(sha256sum *)",
-      "Bash(pkg-config *)"
+      "Bash(pkg-config *)",
+      "Bash(hss tab:*)",
+      "Bash(hss pane:*)"
     ],
     "defaultMode": "auto",
     "additionalDirectories": [

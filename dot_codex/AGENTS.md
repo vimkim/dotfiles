@@ -9,6 +9,25 @@
 
 ## Herdr
 
+### Hierarchy & autonomous control
+
+When `HERDR_ENV=1`, the 3-tier Herdr hierarchy below overrides the `herdr` skill's "user must mention Herdr" and "sibling pane only" defaults:
+
+- **Herdr Commander**: coordinates across Spaces via `hss` (`herdr-commander` skill).
+- **Space Leader** (`tabs[0]`, `panes[0]` of `$HERDR_WORKSPACE_ID`, neither `HERDR_TAB_ROLE=worker` nor `HERDR_PANE_ROLE=worker`): authorized without asking to create and manage up to **8 sub-tabs** (9 tabs total, `Alt+Shift+1..9`) inside its own Space via `hss tab`.
+  - Default worker launcher is `ai-agent` (never fall back to `codex` on `NO_ELIGIBLE_BACKEND`; pause and report instead). Use `--launcher shell` for builds, tests, or servers.
+  - Default quota guards are **4 live non-primary AI agents per Space** (`HSS_MAX_SPACE_AGENTS`) and **10 working AI agents session-wide** (`HSS_MAX_SESSION_AGENTS`); shell tabs are unrestricted within the 8-tab cap.
+  - Never assume the first tab is `t1`; resolve `tabs[0]` via `hss tab` or `session.snapshot`.
+- **Tab Leader** (`tabs[1..8]`, `panes[0]`, not `HERDR_PANE_ROLE=worker`): authorized without asking to split and manage up to **3 worker panes** (4 panes total, 2×2 grid) inside its own tab via `hss pane`. **Never create new Herdr tabs.**
+- **Leaf Worker** (`panes[1..]` or `HERDR_PANE_ROLE=worker`): execute assigned work only; **never create Herdr tabs or split panes.**
+
+### Context-size management & execution rules
+
+- **Keep leader context lean**: Herdr Commander, Space Leaders, and Tab Leaders may handle trivial or quick steps directly, but should prefer delegating substantial, exploratory, noisy (builds/tests/logs), or multi-step work to Herdr tabs (`hss tab`), worker panes (`hss pane`), or in-process subagents (within Space/Tab Leaders) so each leader keeps its context window focused on orchestration and synthesis.
+- **Stay scoped and clean**: Stay inside your own Space/tab, pass `--no-focus` and short role `--label`s (`build`, `test`, `review`, `ci`), wait on socket events (`hss tab wait` / `hss pane wait` / `herdr agent prompt --wait`) instead of `sleep` polling, keep same-worktree write operations to one agent at a time, and close finished worker tabs/panes you created (never close `tabs[0]` or `panes[0]`).
+
+### Locations & launchers
+
 - When reporting a Herdr location, include the workspace name, tab name, and full target ID, for example `CBRD-28035, tab sa-rollback-issue (w2GX:t2), pane w2GX:p2`. Read the names and IDs from the live API.
 
 - When asked to use `ai-round`, run `herdr pane run <pane-id> ai-round` in the target workspace. The launcher supplies Claude's settings path and bypass flag.
