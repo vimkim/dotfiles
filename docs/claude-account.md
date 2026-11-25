@@ -17,8 +17,8 @@ After `herdr tab create`, use the returned root pane ID in
 | `ai0` through `ai9` | The token saved for slot N with `claude-account add N`. |
 | `aip` | `ai "read prompt.md and execute"`. |
 | `ai-status` | All account nicknames, usernames, credential states, and available usage. |
-| `ai-best` | Compare `ai-login` and saved numbered accounts from `ai0` up by remaining allowance. |
-| `ai-round` | Rotate through saved numbered accounts from `ai0` up. Skip any with a current reading below 20%. |
+| `ai-best` | Compare saved numbered accounts from `ai1` up by remaining allowance. |
+| `ai-round` | Rotate through saved numbered accounts from `ai1` up. Skip any with a current reading below 20%. |
 | `herdr-new-tab-ai-best` | Run `ai-best` in a new tab in the current Herdr workspace. |
 | `herdr-new-workspace-ai-best` | Run `ai-best` in a new Herdr workspace. |
 
@@ -34,6 +34,14 @@ Arguments pass through unchanged, so `ai2 -c` and `ai3 --resume` work.
 
 ## Choose an account
 
+`ai-login` and `ai0` hold the personal account and start only by name.
+`ai-best`, `ai-round`, and `ai-agent` never choose them. They also skip any
+other numbered slot that holds the same account: a slot with the same saved
+token as `ai0`, or a username equal to the `ai-login` or `ai0` username.
+`claude-account usage-snapshot` marks each row with `automatic`, and the
+pickers start only rows marked `true`. `MANUAL_ONLY` in `claude-account`
+names the reserved shortcuts.
+
 Run `ai-best` in any shell to choose an account and start Claude in place.
 Use `ai-best -- --resume` to pass an option to Claude.
 Use `ai-best --help` for examples and `ai-best --version` for the installed
@@ -42,11 +50,11 @@ picker version.
 Run either Herdr launcher from a Herdr pane. The new pane starts in your
 current working directory, and focus stays in your current pane.
 
-The picker checks `ai-login` directly and reads the latest status-line
-observations for saved tokens. It scores each account by the lower of its
-five-hour and weekly remaining percentages. Ties favor more five-hour
-allowance, then more weekly allowance. If both allowances tie, `ai-login`
-comes first, followed by numbered accounts in ascending order.
+The picker reads the latest status-line observations for saved tokens. It
+lists `ai-login` and `ai0` as `manual only` for reference. It scores each
+account by the lower of its five-hour and weekly remaining percentages. Ties
+favor more five-hour allowance, then more weekly allowance. If both allowances
+tie, the lower slot number comes first.
 
 The picker warns and skips an account if either known window is below 10%.
 It treats missing or expired observations as unknown. Configured accounts
@@ -57,7 +65,7 @@ Once Claude reports a window below 10%, its status line shows
 Run `ai-round` to spread launches across accounts. It starts Claude in the
 current terminal. Use `ai-round --resume` to pass an option to Claude.
 
-`ai-round` reads the local usage cache for saved slots from `ai0` up.
+`ai-round` reads the local usage cache for saved slots from `ai1` up.
 It skips a slot if either current window shows less than 20% remaining.
 Missing or expired readings count as unknown, and slots with unknown readings
 get a turn if neither known window is below 20%. The launcher reports unknown
@@ -82,7 +90,8 @@ claude-account add 0 --label personal --username you@example.com
 2. Open the URL in a browser signed in to the account for `ai0`. A private
    window avoids picking up the account that is already signed in.
 3. Paste the printed token at the hidden prompt.
-4. Start the account with `ai0`.
+4. Start the account with `ai0`. Automatic pickers skip `ai0`; add shared
+   accounts at `ai1` and up.
 
 `--paste` skips `claude setup-token` and only reads a token you already have.
 Without a terminal, the token is read from the first line of stdin.

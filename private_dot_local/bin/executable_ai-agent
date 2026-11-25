@@ -14,7 +14,7 @@ import sys
 import time
 from typing import Any, Mapping, Sequence
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 SCHEMA_VERSION = 1
 
 EXIT_OK = 0
@@ -545,12 +545,13 @@ def evaluate_ai_round(
             unavailable="invalid usage-snapshot payload",
         )
 
-    # `ai-round` only rotates numbered slots (`ai0`+), skipping `ai-login` and anything < 20%.
+    # `ai-round` only rotates slots that claude-account marks automatic (`ai1`+, never the
+    # `ai-login`/`ai0` account) and skips anything < 20%.
     round_min = max(min_remaining, AI_ROUND_FLOOR)
     eligible_count = 0
     best_entry: tuple[tuple[int, float, float, float], dict[str, Any], tuple[float | None, float | None]] | None = None
     for item in snapshot:
-        if not isinstance(item, dict) or item.get("selector") == "login" or item.get("unavailable"):
+        if not isinstance(item, dict) or item.get("automatic") is not True or item.get("unavailable"):
             continue
         raw_rem = item.get("remaining")
         if not isinstance(raw_rem, list) or len(raw_rem) != 2:
@@ -749,8 +750,8 @@ using remaining quota, then exec the chosen CLI in this terminal.
 Selection policy:
   - Scores each eligible backend by its lowest known remaining window (5h, 7d).
   - For `ay`, skips when either window is below --min-remaining (default: {DEFAULT_MIN_REMAINING}%).
-  - For `ai-round`, evaluates numbered slots ai0+ only (ignoring ai-login) at
-    max(--min-remaining, {AI_ROUND_FLOOR}%) to match `ai-round`'s {AI_ROUND_FLOOR}% floor.
+  - For `ai-round`, evaluates numbered slots ai1+ only (never the ai-login/ai0
+    account) at max(--min-remaining, {AI_ROUND_FLOOR}%) to match `ai-round`'s {AI_ROUND_FLOOR}% floor.
   - Prefers backends with two known windows over partial/unknown caches,
     breaking ties by --prefer (default: {DEFAULT_PREFER}).
   - Never selects OpenAI Codex.

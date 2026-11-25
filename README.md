@@ -384,9 +384,11 @@ The command runs `claude setup-token` and saves the token outside the chezmoi
 source in `~/.local/state/claude-accounts`. Run setup in a normal shell.
 `ai-status` shows every account's nickname, username, credential state, and
 available usage, including cached readings for saved tokens.
-`ai-best` compares `ai-login` and saved numbered accounts by available usage and
-starts Claude in the current terminal. `ai-round` rotates through saved accounts
-from `ai0` up, skipping any with a current reading below 20%. In Herdr, use
+`ai-best` compares saved accounts from `ai1` up by available usage and starts
+Claude in the current terminal. `ai-round` rotates through saved accounts from
+`ai1` up, skipping any with a current reading below 20%. Both pickers, and
+`ai-agent`, leave the personal account in `ai-login` and `ai0` for launches by
+name. In Herdr, use
 `herdr-new-tab-ai-best` or `herdr-new-workspace-ai-best` to run `ai-best` in a
 new tab or workspace.
 Token sessions lose Remote Control and claude.ai connectors. See

@@ -301,7 +301,7 @@ class ClaudeAccountTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls()[0]["token"], f"{TOKEN}-3")
 
-    def test_best_uses_legacy_slot_observations_for_ai0_and_login(self):
+    def test_best_shows_but_never_starts_the_manual_only_account(self):
         self.accounts.mkdir(parents=True)
         (self.accounts / "1.json").write_text(json.dumps({"token": TOKEN}))
         credential = hashlib.sha256(TOKEN.encode()).hexdigest()
@@ -318,15 +318,36 @@ class ClaudeAccountTest(unittest.TestCase):
         }}))
         (self.config / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": "same@example.test"}}))
         result = self.account(command="ai-best")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Starting ai0\n", result.stderr)
-        self.assertEqual(self.calls()[-1]["token"], TOKEN)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertRegex(result.stderr, r"(?m)^ai0  .*78% left.*manual only$")
+        self.assertRegex(result.stderr, r"(?m)^ai-login  .*manual only$")
+        self.assertNotIn("Starting", result.stderr)
 
-        self.assertEqual(self.account("label", "0", "--username", "same@example.test").returncode, 0)
+        # A numbered slot that holds the ai-login or ai0 account stays manual-only too.
+        for slot, token in ((1, TOKEN), (2, f"{TOKEN}-2")):
+            result = self.account("add", str(slot), "--paste", stdin=token + "\n")
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.account("label", "2", "--username", "same@example.test").returncode, 0)
+        result = self.account(command="ai-best")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertRegex(result.stderr, r"(?m)^ai1  .*manual only$")
+        self.assertRegex(result.stderr, r"(?m)^ai2  .*manual only$")
+
+        result = self.account("add", "3", "--paste", stdin=f"{TOKEN}-3\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
         result = self.account(command="ai-best")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Starting ai-login\n", result.stderr)
-        self.assertIsNone(self.calls()[-1]["token"])
+        self.assertIn("Starting ai3 with unknown allowance\n", result.stderr)
+        self.assertEqual([call["token"] for call in self.calls()], [f"{TOKEN}-3"])
+
+    def test_best_skips_ai0_even_with_the_most_allowance(self):
+        self.prepare_accounts((0, 1))
+        self.observe(0, 100, 100)
+        self.observe(1, 30, 40)
+        result = self.account(command="ai-best")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Starting ai1\n", result.stderr)
+        self.assertEqual([call["token"] for call in self.calls()], [f"{TOKEN}-1"])
 
     def test_partial_observation_keeps_the_other_windows_known_limit(self):
         self.prepare_accounts((2,))
@@ -422,15 +443,33 @@ subprocess.run(["claude-account", "observe"], input={self.usage_input(78, 65)!r}
         self.assertEqual(calls[3]["args"][-1], "--resume")
 
     def test_round_starts_with_no_saved_usage(self):
-        self.prepare_accounts((0, 2))
-        result = self.account("add", "1", "--paste", stdin=f"{TOKEN}-0\n")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        for slot in (0, 2, 0):
+        self.prepare_accounts((2, 4))
+        for slot in (2, 4, 2):
             result = self.account(command="ai-round")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(f"Starting ai{slot} with unknown allowance", result.stderr)
         self.assertEqual([call["token"] for call in self.calls()],
-                         [f"{TOKEN}-{slot}" for slot in (0, 2, 0)])
+                         [f"{TOKEN}-{slot}" for slot in (2, 4, 2)])
+
+    def test_round_never_starts_the_ai0_or_ai_login_account(self):
+        self.prepare_accounts((0, 2, 3))
+        self.observe(0, 100, 100)
+        # ai1 shares ai0's token; ai2 declares the ai-login username.
+        result = self.account("add", "1", "--paste", stdin=f"{TOKEN}-0\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.config.mkdir()
+        (self.config / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": "me@example.test"}}))
+        self.assertEqual(self.account("label", "2", "--username", "me@example.test").returncode, 0)
+        for _ in range(3):
+            result = self.account(command="ai-round")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stderr, "Starting ai3 with unknown allowance\n")
+        self.assertEqual([call["token"] for call in self.calls()], [f"{TOKEN}-3"] * 3)
+
+        self.assertEqual(self.account("remove", "3").returncode, 0)
+        result = self.account(command="ai-round")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(len(self.calls()), 3)
 
     def test_round_exits_without_launch_when_no_account_qualifies(self):
         self.prepare_accounts((2,))
@@ -598,11 +637,11 @@ class UsageTest(unittest.TestCase):
         self.assertEqual(reports[2]["auth"], "missing")
 
     def test_round_does_not_fetch_usage_for_the_stored_login(self):
-        (self.accounts / "1.json").write_text(json.dumps({"token": TOKEN + "-1"}))
+        (self.accounts / "2.json").write_text(json.dumps({"token": TOKEN + "-2"}))
         with mock.patch.object(self.module, "fetch_usage", side_effect=AssertionError("network")):
             with mock.patch.object(self.module, "run") as launch:
                 self.module.run_round([])
-        launch.assert_called_once_with(["0"])
+        launch.assert_called_once_with(["1"])
 
     def test_login_identity_follows_native_config_metadata_paths(self):
         default = self.root / ".claude"

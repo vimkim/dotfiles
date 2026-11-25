@@ -23,6 +23,9 @@ OVERRIDING_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
 TOKEN_DAYS = 365
 WINDOWS = ("five_hour", "seven_day")
 ROUND_MIN_REMAINING = 20
+# ai-login and ai0 hold the owner's own account and start only by name. Automatic pickers
+# (ai-round, ai-best, ai-agent) skip them and any other slot that holds the same account.
+MANUAL_ONLY = ("login", "0")
 SHORTCUTS = {
     "ai": ("run", "login"),
     "ai-login": ("run", "login"),
@@ -546,13 +549,25 @@ def usage_candidates() -> list[AccountUsage]:
     return candidates
 
 
+def manual_identities() -> list[Identity]:
+    return [Identity.from_account(load_account(slot))
+            for slot in account_slots() if slot_selector(slot) in MANUAL_ONLY]
+
+
+def automatic(item: AccountUsage, manual: list[Identity]) -> bool:
+    return (slot_selector(item.slot) not in MANUAL_ONLY
+            and not any(item.identity.matches(identity) for identity in manual))
+
+
 def usage_snapshot(args: list[str]) -> None:
     if args:
         fail(USAGE, 2)
+    manual = manual_identities()
     print(json.dumps([
         {"name": account_name(item.slot), "selector": slot_selector(item.slot),
          "remaining": item.remaining, "source": item.source,
-         "observed_at": item.observed_at, "unavailable": item.unavailable}
+         "observed_at": item.observed_at, "unavailable": item.unavailable,
+         "automatic": automatic(item, manual)}
         for item in usage_candidates()
     ]))
 
@@ -578,7 +593,8 @@ def run_round(args: list[str]) -> None:
     if args[:1] in (["-h"], ["--help"]):
         print(f"""usage: ai-round [CLAUDE_ARGS...]
 
-Start Claude in the current terminal. Rotate through configured slots ai0 and up.
+Start Claude in the current terminal. Rotate through configured slots ai1 and up.
+Never start ai-login, ai0, or another slot that holds the same account.
 Skip a slot if a current status line reading shows less than {ROUND_MIN_REMAINING}% remaining
 in either the 5-hour or 7-day window. Slots with unknown allowance get a turn.
 
@@ -589,7 +605,10 @@ Use ai-round -- --help to get help from Claude.""")
         args = args[1:]
 
     eligible: dict[int, AccountUsage] = {}
+    manual = manual_identities()
     for item in numbered_usage_candidates(time.time()):
+        if not automatic(item, manual):
+            continue
         if any(value is not None and value < ROUND_MIN_REMAINING for value in item.remaining):
             continue
         if not any(item.identity.matches(account.identity) for account in eligible.values()):

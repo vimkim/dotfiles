@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 MIN_REMAINING = 10
 
 
@@ -21,6 +21,7 @@ class Candidate:
     source: str
     observed_at: float | None
     unavailable: str | None
+    automatic: bool
 
     @property
     def low(self) -> bool:
@@ -39,6 +40,8 @@ class Candidate:
             fields.append(f"{self.source}, {max(0, int(now - self.observed_at))}s old")
         if self.unavailable:
             fields.append(self.unavailable)
+        if not self.automatic:
+            fields.append("manual only")
         if self.low:
             fields.append(f"warning: below {MIN_REMAINING}%")
         return f"{self.name}  " + " · ".join(fields)
@@ -52,7 +55,8 @@ def main() -> None:
             "Score each account by the lower of its 5-hour and 7-day remaining percentages. "
             f"Skip accounts with less than {MIN_REMAINING}% in either window. Try configured "
             "accounts with unknown usage after accounts with two known percentages. "
-            "Compare ai-login and configured slots ai0 and up.\n\n"
+            "Compare configured slots ai1 and up. Never start ai-login, ai0, or another "
+            "slot that holds the same account; start those by name.\n\n"
             "Examples:\n"
             "  ai-best                    Start Claude here.\n"
             "  ai-best -- --resume        Pass --resume to Claude.\n"
@@ -82,8 +86,8 @@ def main() -> None:
     now = time.time()
     for candidate in candidates:
         print(candidate.describe(now), file=sys.stderr)
-    eligible = (item for item in candidates if not item.unavailable and not item.low)
-    # The snapshot lists ai-login first, followed by numbered slots in order.
+    eligible = (item for item in candidates if item.automatic and not item.unavailable and not item.low)
+    # The snapshot lists numbered slots in order, so ties keep the lowest slot.
     selected = min(eligible, key=Candidate.priority, default=None)
     if selected is None:
         sys.exit(f"ai-best: no configured account qualifies at the {MIN_REMAINING}% minimum")
