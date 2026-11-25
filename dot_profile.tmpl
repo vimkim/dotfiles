@@ -1,3 +1,10 @@
+if [ -d "$HOME/my-cubrid/bin" ]; then
+    case ":$PATH:" in
+        *":$HOME/my-cubrid/bin:"*) ;;
+        *) export PATH="$HOME/my-cubrid/bin:$PATH" ;;
+    esac
+fi
+
 # Optional environment files created by uv and Cargo installers.
 if [ -r "$HOME/.local/bin/env" ]; then
     . "$HOME/.local/bin/env"

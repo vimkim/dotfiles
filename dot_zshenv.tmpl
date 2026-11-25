@@ -1,3 +1,10 @@
+if [ -d "$HOME/my-cubrid/bin" ]; then
+    case ":$PATH:" in
+        *":$HOME/my-cubrid/bin:"*) ;;
+        *) export PATH="$HOME/my-cubrid/bin:$PATH" ;;
+    esac
+fi
+
 if [ -r "$HOME/.cargo/env" ]; then
     . "$HOME/.cargo/env"
 fi

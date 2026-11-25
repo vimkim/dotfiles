@@ -152,6 +152,9 @@ export LOCALE_ARCHIVE=/usr/lib/locale/locale-archive
 # PATHs needed by non-interactive shells (e.g. Claude Code subagents)
 _cached_source brew '/home/linuxbrew/.linuxbrew/bin/brew shellenv'
 export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+if [ -d "$HOME/my-cubrid/bin" ]; then
+    add_to_path "$HOME/my-cubrid/bin"
+fi
 export MY_SCRIPTS="$HOME/.config/my-scripts"
 add_to_path "$MY_SCRIPTS/bin"
 

@@ -37,6 +37,7 @@ path_prepend \
     "/opt/nvim-linux64/bin" \
     "$HOMEBREW_PREFIX/sbin" \
     "$HOMEBREW_PREFIX/bin" \
+    "$HOME/my-cubrid/bin" \
     "$HOME/.local/bin" \
     "$HOME/.config/my-scripts/bin" \
     "$HOME/.cargo/bin"
