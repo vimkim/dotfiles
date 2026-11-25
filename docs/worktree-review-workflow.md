@@ -48,9 +48,12 @@ imposed by Git. The authoritative agent policy is
 5. Put narrowly scoped patterns for disposable generated outputs in
    `.gitignore`, and commit those patterns. Keep requested deliverables tracked;
    do not conceal unfinished source changes or user files with ignore rules.
-6. Obtain one approval of the committed work for rebase onto the current local
-   destination branch and local fast-forward merge. Push and dotfile deployment
-   each require separate explicit requests.
+6. Follow the tiered integration rules in `dot_codex/AGENTS.md`: Tier 1 solo
+   personal repositories authorize rebase, fast-forward merge, pushing the
+   merged destination branch when a remote is configured, and cleanup once
+   checks pass; Tier 2 shared repositories require explicit human approval for
+   integration and push. Deployments require explicit approval unless
+   repository guidance authorizes them.
 7. After every successful rebase and fast-forward merge, remove any merged
    linked task worktree and safely delete the local topic branch as part of
    completion. This includes task worktrees reused from earlier sessions.

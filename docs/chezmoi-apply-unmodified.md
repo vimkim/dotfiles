@@ -43,8 +43,8 @@ defaults when supported. See [agent defaults and the Git migration](writable-age
 
 ## Agent deployment
 
-Follow the repository workflow in [AGENTS.md](../AGENTS.md). After an approved
-merge into the configured source checkout, run `chezmoi-apply-unmodified` once.
+Follow the repository workflow in [AGENTS.md](../AGENTS.md). After merging into
+the configured source checkout, run `chezmoi-apply-unmodified` once.
 Preserve and report skipped targets and any remaining differences. A successful
 helper exit can include skips.
 
