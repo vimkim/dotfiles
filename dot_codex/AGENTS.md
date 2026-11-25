@@ -34,7 +34,7 @@ Remote Linux server with slow X11 forwarding: never launch GUI programs, even wi
 
 ### Tiered Git integration
 
-- **Tier 1** covers solo personal repositories such as `my-cubrid-docs`, `my-cubrid-schedule`, `my-cubrid-skills`, `my-skills`, `my-cubrid-workflow`, `chezmoi`, and personal tools. Once checks pass, local rebase, `git merge --ff-only`, push to `main`, and cleanup of the merged task worktree and branch are authorized.
+- **Tier 1** covers solo personal repositories such as `my-cubrid-docs`, `my-cubrid-jira`, `my-cubrid-schedule`, `my-cubrid-skills`, `my-skills`, `my-cubrid-workflow`, `chezmoi`, and personal tools. Once checks pass, local rebase, `git merge --ff-only`, push to `main`, and cleanup of the merged task worktree and branch are authorized.
 - **Tier 2** covers shared and upstream repositories such as `CUBRID/*`. Obtain explicit human approval before integration or push in these repositories. Deployments, force-pushes, and external posts also require explicit human approval in either tier.
 
 1. Inspect the branch, worktrees, and status. Preserve unrelated changes throughout.
