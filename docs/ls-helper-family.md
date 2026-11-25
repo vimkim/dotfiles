@@ -124,9 +124,8 @@ The script selects the preset by its invoked name.
 All three shells include the scripts directory on PATH.
 Repository documentation and tests are excluded from chezmoi deployment.
 
-Commit changes for review in a sibling task worktree.
-Follow the [repository workflow](../AGENTS.md) for merge approval and deployment.
-After an approved merge, run `chezmoi-apply-unmodified` once for all managed
+Commit changes in a sibling task worktree and follow the [repository workflow](../AGENTS.md) for Tier 1 integration, push, deployment, and cleanup.
+After merging into the configured source checkout, run `chezmoi-apply-unmodified` once for all managed
 files and symlinks. Verify affected targets and report any skips.
 
 ## Verification

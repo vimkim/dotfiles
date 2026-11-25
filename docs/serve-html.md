@@ -21,7 +21,7 @@ package; the compatibility link does not control server rendering.
 
 ## Migration and deployment
 
-After approved merges, run the bootstrap script from the configured source
+After merging into the configured source checkout, run the bootstrap script from the configured source
 checkout before `chezmoi-apply-unmodified`. The helper excludes run scripts.
 The bootstrap installs from primary main. When an old asset directory exists,
 run the bootstrap directly: a parent `chezmoi apply` holds the state lock and

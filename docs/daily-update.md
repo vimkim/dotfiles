@@ -208,9 +208,10 @@ chezmoi --source /absolute/task/worktree diff -- /absolute/deployed/target
 python3 -B -m unittest discover -s tests -p 'test_daily_update*.py' -v
 ```
 
-After an approved local merge, deploy through `chezmoi-apply-unmodified` and
-verify each target with `chezmoi diff -- /absolute/deployed/target`. Repository
-synchronization and pushes require a separate request.
+After merging into the configured source checkout (following the Tier 1 workflow
+in `AGENTS.md`), deploy through `chezmoi-apply-unmodified` and verify each target
+with `chezmoi diff -- /absolute/deployed/target`. Pulling or syncing unrelated
+remote changes still requires an explicit request.
 
 Tests use disposable homes, real Git/Just and local bare remotes, with contained
 Codex, Claude, npm, GitHub and Homebrew substitutes. A real helper/chezmoi test

@@ -113,7 +113,7 @@ sidebar summaries update when the displayed duration or agent details change.
 | `private_dot_config/herdr/config.toml` | `~/.config/herdr/config.toml` |
 
 Verify each target with `chezmoi --source <absolute-task-worktree> diff -- <target>`.
-After an approved merge, deploy all managed files with the preservation helper:
+After merging into the configured source checkout, deploy all managed files with the preservation helper:
 
 ```sh
 chezmoi-apply-unmodified
