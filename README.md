@@ -388,7 +388,9 @@ available usage, including cached readings for saved tokens.
 Claude in the current terminal. `ai-round` rotates through saved accounts from
 `ai1` up, skipping any with a current reading below 20%. Both pickers, and
 `ai-agent`, leave the personal account in `ai-login` and `ai0` for launches by
-name. In Herdr, use
+name. `ai-agent` chooses between `ay` and `ai-round` by quota. With `-p` or
+`--print` after `--`, it runs `ai-round` only, because `ay` does not support
+script mode. In Herdr, use
 `herdr-new-tab-ai-best` or `herdr-new-workspace-ai-best` to run `ai-best` in a
 new tab or workspace.
 Token sessions lose Remote Control and claude.ai connectors. See

@@ -3,18 +3,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 import math
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
 import time
 from typing import Any, Mapping, Sequence
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 SCHEMA_VERSION = 1
 
 EXIT_OK = 0
@@ -30,6 +31,9 @@ MAX_AGY_CACHE_AGE_SECONDS = 7 * 86400
 
 VALID_BACKENDS = ("auto", "ay", "ai-round")
 VALID_PREFERS = ("ay", "ai-round")
+# `ay` must not run Claude-style script mode, so `-p`/`--print` limits selection to `ai-round`.
+SCRIPT_MODE_UNSUPPORTED = "script mode (-p/--print) unsupported"
+_SHORT_FLAGS_WITH_P = re.compile(r"-[A-Za-z]*p[A-Za-z]*")
 
 
 @dataclass(frozen=True)
@@ -595,6 +599,16 @@ def evaluate_ai_round(
     )
 
 
+def is_script_mode(args: Sequence[str]) -> bool:
+    """Report whether backend args request script mode: `-p`, `--print`, or a short-flag cluster with `p`."""
+    for arg in args:
+        if arg == "--":
+            return False
+        if arg == "--print" or arg.startswith("--print=") or _SHORT_FLAGS_WITH_P.fullmatch(arg):
+            return True
+    return False
+
+
 def select_backend(
     parsed: ParsedCli,
     env: Mapping[str, str],
@@ -638,7 +652,19 @@ def select_backend(
         claude_account_bin=claude_account_bin,
         min_remaining=parsed.min_remaining,
     )
+    script_mode = is_script_mode(parsed.forwarded_args)
+    if script_mode and ay_cand.available:
+        ay_cand = replace(ay_cand, eligible=False, unavailable=SCRIPT_MODE_UNSUPPORTED)
     candidates = (ay_cand, claude_cand)
+
+    if script_mode and parsed.backend == "ay":
+        raise CliError(
+            "INVALID_USAGE",
+            "`ay` cannot run in script mode (-p/--print).",
+            "Use `ai-agent --backend ai-round -- -p ...` or `--backend auto`.",
+            exit_code=EXIT_USAGE,
+            details={"candidates": [c.to_dict() for c in candidates]},
+        )
 
     if parsed.backend != "auto":
         chosen = ay_cand if parsed.backend == "ay" else claude_cand
@@ -675,7 +701,9 @@ def select_backend(
         raise CliError(
             "NO_ELIGIBLE_BACKEND",
             f"No backend qualifies at the {parsed.min_remaining}% minimum remaining threshold.",
-            "Force a backend with `ai-agent --backend ay` / `--backend ai-round`, or lower `--min-remaining 0` for ay.",
+            "Script mode runs only on `ai-round`; force it with `ai-agent --backend ai-round`."
+            if script_mode
+            else "Force a backend with `ai-agent --backend ay` / `--backend ai-round`, or lower `--min-remaining 0` for ay.",
             exit_code=EXIT_DOMAIN,
             details={"candidates": [c.to_dict() for c in candidates]},
         )
@@ -752,6 +780,8 @@ Selection policy:
   - For `ay`, skips when either window is below --min-remaining (default: {DEFAULT_MIN_REMAINING}%).
   - For `ai-round`, evaluates numbered slots ai1+ only (never the ai-login/ai0
     account) at max(--min-remaining, {AI_ROUND_FLOOR}%) to match `ai-round`'s {AI_ROUND_FLOOR}% floor.
+  - Script mode (-p/--print in BACKEND_ARGS) never selects `ay`; it uses
+    `ai-round` only, and `--backend ay` with -p fails with exit 2.
   - Prefers backends with two known windows over partial/unknown caches,
     breaking ties by --prefer (default: {DEFAULT_PREFER}).
   - Never selects OpenAI Codex.
@@ -774,13 +804,14 @@ Config precedence: flags > environment variables > built-in defaults.
 Exit codes:
   0   Success (launched backend or completed dry-run/help/version)
   1   Domain failure (no backend qualifies at threshold)
-  2   Invalid usage (bad flags or missing --dry-run/--status with --json/--plain)
+  2   Invalid usage (bad flags, --json/--plain without --dry-run/--status, or --backend ay with -p)
   78  Configuration error (required backend executable missing)
 
 Examples:
   ai-agent                               Choose and launch ay or ai-round here.
   ai-agent --dry-run --json              Inspect quota comparison as JSON.
   ai-agent --prefer ai-round -- --resume Prefer Claude round-robin on ties and pass --resume.
+  ai-agent -- -p "summarize README.md"   Script mode; always runs ai-round.
 """
 
 

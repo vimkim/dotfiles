@@ -317,7 +317,7 @@ class AiAgentTest(unittest.TestCase):
 
         res_ver = self.run_cli("--version")
         self.assertEqual(res_ver.returncode, 0, res_ver.stderr)
-        self.assertEqual(res_ver.stdout, "ai-agent 1.1.0\n")
+        self.assertEqual(res_ver.stdout, "ai-agent 1.2.0\n")
 
         res_json_no_dry = self.run_cli("--json")
         self.assertEqual(res_json_no_dry.returncode, 2)
@@ -360,6 +360,62 @@ class AiAgentTest(unittest.TestCase):
             json.loads(res_pipe.stdout),
             {"backend": "ai-round", "args": ["--model", "opus"]},
         )
+
+
+    def test_script_mode_never_selects_ay(self) -> None:
+        # ay has more quota, but -p/--print must still run on ai-round.
+        self._write_agy_quota(five_h=95, seven_d=95)
+        snap = self._claude_snapshot(("ai1", [40.0, 40.0], None))
+        for args in (["-p", "hi"], ["--print", "hi"], ["--print=text"], ["-cp", "hi"],
+                     ["--model", "opus", "-p", "hi"]):
+            with self.subTest(args=args):
+                res = self.run_cli("--dry-run", "--json", "--", *args,
+                                   env_extra={"CLAUDE_SNAPSHOT_JSON": snap})
+                self.assertEqual(res.returncode, 0, res.stderr)
+                data = json.loads(res.stdout)["data"]
+                self.assertEqual(data["selected"]["name"], "ai-round")
+                ay_cand = next(c for c in data["candidates"] if c["name"] == "ay")
+                self.assertFalse(ay_cand["eligible"])
+                self.assertIn("script mode", ay_cand["unavailable"])
+                self.assertIn("ay ineligible (script mode", data["selected"]["reason"])
+
+        # Without script mode, the same quotas pick ay; a prompt after a nested `--` is not a flag.
+        for args in ([], ["--resume"], ["--", "-p"]):
+            with self.subTest(args=args):
+                res = self.run_cli("--dry-run", "--json", "--", *args,
+                                   env_extra={"CLAUDE_SNAPSHOT_JSON": snap})
+                self.assertEqual(res.returncode, 0, res.stderr)
+                self.assertEqual(json.loads(res.stdout)["data"]["selected"]["name"], "ay")
+
+        res = self.run_cli("--", "-p", "hi", env_extra={"CLAUDE_SNAPSHOT_JSON": snap})
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(json.loads(res.stdout), {"backend": "ai-round", "args": ["-p", "hi"]})
+
+    def test_script_mode_rejects_forced_ay_and_never_falls_back_to_it(self) -> None:
+        self._write_agy_quota(five_h=95, seven_d=95)
+        snap = self._claude_snapshot(("ai1", [40.0, 40.0], None))
+        for extra in ({}, {"AI_AGENT_BACKEND": "ay"}):
+            args = ("--backend", "ay") if not extra else ()
+            with self.subTest(extra=extra):
+                res = self.run_cli(*args, "--", "-p", "hi",
+                                   env_extra={"CLAUDE_SNAPSHOT_JSON": snap, **extra})
+                self.assertEqual(res.returncode, 2, res.stderr)
+                self.assertIn("script mode", res.stderr)
+                self.assertFalse(self.log.exists())
+                self.assertEqual(res.stdout, "")
+
+        low = self._claude_snapshot(("ai1", [10.0, 90.0], None))
+        res = self.run_cli("--dry-run", "--json", "--", "-p", "hi",
+                           env_extra={"CLAUDE_SNAPSHOT_JSON": low})
+        self.assertEqual(res.returncode, 1)
+        err = json.loads(res.stderr)
+        self.assertEqual(err["error"]["code"], "NO_ELIGIBLE_BACKEND")
+        self.assertIn("ai-round", err["error"]["fix"])
+
+        forced = self.run_cli("--dry-run", "--json", "--backend", "ai-round", "--", "-p", "hi",
+                              env_extra={"CLAUDE_SNAPSHOT_JSON": low})
+        self.assertEqual(forced.returncode, 0, forced.stderr)
+        self.assertEqual(json.loads(forced.stdout)["data"]["selected"]["name"], "ai-round")
 
 
 if __name__ == "__main__":
