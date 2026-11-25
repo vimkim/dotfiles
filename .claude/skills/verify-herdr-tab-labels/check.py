@@ -50,7 +50,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_SCRIPT = ROOT / "private_dot_local/bin/executable_herdr-tab-status"
 SOCKET = "/model/herdr.sock"
-DECORATED = re.compile(r"^(\d+)(?: .*?)?( \[[^\]]*\])$")
+DECORATED = re.compile(r"^(\d+ [▶!✓○?—] ).*?( \[[^\]]*\])$")
 
 
 class Crash(BaseException):
@@ -222,9 +222,9 @@ class Model:
                 match = DECORATED.match(tab["label"])
                 if match and tab["label"] != names[index]:
                     edited = [dict(t) for t in decoded]
-                    edited[index]["label"] = f"{match.group(1)} notes{match.group(2)}"
+                    edited[index]["label"] = f"{match.group(1)}notes{match.group(2)}"
                     yield (self.with_tabs(state, edited, index, "notes"),
-                           f"user edits {tab['id']} to {edited[index]['label']!r}, keeping number and suffix", False)
+                           f"user edits {tab['id']} to {edited[index]['label']!r}, keeping prefix and suffix", False)
             for agent in (None, "working", "blocked"):
                 if agent != tab["agent"]:
                     changed = [dict(t) for t in decoded]

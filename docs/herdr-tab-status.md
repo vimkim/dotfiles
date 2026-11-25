@@ -6,7 +6,7 @@ Herdr's socket API and runs with Python's standard library on Linux.
 Example tab labels:
 
 ```text
-1 [t1 ▶ Codex 12m]     2 review [t2 ! Claude 3m]     3 logs [t3 — shell]
+1 ▶ lead [t1]     2 ! review [t2]     3 ▶ agent [t3]     4 — logs [t4]
 ```
 
 ## State and naming
@@ -21,21 +21,23 @@ Example tab labels:
 | `—` | No detected agent; an ordinary terminal |
 
 The updater reads `session.snapshot`: agent entries determine which tabs contain
-agents, and each tab's native `agent_status` supplies the aggregate state. Multiple
-agents appear as, for example, `review [t2 ! Claude+Codex ×2 3m]`. Shells, editors, and
-servers without a detected agent get the ordinary-terminal marker.
+agents, and each tab's native `agent_status` supplies the aggregate state.
+Shells, editors, and servers without a detected agent get the ordinary-terminal
+marker (`—`).
 
 The server's `done`/`idle` distinction uses its seen state. Each attached client
 can track viewed responses independently, so its native Done badge can differ
 from the updater. These markers are text decorations; setting sidebar symbol
 colors does not color the decorations themselves.
 
-Every tab label starts with its current position in the workspace, followed by
-its name and status suffix. The suffix starts with the short tab ID. Bare numeric
-names display only the current position. For example, moving `1 [t1 ▶ Codex 12m]`
-after `2 review [t2 ! Claude 3m]` produces `1 review [t2 ! Claude 3m]` and
-`2 [t1 ▶ Codex 12m]`. The position changes when tabs move. The ID stays with
-the tab.
+Tab labels use the minimal format `<position> <marker> <name> [<short_id>]` so
+they stay short in Herdr's default Agents sidebar while keeping the unique
+per-workspace tab ID (`t1`, `t2`, …) visible. Bare numeric default names display
+`lead` at position 1 when an agent is present, `agent` at positions 2 and up
+when an agent is present, and `shell` when no agent is detected. For example,
+moving `1 ▶ lead [t1]` after `2 ! review [t2]` produces `1 ! review [t2]` and
+`2 ▶ agent [t1]`. The position (and numeric default role) updates when tabs
+move, while the short ID stays with the tab.
 With the managed bindings, `Alt+Shift+1…9` focuses tabs by these numbers.
 `Alt+1…9` focuses workspaces.
 
@@ -77,9 +79,11 @@ The displayed tab label includes any active status suffix.
 
 ## Time in the current state
 
-Agent tabs show elapsed time beside their status in the tab bar. Durations use
-`<1m`, minutes (`8m`), hours and minutes (`1h02m`), then days
-and hours (`1d03h`). Ordinary terminal tabs keep their shell marker without a timer.
+Agent tabs publish elapsed time in sidebar metadata (`tab_states_*`), while tab
+labels keep only the position, state marker, name, and short tab ID to avoid
+redundant noise. Durations use `<1m`, minutes (`8m`), hours and minutes
+(`1h02m`), then days and hours (`1d03h`). Ordinary terminal tabs keep their
+shell marker without a timer.
 
 Timing starts when the updater first observes a tab's aggregate agent state. A
 change between working, blocked, done, idle, or unknown resets that tab's timer.
@@ -96,8 +100,8 @@ observations or changing runtime state.
 These are observation times, not the agent's actual start times. Changes missed
 while the worker is unavailable cannot be reconstructed. Durations use
 the machine's clock; a backwards clock adjustment restarts affected timers to
-avoid negative ages. Labels update when the displayed duration or agent details
-change.
+avoid negative ages. Tab labels update when position, marker, or name changes;
+sidebar summaries update when the displayed duration or agent details change.
 
 ## Managed files
 

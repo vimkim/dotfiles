@@ -162,7 +162,7 @@ class HerdrTabStatusNativeTest(unittest.TestCase):
         self.update()
         self.assertEqual(
             [tab["label"] for tab in self.tabs(workspace_id)],
-            ["1 [t3 — shell]", "2 [t1 — shell]", "3 review [t2 — shell]"],
+            ["1 — shell [t3]", "2 — shell [t1]", "3 — review [t2]"],
         )
 
         self.request("tab.close", {"tab_id": first})
@@ -170,7 +170,7 @@ class HerdrTabStatusNativeTest(unittest.TestCase):
         remaining = self.tabs(workspace_id)
         self.assertEqual([tab["number"] for tab in remaining], [3, 2])
         self.assertEqual(
-            [tab["label"] for tab in remaining], ["1 [t3 — shell]", "2 review [t2 — shell]"]
+            [tab["label"] for tab in remaining], ["1 — shell [t3]", "2 — review [t2]"]
         )
         self.module["Updater"](self.socket_path, self.directory).restore()
         self.assertEqual(
@@ -215,32 +215,32 @@ class HerdrTabStatusNativeTest(unittest.TestCase):
             )
             worker.start()
             try:
-                wait_labels(["1 [t1 — shell]"])
+                wait_labels(["1 — shell [t1]"])
                 assert_idle()
                 second = self.request("tab.create", {
                     "workspace_id": workspace_id, "label": "review", "focus": False
                 })
                 second_pane = second["root_pane"]["pane_id"]
-                wait_labels(["1 [t1 — shell]", "2 review [t2 — shell]"])
+                wait_labels(["1 — shell [t1]", "2 — review [t2]"])
                 third = self.request("tab.create", {
                     "workspace_id": workspace_id, "focus": False
                 })["tab"]["tab_id"]
-                wait_labels(["1 [t1 — shell]", "2 review [t2 — shell]", "3 [t3 — shell]"])
+                wait_labels(["1 — shell [t1]", "2 — review [t2]", "3 — shell [t3]"])
                 self.request("tab.move", {"tab_id": third, "insert_index": 0})
-                wait_labels(["1 [t3 — shell]", "2 [t1 — shell]", "3 review [t2 — shell]"])
+                wait_labels(["1 — shell [t3]", "2 — shell [t1]", "3 — review [t2]"])
                 self.request("tab.close", {"tab_id": first})
-                wait_labels(["1 [t3 — shell]", "2 review [t2 — shell]"])
+                wait_labels(["1 — shell [t3]", "2 — review [t2]"])
                 self.request("tab.rename", {
                     "tab_id": second["tab"]["tab_id"], "label": "security review"
                 })
-                wait_labels(["1 [t3 — shell]", "2 security review [t2 — shell]"])
+                wait_labels(["1 — shell [t3]", "2 — security review [t2]"])
                 for state, marker in (("working", "▶"), ("blocked", "!")):
                     self.request("pane.report_agent", {
                         "pane_id": second_pane, "source": "user:test",
                         "agent": "codex", "state": state,
                     })
                     wait_labels([
-                        "1 [t3 — shell]", f"2 security review [t2 {marker} Codex <1m]"
+                        "1 — shell [t3]", f"2 {marker} security review [t2]"
                     ])
                 assert_idle()
             finally:

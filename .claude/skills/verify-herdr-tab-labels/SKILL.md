@@ -7,7 +7,7 @@ description: Model-check that herdr-tab-status never loses a user's Herdr tab na
 
 **Property.** At every moment, the on-disk journal plus the label Herdr shows give back the name the user chose for each tab, and a completed `stop` shows exactly those names with an empty journal.
 
-**Harm when it breaks.** A crash or restart turns a decorated label into the tab's "original" name: the tab becomes `1 1 work [▶ Codex <1m] [▶ Codex <1m]`, and `stop` restores the decoration instead of `work`, so the user's name is gone for good.
+**Harm when it breaks.** A crash or restart turns a decorated label into the tab's "original" name: the tab becomes `1 ▶ 1 ▶ work [t1]`, and `stop` restores the decoration instead of `work`, so the user's name is gone for good.
 
 `check.py` is a bounded model checker. It loads the real script and replaces only `request` (the Herdr socket call, with an in-memory Herdr) and `time` (a model clock). Breadth-first search then runs every order of updater steps, faults, and user actions within the bounds, and checks three properties after every step:
 
@@ -28,12 +28,12 @@ Coverage, confirmed at sync commit **5b7f70c**, where the script last changed. L
 | Code | Role in the check |
 | --- | --- |
 | `original_label` (:282) | Runs as-is. It also judges `NameRecoverable`. |
-| `build_plan` (:312) | Runs as-is inside `update`. |
-| `Updater.__init__` (:409) | Runs as-is. It loads and validates `state.json`. |
-| `Updater.save` (:453) | Runs as-is (temporary file plus `replace`). Only `os.fsync` is a no-op. |
-| `Updater.update` (:471) | Runs as-is. One search step is one full call. |
-| `Updater.restore` (:548) | Runs as-is for both `stop` paths: the worker's `finally` (:756) and `stop` with no worker (:743). |
-| `run_events` error handling (:648) | Modeled: `OSError`, `ValueError`, `KeyError`, and `HerdrError` leave the worker alive with its in-memory journal. Anything else ends the run. |
+| `build_plan` (:314) | Runs as-is inside `update`. |
+| `Updater.__init__` (:411) | Runs as-is. It loads and validates `state.json`. |
+| `Updater.save` (:455) | Runs as-is (temporary file plus `replace`). Only `os.fsync` is a no-op. |
+| `Updater.update` (:473) | Runs as-is. One search step is one full call. |
+| `Updater.restore` (:550) | Runs as-is for both `stop` paths: the worker's `finally` (:759) and `stop` with no worker (:745). |
+| `run_events` error handling (:650) | Modeled: `OSError`, `ValueError`, `KeyError`, and `HerdrError` leave the worker alive with its in-memory journal. Anything else ends the run. |
 | `request` (:242) | Replaced by the in-memory Herdr in `check.py`. |
 
 A change outside these rows, such as the event feed, metadata tokens, or the lock and control socket, does not need this check.
@@ -67,13 +67,13 @@ To tell a real bug from a modeling error, replay the trace against the code:
 ## Scope and bounds
 
 - Two tabs in one workspace: `w1:t1`, named `work` with an agent, and `w1:t2`, named `7` (a numeric name) with none.
-- User actions, each between updater steps: rename a tab to `notes`; edit a decorated label to `N notes [suffix]`, keeping the managed number and suffix; change an agent (absent, working, blocked); swap the tabs; let one minute pass.
+- User actions, each between updater steps: rename a tab to `notes`; edit a decorated label to `N <marker> notes [tN]`, keeping the managed prefix and suffix; change an agent (absent, working, blocked); swap the tabs; let one minute pass.
 - Faults, at most 2 per trace:
   - the journal save raises `OSError`;
   - the process dies right after the save;
   - the first or second `tab.rename` is rejected, has its reply lost after Herdr applied it, or the process dies just before or just after Herdr applies it;
   - the process dies between steps while its journal is unsaved.
-- Depth 5 steps by default. A `--depth 6` run with all faults (43510 states, 265767 transitions, about 2 minutes) passed at 5b7f70c.
+- Depth 5 steps by default. A `--depth 6` run with all faults (38069 states, 241705 transitions) passed with the minimal tab label format.
 - Assumptions:
   - User renames never land inside one `update()` call. `docs/herdr-tab-status.md` documents that race ("A manual rename between a snapshot and its rename request can race the updater"), and the Herdr API has no conditional rename.
   - Timer updates reuse a cached snapshot that matches Herdr, because every rename event invalidates it. The model always takes a fresh snapshot.

@@ -36,9 +36,9 @@ MUTANTS = {
         '                labels.append(tab["current"])\n',
         "                pass\n",
     ),
-    "forget-old-suffixes": (
-        "the journal drops older status suffixes still on screen",
-        '                suffixes.extend(\n                    suffix\n                    for suffix in previous["suffixes"]\n                    if tab["current"].endswith(suffix)\n                )\n',
+    "forget-old-prefixes": (
+        "the journal drops older managed prefixes still on screen",
+        '                prefixes.extend(\n                    prefix\n                    for prefix in previous.get("prefixes", [])\n                    if tab["current"].startswith(prefix)\n                )\n',
         "                pass\n",
     ),
     "keep-number-prefix": (

@@ -288,7 +288,9 @@ def original_label(label, record):
         for suffix in record["suffixes"]:
             if label.endswith(suffix):
                 base = label[: -len(suffix)]
-                for prefix in record.get("prefixes", []):
+                for prefix in sorted(
+                    record.get("prefixes", []), key=len, reverse=True
+                ):
                     if base.startswith(prefix):
                         base = base[len(prefix) :]
                         break
@@ -348,15 +350,15 @@ def build_plan(snapshot, saved_tabs, now=None):
         duration = format_duration(now - state_since) if agents else ""
         age = f" {duration}" if duration else ""
         base, owned = original_label(tab["label"], record)
-        prefix = f"{position} "
+        prefix = f"{position} {marker} "
         # Bare numeric names are Herdr's generated defaults. Keep the original
-        # for restoration, but display only the current shortcut position.
-        title = (
-            str(position)
-            if base.isascii() and base.isdecimal()
-            else prefix + base
-        )
-        suffix = f" [{tab['tab_id'].rsplit(':', 1)[-1]} {marker} {name}{age}]"
+        # for restoration, but display a short role label and shortcut position.
+        if base.isascii() and base.isdecimal():
+            role = ("lead" if position == 1 else "agent") if agents else "shell"
+            title = prefix + role
+        else:
+            title = prefix + base
+        suffix = f" [{tab['tab_id'].rsplit(':', 1)[-1]}]"
         item = {
             "tab_id": tab["tab_id"],
             "base": base,
