@@ -78,7 +78,7 @@ exec "$REAL_GIT" "$@"
         self.tools = {}
         self.seeds = {}
         entries = []
-        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'work-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
+        for name in ('my-skills', 'my-cubrid-skills', 'my-git-utils', 'work-tracker', 'failure-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
             remote = self.root / f'{name}.git'
             seed = self.root / f'{name}-seed'
             self.git(self.root, 'init', '--bare', '--initial-branch=main', str(remote))
@@ -97,11 +97,11 @@ exec "$REAL_GIT" "$@"
             self.git(seed, 'push', '-u', 'origin', 'HEAD')
             repo = self.home / 'gh' / name
             self.git(self.root, 'clone', str(remote), str(repo))
-            if name in ('work-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
+            if name in ('work-tracker', 'failure-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle'):
                 official = f'https://github.com/vimkim/{name}.git'
                 self.git(repo, 'config', f'url.{remote}.insteadOf', official)
                 self.git(repo, 'config', 'remote.origin.url', official)
-            (self.tools if name in ('my-git-utils', 'work-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle') else self.repos)[name] = repo
+            (self.tools if name in ('my-git-utils', 'work-tracker', 'failure-tracker', 'herdr-next-to-current', 'docserve', 'dirpick', 'cubrid-tc-chronicle') else self.repos)[name] = repo
             self.seeds[name] = seed
             entry = f'[[projects]]\nname = "{name}"\npath = "~/gh/{name}"\ngithub = "vimkim/{name}"\n'
             if name in self.repos:

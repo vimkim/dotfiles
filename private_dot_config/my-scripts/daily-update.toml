@@ -32,6 +32,12 @@ primary_main = true
 recipe = "install"
 
 [[projects]]
+name = "failure-tracker"
+path = "~/gh/failure-tracker"
+github = "vimkim/failure-tracker"
+primary_main = true
+
+[[projects]]
 name = "herdr-next-to-current"
 path = "~/gh/herdr-next-to-current"
 github = "vimkim/herdr-next-to-current"

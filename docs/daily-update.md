@@ -100,7 +100,7 @@ about project quality, maturity, maintenance, or deprecation. Keep these
 repositories out of both default inventories unless the owner explicitly
 changes the decision. Their entries can remain in the public profile catalog.
 
-`work-tracker` and `my-skills` are updated here. As of 2026-11-16,
+`work-tracker`, `failure-tracker`, and `my-skills` are updated here. As of 2026-11-16,
 `my-cubrid-skills` and `cubrid-tc-chronicle` are updated only by
 `daily-update-cubrid`, which the general updater invokes through `my-cubrid`.
 Chronicle's sync reinstalls its CLI. Collecting CI evidence still requires
