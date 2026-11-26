@@ -4,7 +4,7 @@
 
 - Ask only when ambiguity changes the outcome, scope, or risk. Resolve routine, reversible details with stated assumptions.
 - Use `work-tracker` for work expected to take 30+ minutes, cross sessions, use parallel agents, or wait on external CI, review, or another dependency. Skip single-session work under 30 minutes unless it waits on external CI or review.
-- Use `waiting` for external CI, review, or a user response. Reserve `blocked` for technical, permission, or dependency impediments that prevent progress.
+- Use `waiting` for external CI, review, or a user response. Reserve `blocked` for technical, permission, or dependency impediments that prevent progress; when blocked by another Work Item, link it with `--blocked-by` or `work-tracker dep add` rather than only noting it in text, and use `work-tracker list --ready` (with `--here` when scoped locally) to find unblocked work.
 - Keep at most five items `active`. Demote items untouched for more than three days to `pending`, or to `waiting` or `blocked` when their current state warrants it.
 
 ## Herdr
