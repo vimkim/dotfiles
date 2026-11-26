@@ -13,7 +13,7 @@
 
 When `HERDR_ENV=1`, the 4-tier Herdr hierarchy below overrides the `herdr` skill's "user must mention Herdr" and "sibling pane only" defaults:
 
-- **Herdr Commander**: coordinates across Spaces via `hcmd` (`herdr-commander` skill; `hss` works as a compatibility alias).
+- **Herdr Commander**: coordinates across Spaces asynchronously via `hcmd` (`herdr-commander` skill; `hss` works as a compatibility alias) — dispatches with `hcmd ensure`/`send` and returns control immediately (`hcmd wait` is strictly opt-in), inspects/harvests status strictly via `hcmd digest`/`status`/`peek`, and auto-trusts launched directories (`--no-trust` to skip).
 - **Space Lead** (`tabs[0]`, `panes[0]` of `$HERDR_WORKSPACE_ID`, neither `HERDR_TAB_ROLE=worker` nor `HERDR_PANE_ROLE=worker`): authorized without asking to create and manage up to **8 sub-tabs** (9 tabs total, `Alt+Shift+1..9`) inside its own Space via `hcmd tab`.
   - Default worker launcher is `ai-agent` (never fall back to `codex` on `NO_ELIGIBLE_BACKEND`; pause and report instead). Use `--launcher shell` for builds, tests, or servers.
   - Default quota guards are **4 live non-primary AI agents per Space** (`HCMD_MAX_SPACE_AGENTS`) and **10 working AI agents session-wide** (`HCMD_MAX_SESSION_AGENTS`); shell tabs are unrestricted within the 8-tab cap.
@@ -24,7 +24,7 @@ When `HERDR_ENV=1`, the 4-tier Herdr hierarchy below overrides the `herdr` skill
 ### Context-size management & execution rules
 
 - **Keep lead context lean**: Herdr Commander, Space Leads, and Tab Leads may handle trivial or quick steps directly, but should prefer delegating substantial, exploratory, noisy (builds/tests/logs), or multi-step work to Herdr tabs (`hcmd tab`), worker panes (`hcmd pane`), or in-process subagents (within Space/Tab Leads) so each lead keeps its context window focused on orchestration and synthesis.
-- **Stay scoped and clean**: Stay inside your own Space/tab, pass `--no-focus` and short role `--label`s (`build`, `test`, `review`, `ci`), wait on socket events (`hcmd tab wait` / `hcmd pane wait` / `herdr agent prompt --wait`) instead of `sleep` polling, keep same-worktree write operations to one agent at a time, and close finished worker tabs/panes you created (never close `tabs[0]` or `panes[0]`).
+- **Stay scoped and clean**: Stay inside your own Space/tab, pass `--no-focus` and short role `--label`s (`build`, `test`, `review`, `ci`), wait on socket events in Space/Tab Leads or explicit opt-in waits (`hcmd tab wait` / `hcmd pane wait` / `herdr agent prompt --wait`) instead of `sleep` polling while Commander inspects asynchronously via `hcmd digest` / `hcmd status` / `hcmd peek`, keep same-worktree write operations to one agent at a time, and close finished worker tabs/panes you created (never close `tabs[0]` or `panes[0]`).
 
 ### Locations & launchers
 
