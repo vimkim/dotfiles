@@ -18,6 +18,7 @@ When `HERDR_ENV=1`, this 4-tier hierarchy overrides the upstream `herdr` skill's
 - **Scope and labels**: Stay inside your own Space/tab; pass `--no-focus` and short role `--label`s (`build`, `test`, `review`, `ci`).
 - **Event waits, not sleep**: Wait on socket events in Space/Tab Leads or explicit opt-in waits (`hcmd tab wait`, `hcmd pane wait`, `herdr agent prompt --wait`) instead of `sleep` polling; Commander inspects asynchronously via `hcmd digest` / `hcmd status` / `hcmd peek`.
 - **Single writer per worktree**: Keep same-worktree write operations to one agent at a time.
+- **Worker evidence and provenance**: Worker briefs require a file for each decisive result: a command with its exit code, a backtrace, or an observed value. Save it under the task or evidence directory, for example with `gdb -batch ... 2>&1 | tee <file>`, and cite that path in the report. A result left only on screen forces a rerun. A worker claims that a stray file predates the task or came from another actor only with proof. It compares the file's mtime with the time the task began, reads the content, and cites both results. In-process subagents that cannot write files return evidence inline, and the lead saves it.
 - **Cleanup**: Close finished worker tabs/panes you created; never close `tabs[0]` or `panes[0]`.
 
 ## Locations and manual launchers
